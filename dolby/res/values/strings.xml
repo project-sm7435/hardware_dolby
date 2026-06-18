@@ -181,6 +181,14 @@
     <string name="app_profile_conflict_summary">⚠ Disabled while per-app profiles are active — they conflict</string>
     <string name="device_state_memory_section_title">Audio Device Memory</string>
 
+    <!-- Active audio output -->
+    <string name="audio_output_active_device">Active audio output</string>
+    <string name="audio_output_speaker">Speaker</string>
+    <string name="audio_output_wired">Wired headphones</string>
+    <string name="audio_output_bluetooth">Bluetooth</string>
+    <string name="audio_output_usb">USB audio</string>
+    <string name="audio_output_unknown">Audio device</string>
+
     <!-- AutoEQ Profile -->
     <string name="dolby_autoeq_title">Apply AutoEQ Profile</string>
     <string name="dolby_autoeq_applied">Applied AutoEQ for %1$s</string>
