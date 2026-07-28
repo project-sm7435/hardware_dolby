@@ -913,7 +913,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         private const val TAG = "DolbyRepository"
         private const val EFFECT_PRIORITY = 100
         
-        private const val BASS_GAIN_MULTIPLIER = 1.4f
+        private const val BASS_GAIN_MULTIPLIER = 1.7f
         private const val MID_GAIN_MULTIPLIER = 1.3f
         private const val TREBLE_GAIN_MULTIPLIER = 1.5f
         
