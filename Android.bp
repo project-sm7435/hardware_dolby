@@ -154,6 +154,34 @@ cc_prebuilt_binary {
 }
 
 cc_prebuilt_library_shared {
+    name: "libdsee",
+    owner: "xiaomi",
+    strip: {
+        none: true,
+    },
+    target: {
+        android_arm64: {
+            srcs: [
+                "proprietary/vendor/lib64/soundfx/libdsee.so",
+            ],
+            shared_libs: [
+                "liblog",
+                "libcutils",
+                "libc++",
+                "libc",
+                "libm",
+                "libdl",
+                "libexpat",
+            ],
+        },
+    },
+    compile_multilib: "64",
+    relative_install_path: "soundfx",
+    prefer: true,
+    soc_specific: true,
+}
+
+cc_prebuilt_library_shared {
 	name: "libcodec2_soft_ac4dec",
 	owner: "xiaomi",
 	strip: {
