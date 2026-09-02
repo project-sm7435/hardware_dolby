@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <device_data xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-  <format_version major="3" minor="4" maintenance="0" />
-  <tool_version major="3" minor="6" maintenance="0" />
+  <format_version major="3" minor="8" maintenance="0"/>
+  <tool_version major="3" minor="16" maintenance="1"/>
   <preset id="1" name="detailed" type="ieq">
     <data>
       <ieq-bands>
@@ -299,12 +299,15 @@
       <reverb-suppression-enable value="true"/>
       <reverb-suppression-amount value="2"/>
       <headphone-virtualizer-mode value="2"/>
-      <advanced-headphone-virtualizer-rendering-config value="35,32568,11164,5090,0,3,3,3"/>
+      <advanced-headphone-virtualizer-rendering-config value="35,32603,11305,5079,0,3,3,3"/>
+      <surround-decoder-diffuse-relocating-to-front-amount value="0"/>
+      <advanced-headphone-virtualizer-lr-angle value="45"/>
       <endpoint_type id="speaker">
         <include ieq_preset="2"/>
         <ieq-enable value="true"/>
         <ieq-amount value="4"/>
         <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
         <dialog-enhancer-enable value="true"/>
         <dialog-enhancer-amount value="4"/>
         <dialog-enhancer-ducking value="0"/>
@@ -334,6 +337,7 @@
         <ieq-enable value="true"/>
         <ieq-amount value="6"/>
         <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
         <dialog-enhancer-enable value="true"/>
         <dialog-enhancer-amount value="2"/>
         <dialog-enhancer-ducking value="0"/>
@@ -363,6 +367,7 @@
         <ieq-enable value="true"/>
         <ieq-amount value="6"/>
         <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
         <dialog-enhancer-enable value="true"/>
         <dialog-enhancer-amount value="4"/>
         <dialog-enhancer-ducking value="0"/>
@@ -400,12 +405,15 @@
       <reverb-suppression-enable value="true"/>
       <reverb-suppression-amount value="2"/>
       <headphone-virtualizer-mode value="2"/>
-      <advanced-headphone-virtualizer-rendering-config value="35,32568,11164,5090,0,3,3,3"/>
+      <advanced-headphone-virtualizer-rendering-config value="35,32603,11305,5079,0,3,3,3"/>
+      <surround-decoder-diffuse-relocating-to-front-amount value="0"/>
+      <advanced-headphone-virtualizer-lr-angle value="45"/>
       <endpoint_type id="speaker">
         <include ieq_preset="2"/>
         <ieq-enable value="false"/>
         <ieq-amount value="6"/>
         <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
         <dialog-enhancer-enable value="true"/>
         <dialog-enhancer-amount value="4"/>
         <dialog-enhancer-ducking value="0"/>
@@ -435,6 +443,7 @@
         <ieq-enable value="false"/>
         <ieq-amount value="6"/>
         <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
         <dialog-enhancer-enable value="true"/>
         <dialog-enhancer-amount value="2"/>
         <dialog-enhancer-ducking value="0"/>
@@ -464,6 +473,7 @@
         <ieq-enable value="false"/>
         <ieq-amount value="6"/>
         <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
         <dialog-enhancer-enable value="true"/>
         <dialog-enhancer-amount value="4"/>
         <dialog-enhancer-ducking value="0"/>
@@ -501,12 +511,15 @@
       <reverb-suppression-enable value="true"/>
       <reverb-suppression-amount value="2"/>
       <headphone-virtualizer-mode value="2"/>
-      <advanced-headphone-virtualizer-rendering-config value="103,32568,11164,5090,0,3,3,3"/>
+      <advanced-headphone-virtualizer-rendering-config value="103,32603,11305,5079,0,3,3,3"/>
+      <surround-decoder-diffuse-relocating-to-front-amount value="0"/>
+      <advanced-headphone-virtualizer-lr-angle value="45"/>
       <endpoint_type id="speaker">
         <include ieq_preset="2"/>
         <ieq-enable value="true"/>
         <ieq-amount value="4"/>
         <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
         <dialog-enhancer-enable value="false"/>
         <dialog-enhancer-amount value="6"/>
         <dialog-enhancer-ducking value="0"/>
@@ -536,6 +549,7 @@
         <ieq-enable value="true"/>
         <ieq-amount value="6"/>
         <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
         <dialog-enhancer-enable value="false"/>
         <dialog-enhancer-amount value="6"/>
         <dialog-enhancer-ducking value="0"/>
@@ -565,6 +579,7 @@
         <ieq-enable value="true"/>
         <ieq-amount value="6"/>
         <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
         <dialog-enhancer-enable value="false"/>
         <dialog-enhancer-amount value="6"/>
         <dialog-enhancer-ducking value="0"/>
@@ -591,7 +606,7 @@
       </endpoint_type>
     </data>
   </profile>
-  <profile id="3" name="Custom" group="default">
+  <profile id="3" name="Voice" group="default">
     <data>
       <mi-dv-leveler-steering-enable value="false"/>
       <mi-ieq-steering-enable value="false"/>
@@ -602,12 +617,15 @@
       <reverb-suppression-enable value="true"/>
       <reverb-suppression-amount value="2"/>
       <headphone-virtualizer-mode value="2"/>
-      <advanced-headphone-virtualizer-rendering-config value="103,32568,11164,5090,0,3,3,3"/>
+      <advanced-headphone-virtualizer-rendering-config value="103,32603,11305,5079,0,3,3,3"/>
+      <surround-decoder-diffuse-relocating-to-front-amount value="0"/>
+      <advanced-headphone-virtualizer-lr-angle value="45"/>
       <endpoint_type id="speaker">
         <include ieq_preset="3"/>
         <ieq-enable value="false"/>
         <ieq-amount value="6"/>
         <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
         <dialog-enhancer-enable value="false"/>
         <dialog-enhancer-amount value="6"/>
         <dialog-enhancer-ducking value="0"/>
@@ -637,6 +655,7 @@
         <ieq-enable value="false"/>
         <ieq-amount value="6"/>
         <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
         <dialog-enhancer-enable value="false"/>
         <dialog-enhancer-amount value="4"/>
         <dialog-enhancer-ducking value="0"/>
@@ -666,6 +685,7 @@
         <ieq-enable value="false"/>
         <ieq-amount value="6"/>
         <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
         <dialog-enhancer-enable value="false"/>
         <dialog-enhancer-amount value="4"/>
         <dialog-enhancer-ducking value="0"/>
@@ -694,405 +714,425 @@
   </profile>
   <profile id="4" name="Mobility_default" group="mobility">
     <data>
-      <mi-dv-leveler-steering-enable value="true" />
-      <mi-ieq-steering-enable value="false" />
-      <mi-surround-compressor-steering-enable value="true" />
-      <mi-adaptive-virtualizer-steering-enable value="true" />
-      <volume-modeler-enable value="false" />
+      <mi-dv-leveler-steering-enable value="true"/>
+      <mi-ieq-steering-enable value="false"/>
+      <mi-surround-compressor-steering-enable value="true"/>
+      <mi-adaptive-virtualizer-steering-enable value="true"/>
+      <volume-modeler-enable value="false"/>
       <drc-metadata/>
-      <reverb-suppression-enable value="false" />
-      <reverb-suppression-amount value="0" />
-      <headphone-virtualizer-mode value="2" />
-      <advanced-headphone-virtualizer-rendering-config value="103,32568,11164,5090,0,3,3,3" />
+      <reverb-suppression-enable value="false"/>
+      <reverb-suppression-amount value="0"/>
+      <headphone-virtualizer-mode value="2"/>
+      <advanced-headphone-virtualizer-rendering-config value="103,32568,11164,5090,0,3,3,3"/>
+      <surround-decoder-diffuse-relocating-to-front-amount value="0"/>
+      <advanced-headphone-virtualizer-lr-angle value="45"/>
       <endpoint_type id="speaker">
-        <include ieq_preset="2" />
-        <ieq-enable value="false" />
-        <ieq-amount value="6" />
-        <calibration-boost value="0" />
-        <dialog-enhancer-enable value="true" />
-        <dialog-enhancer-amount value="0" />
-        <dialog-enhancer-ducking value="0" />
-        <mi-virtualizer-binaural-steering-enable value="false" />
-        <peak-value value="256" />
-        <surround-decoder-enable value="true" />
-        <surround-boost value="0" />
-        <volmax-boost value="32" />
-        <hearing-protection-enable value="false" />
-        <hearing-protection-rms-averaging-time-win-len value="6" />
-        <hearing-protection-rms-attenuation-target value="-256" />
-        <hearing-protection-attenuation-attack-time value="900" />
-        <hearing-protection-attenuation-release-time value="1600" />
-        <volume-leveler-enable value="true" />
-        <volume-leveler-amount value="0" />
-        <volume-leveler-in-target value="-256" />
-        <volume-leveler-out-target value="-256" />
-        <graphic-equalizer-enable value="true" />
-        <virtualizer-enable value="true" />
-        <virtualizer-start-band value="0" />
+        <include ieq_preset="2"/>
+        <ieq-enable value="false"/>
+        <ieq-amount value="6"/>
+        <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
+        <dialog-enhancer-enable value="true"/>
+        <dialog-enhancer-amount value="0"/>
+        <dialog-enhancer-ducking value="0"/>
+        <mi-virtualizer-binaural-steering-enable value="false"/>
+        <peak-value value="256"/>
+        <surround-decoder-enable value="true"/>
+        <surround-boost value="0"/>
+        <volmax-boost value="32"/>
+        <hearing-protection-enable value="false"/>
+        <hearing-protection-rms-averaging-time-win-len value="6"/>
+        <hearing-protection-rms-attenuation-target value="-256"/>
+        <hearing-protection-attenuation-attack-time value="900"/>
+        <hearing-protection-attenuation-release-time value="1600"/>
+        <volume-leveler-enable value="true"/>
+        <volume-leveler-amount value="0"/>
+        <volume-leveler-in-target value="-256"/>
+        <volume-leveler-out-target value="-256"/>
+        <graphic-equalizer-enable value="true"/>
+        <virtualizer-enable value="true"/>
+        <virtualizer-start-band value="0"/>
         <headphone-virtualizer-steerer-source-distance value="4"/>
-        <bass-enhancer-enable value="false" />
-        <virtual-bass-process-enable value="false" />
+        <bass-enhancer-enable value="false"/>
+        <virtual-bass-process-enable value="false"/>
       </endpoint_type>
       <endpoint_type id="headphone">
-        <include ieq_preset="2" />
-        <ieq-enable value="false" />
-        <ieq-amount value="6" />
-        <calibration-boost value="0" />
-        <dialog-enhancer-enable value="true" />
-        <dialog-enhancer-amount value="0" />
-        <dialog-enhancer-ducking value="0" />
-        <mi-virtualizer-binaural-steering-enable value="false" />
-        <peak-value value="256" />
-        <surround-decoder-enable value="true" />
-        <surround-boost value="0" />
-        <volmax-boost value="32" />
-        <hearing-protection-enable value="false" />
-        <hearing-protection-rms-averaging-time-win-len value="6" />
-        <hearing-protection-rms-attenuation-target value="-256" />
-        <hearing-protection-attenuation-attack-time value="900" />
-        <hearing-protection-attenuation-release-time value="1600" />
-        <volume-leveler-enable value="true" />
-        <volume-leveler-amount value="0" />
-        <volume-leveler-in-target value="-256" />
-        <volume-leveler-out-target value="-256" />
-        <graphic-equalizer-enable value="true" />
-        <virtualizer-enable value="true" />
-        <virtualizer-start-band value="0" />
+        <include ieq_preset="2"/>
+        <ieq-enable value="false"/>
+        <ieq-amount value="6"/>
+        <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
+        <dialog-enhancer-enable value="true"/>
+        <dialog-enhancer-amount value="0"/>
+        <dialog-enhancer-ducking value="0"/>
+        <mi-virtualizer-binaural-steering-enable value="false"/>
+        <peak-value value="256"/>
+        <surround-decoder-enable value="true"/>
+        <surround-boost value="0"/>
+        <volmax-boost value="32"/>
+        <hearing-protection-enable value="false"/>
+        <hearing-protection-rms-averaging-time-win-len value="6"/>
+        <hearing-protection-rms-attenuation-target value="-256"/>
+        <hearing-protection-attenuation-attack-time value="900"/>
+        <hearing-protection-attenuation-release-time value="1600"/>
+        <volume-leveler-enable value="true"/>
+        <volume-leveler-amount value="0"/>
+        <volume-leveler-in-target value="-256"/>
+        <volume-leveler-out-target value="-256"/>
+        <graphic-equalizer-enable value="true"/>
+        <virtualizer-enable value="true"/>
+        <virtualizer-start-band value="0"/>
         <headphone-virtualizer-steerer-source-distance value="4"/>
-        <bass-enhancer-enable value="false" />
-        <virtual-bass-process-enable value="false" />
+        <bass-enhancer-enable value="false"/>
+        <virtual-bass-process-enable value="false"/>
       </endpoint_type>
       <endpoint_type id="other">
-        <include ieq_preset="2" />
-        <ieq-enable value="false" />
-        <ieq-amount value="6" />
-        <calibration-boost value="0" />
-        <dialog-enhancer-enable value="true" />
-        <dialog-enhancer-amount value="0" />
-        <dialog-enhancer-ducking value="0" />
-        <mi-virtualizer-binaural-steering-enable value="false" />
-        <peak-value value="256" />
-        <surround-decoder-enable value="true" />
-        <surround-boost value="0" />
-        <volmax-boost value="32" />
-        <hearing-protection-enable value="false" />
-        <hearing-protection-rms-averaging-time-win-len value="6" />
-        <hearing-protection-rms-attenuation-target value="-256" />
-        <hearing-protection-attenuation-attack-time value="900" />
-        <hearing-protection-attenuation-release-time value="1600" />
-        <volume-leveler-enable value="true" />
-        <volume-leveler-amount value="0" />
-        <volume-leveler-in-target value="-256" />
-        <volume-leveler-out-target value="-256" />
-        <graphic-equalizer-enable value="true" />
-        <virtualizer-enable value="false" />
-        <virtualizer-start-band value="0" />
+        <include ieq_preset="2"/>
+        <ieq-enable value="false"/>
+        <ieq-amount value="6"/>
+        <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
+        <dialog-enhancer-enable value="true"/>
+        <dialog-enhancer-amount value="0"/>
+        <dialog-enhancer-ducking value="0"/>
+        <mi-virtualizer-binaural-steering-enable value="false"/>
+        <peak-value value="256"/>
+        <surround-decoder-enable value="true"/>
+        <surround-boost value="0"/>
+        <volmax-boost value="32"/>
+        <hearing-protection-enable value="false"/>
+        <hearing-protection-rms-averaging-time-win-len value="6"/>
+        <hearing-protection-rms-attenuation-target value="-256"/>
+        <hearing-protection-attenuation-attack-time value="900"/>
+        <hearing-protection-attenuation-release-time value="1600"/>
+        <volume-leveler-enable value="true"/>
+        <volume-leveler-amount value="0"/>
+        <volume-leveler-in-target value="-256"/>
+        <volume-leveler-out-target value="-256"/>
+        <graphic-equalizer-enable value="true"/>
+        <virtualizer-enable value="false"/>
+        <virtualizer-start-band value="0"/>
         <headphone-virtualizer-steerer-source-distance value="4"/>
-        <bass-enhancer-enable value="false" />
-        <virtual-bass-process-enable value="false" />
+        <bass-enhancer-enable value="false"/>
+        <virtual-bass-process-enable value="false"/>
       </endpoint_type>
     </data>
   </profile>
   <profile id="5" name="Mobility_on_the_go" group="mobility">
     <data>
-      <mi-dv-leveler-steering-enable value="true" />
-      <mi-ieq-steering-enable value="false" />
-      <mi-surround-compressor-steering-enable value="true" />
-      <mi-adaptive-virtualizer-steering-enable value="true" />
-      <volume-modeler-enable value="false" />
+      <mi-dv-leveler-steering-enable value="true"/>
+      <mi-ieq-steering-enable value="false"/>
+      <mi-surround-compressor-steering-enable value="true"/>
+      <mi-adaptive-virtualizer-steering-enable value="true"/>
+      <volume-modeler-enable value="false"/>
       <drc-metadata/>
-      <reverb-suppression-enable value="false" />
-      <reverb-suppression-amount value="0" />
-      <headphone-virtualizer-mode value="2" />
-      <advanced-headphone-virtualizer-rendering-config value="103,32568,11164,5090,0,3,3,3" />
+      <reverb-suppression-enable value="false"/>
+      <reverb-suppression-amount value="0"/>
+      <headphone-virtualizer-mode value="2"/>
+      <advanced-headphone-virtualizer-rendering-config value="103,32568,11164,5090,0,3,3,3"/>
+      <surround-decoder-diffuse-relocating-to-front-amount value="0"/>
+      <advanced-headphone-virtualizer-lr-angle value="45"/>
       <endpoint_type id="speaker">
-        <include ieq_preset="2" />
-        <ieq-enable value="false" />
-        <ieq-amount value="6" />
-        <calibration-boost value="0" />
-        <dialog-enhancer-enable value="true" />
-        <dialog-enhancer-amount value="4" />
-        <dialog-enhancer-ducking value="0" />
-        <mi-virtualizer-binaural-steering-enable value="false" />
-        <peak-value value="256" />
-        <surround-decoder-enable value="true" />
-        <surround-boost value="0" />
-        <volmax-boost value="32" />
-        <hearing-protection-enable value="false" />
-        <hearing-protection-rms-averaging-time-win-len value="6" />
-        <hearing-protection-rms-attenuation-target value="-256" />
-        <hearing-protection-attenuation-attack-time value="900" />
-        <hearing-protection-attenuation-release-time value="1600" />
-        <volume-leveler-enable value="true" />
-        <volume-leveler-amount value="1" />
-        <volume-leveler-in-target value="-256" />
-        <volume-leveler-out-target value="-256" />
-        <graphic-equalizer-enable value="true" />
-        <virtualizer-enable value="true" />
-        <virtualizer-start-band value="0" />
+        <include ieq_preset="2"/>
+        <ieq-enable value="false"/>
+        <ieq-amount value="6"/>
+        <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
+        <dialog-enhancer-enable value="true"/>
+        <dialog-enhancer-amount value="4"/>
+        <dialog-enhancer-ducking value="0"/>
+        <mi-virtualizer-binaural-steering-enable value="false"/>
+        <peak-value value="256"/>
+        <surround-decoder-enable value="true"/>
+        <surround-boost value="0"/>
+        <volmax-boost value="32"/>
+        <hearing-protection-enable value="false"/>
+        <hearing-protection-rms-averaging-time-win-len value="6"/>
+        <hearing-protection-rms-attenuation-target value="-256"/>
+        <hearing-protection-attenuation-attack-time value="900"/>
+        <hearing-protection-attenuation-release-time value="1600"/>
+        <volume-leveler-enable value="true"/>
+        <volume-leveler-amount value="1"/>
+        <volume-leveler-in-target value="-256"/>
+        <volume-leveler-out-target value="-256"/>
+        <graphic-equalizer-enable value="true"/>
+        <virtualizer-enable value="true"/>
+        <virtualizer-start-band value="0"/>
         <headphone-virtualizer-steerer-source-distance value="4"/>
-        <bass-enhancer-enable value="false" />
-        <virtual-bass-process-enable value="false" />
+        <bass-enhancer-enable value="false"/>
+        <virtual-bass-process-enable value="false"/>
       </endpoint_type>
       <endpoint_type id="headphone">
-        <include ieq_preset="2" />
-        <ieq-enable value="false" />
-        <ieq-amount value="6" />
-        <calibration-boost value="0" />
-        <dialog-enhancer-enable value="true" />
-        <dialog-enhancer-amount value="4" />
-        <dialog-enhancer-ducking value="0" />
-        <mi-virtualizer-binaural-steering-enable value="false" />
-        <peak-value value="256" />
-        <surround-decoder-enable value="true" />
-        <surround-boost value="0" />
-        <volmax-boost value="32" />
-        <hearing-protection-enable value="false" />
-        <hearing-protection-rms-averaging-time-win-len value="6" />
-        <hearing-protection-rms-attenuation-target value="-256" />
-        <hearing-protection-attenuation-attack-time value="900" />
-        <hearing-protection-attenuation-release-time value="1600" />
-        <volume-leveler-enable value="true" />
-        <volume-leveler-amount value="1" />
-        <volume-leveler-in-target value="-256" />
-        <volume-leveler-out-target value="-256" />
-        <graphic-equalizer-enable value="true" />
-        <virtualizer-enable value="true" />
-        <virtualizer-start-band value="0" />
+        <include ieq_preset="2"/>
+        <ieq-enable value="false"/>
+        <ieq-amount value="6"/>
+        <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
+        <dialog-enhancer-enable value="true"/>
+        <dialog-enhancer-amount value="4"/>
+        <dialog-enhancer-ducking value="0"/>
+        <mi-virtualizer-binaural-steering-enable value="false"/>
+        <peak-value value="256"/>
+        <surround-decoder-enable value="true"/>
+        <surround-boost value="0"/>
+        <volmax-boost value="32"/>
+        <hearing-protection-enable value="false"/>
+        <hearing-protection-rms-averaging-time-win-len value="6"/>
+        <hearing-protection-rms-attenuation-target value="-256"/>
+        <hearing-protection-attenuation-attack-time value="900"/>
+        <hearing-protection-attenuation-release-time value="1600"/>
+        <volume-leveler-enable value="true"/>
+        <volume-leveler-amount value="1"/>
+        <volume-leveler-in-target value="-256"/>
+        <volume-leveler-out-target value="-256"/>
+        <graphic-equalizer-enable value="true"/>
+        <virtualizer-enable value="true"/>
+        <virtualizer-start-band value="0"/>
         <headphone-virtualizer-steerer-source-distance value="4"/>
-        <bass-enhancer-enable value="false" />
-        <virtual-bass-process-enable value="false" />
+        <bass-enhancer-enable value="false"/>
+        <virtual-bass-process-enable value="false"/>
       </endpoint_type>
       <endpoint_type id="other">
-        <include ieq_preset="2" />
-        <ieq-enable value="false" />
-        <ieq-amount value="6" />
-        <calibration-boost value="0" />
-        <dialog-enhancer-enable value="true" />
-        <dialog-enhancer-amount value="4" />
-        <dialog-enhancer-ducking value="0" />
-        <mi-virtualizer-binaural-steering-enable value="false" />
-        <peak-value value="256" />
-        <surround-decoder-enable value="true" />
-        <surround-boost value="0" />
-        <volmax-boost value="32" />
-        <hearing-protection-enable value="false" />
-        <hearing-protection-rms-averaging-time-win-len value="6" />
-        <hearing-protection-rms-attenuation-target value="-256" />
-        <hearing-protection-attenuation-attack-time value="900" />
-        <hearing-protection-attenuation-release-time value="1600" />
-        <volume-leveler-enable value="true" />
-        <volume-leveler-amount value="1" />
-        <volume-leveler-in-target value="-256" />
-        <volume-leveler-out-target value="-256" />
-        <graphic-equalizer-enable value="true" />
-        <virtualizer-enable value="false" />
-        <virtualizer-start-band value="0" />
+        <include ieq_preset="2"/>
+        <ieq-enable value="false"/>
+        <ieq-amount value="6"/>
+        <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
+        <dialog-enhancer-enable value="true"/>
+        <dialog-enhancer-amount value="4"/>
+        <dialog-enhancer-ducking value="0"/>
+        <mi-virtualizer-binaural-steering-enable value="false"/>
+        <peak-value value="256"/>
+        <surround-decoder-enable value="true"/>
+        <surround-boost value="0"/>
+        <volmax-boost value="32"/>
+        <hearing-protection-enable value="false"/>
+        <hearing-protection-rms-averaging-time-win-len value="6"/>
+        <hearing-protection-rms-attenuation-target value="-256"/>
+        <hearing-protection-attenuation-attack-time value="900"/>
+        <hearing-protection-attenuation-release-time value="1600"/>
+        <volume-leveler-enable value="true"/>
+        <volume-leveler-amount value="1"/>
+        <volume-leveler-in-target value="-256"/>
+        <volume-leveler-out-target value="-256"/>
+        <graphic-equalizer-enable value="true"/>
+        <virtualizer-enable value="false"/>
+        <virtualizer-start-band value="0"/>
         <headphone-virtualizer-steerer-source-distance value="4"/>
-        <bass-enhancer-enable value="false" />
-        <virtual-bass-process-enable value="false" />
+        <bass-enhancer-enable value="false"/>
+        <virtual-bass-process-enable value="false"/>
       </endpoint_type>
     </data>
   </profile>
   <profile id="6" name="Mobility_commute" group="mobility">
     <data>
-      <mi-dv-leveler-steering-enable value="true" />
-      <mi-ieq-steering-enable value="false" />
-      <mi-surround-compressor-steering-enable value="true" />
-      <mi-adaptive-virtualizer-steering-enable value="true" />
-      <volume-modeler-enable value="false" />
+      <mi-dv-leveler-steering-enable value="true"/>
+      <mi-ieq-steering-enable value="false"/>
+      <mi-surround-compressor-steering-enable value="true"/>
+      <mi-adaptive-virtualizer-steering-enable value="true"/>
+      <volume-modeler-enable value="false"/>
       <drc-metadata/>
-      <reverb-suppression-enable value="false" />
-      <reverb-suppression-amount value="0" />
-      <headphone-virtualizer-mode value="2" />
-      <advanced-headphone-virtualizer-rendering-config value="103,32568,11164,5090,0,3,3,3" />
+      <reverb-suppression-enable value="false"/>
+      <reverb-suppression-amount value="0"/>
+      <headphone-virtualizer-mode value="2"/>
+      <advanced-headphone-virtualizer-rendering-config value="103,32568,11164,5090,0,3,3,3"/>
+      <surround-decoder-diffuse-relocating-to-front-amount value="0"/>
+      <advanced-headphone-virtualizer-lr-angle value="45"/>
       <endpoint_type id="speaker">
-        <include ieq_preset="2" />
-        <ieq-enable value="false" />
-        <ieq-amount value="6" />
-        <calibration-boost value="0" />
-        <dialog-enhancer-enable value="true" />
-        <dialog-enhancer-amount value="8" />
-        <dialog-enhancer-ducking value="0" />
-        <mi-virtualizer-binaural-steering-enable value="false" />
-        <peak-value value="256" />
-        <surround-decoder-enable value="true" />
-        <surround-boost value="0" />
-        <volmax-boost value="32" />
-        <hearing-protection-enable value="false" />
-        <hearing-protection-rms-averaging-time-win-len value="6" />
-        <hearing-protection-rms-attenuation-target value="-256" />
-        <hearing-protection-attenuation-attack-time value="900" />
-        <hearing-protection-attenuation-release-time value="1600" />
-        <volume-leveler-enable value="true" />
-        <volume-leveler-amount value="2" />
-        <volume-leveler-in-target value="-256" />
-        <volume-leveler-out-target value="-256" />
-        <graphic-equalizer-enable value="true" />
-        <virtualizer-enable value="true" />
-        <virtualizer-start-band value="0" />
+        <include ieq_preset="2"/>
+        <ieq-enable value="false"/>
+        <ieq-amount value="6"/>
+        <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
+        <dialog-enhancer-enable value="true"/>
+        <dialog-enhancer-amount value="8"/>
+        <dialog-enhancer-ducking value="0"/>
+        <mi-virtualizer-binaural-steering-enable value="false"/>
+        <peak-value value="256"/>
+        <surround-decoder-enable value="true"/>
+        <surround-boost value="0"/>
+        <volmax-boost value="32"/>
+        <hearing-protection-enable value="false"/>
+        <hearing-protection-rms-averaging-time-win-len value="6"/>
+        <hearing-protection-rms-attenuation-target value="-256"/>
+        <hearing-protection-attenuation-attack-time value="900"/>
+        <hearing-protection-attenuation-release-time value="1600"/>
+        <volume-leveler-enable value="true"/>
+        <volume-leveler-amount value="2"/>
+        <volume-leveler-in-target value="-256"/>
+        <volume-leveler-out-target value="-256"/>
+        <graphic-equalizer-enable value="true"/>
+        <virtualizer-enable value="true"/>
+        <virtualizer-start-band value="0"/>
         <headphone-virtualizer-steerer-source-distance value="4"/>
-        <bass-enhancer-enable value="false" />
-        <virtual-bass-process-enable value="false" />
+        <bass-enhancer-enable value="false"/>
+        <virtual-bass-process-enable value="false"/>
       </endpoint_type>
       <endpoint_type id="headphone">
-        <include ieq_preset="2" />
-        <ieq-enable value="false" />
-        <ieq-amount value="6" />
-        <calibration-boost value="0" />
-        <dialog-enhancer-enable value="true" />
-        <dialog-enhancer-amount value="8" />
-        <dialog-enhancer-ducking value="0" />
-        <mi-virtualizer-binaural-steering-enable value="false" />
-        <peak-value value="256" />
-        <surround-decoder-enable value="true" />
-        <surround-boost value="0" />
-        <volmax-boost value="32" />
-        <hearing-protection-enable value="false" />
-        <hearing-protection-rms-averaging-time-win-len value="6" />
-        <hearing-protection-rms-attenuation-target value="-256" />
-        <hearing-protection-attenuation-attack-time value="900" />
-        <hearing-protection-attenuation-release-time value="1600" />
-        <volume-leveler-enable value="true" />
-        <volume-leveler-amount value="2" />
-        <volume-leveler-in-target value="-256" />
-        <volume-leveler-out-target value="-256" />
-        <graphic-equalizer-enable value="true" />
-        <virtualizer-enable value="true" />
-        <virtualizer-start-band value="0" />
+        <include ieq_preset="2"/>
+        <ieq-enable value="false"/>
+        <ieq-amount value="6"/>
+        <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
+        <dialog-enhancer-enable value="true"/>
+        <dialog-enhancer-amount value="8"/>
+        <dialog-enhancer-ducking value="0"/>
+        <mi-virtualizer-binaural-steering-enable value="false"/>
+        <peak-value value="256"/>
+        <surround-decoder-enable value="true"/>
+        <surround-boost value="0"/>
+        <volmax-boost value="32"/>
+        <hearing-protection-enable value="false"/>
+        <hearing-protection-rms-averaging-time-win-len value="6"/>
+        <hearing-protection-rms-attenuation-target value="-256"/>
+        <hearing-protection-attenuation-attack-time value="900"/>
+        <hearing-protection-attenuation-release-time value="1600"/>
+        <volume-leveler-enable value="true"/>
+        <volume-leveler-amount value="2"/>
+        <volume-leveler-in-target value="-256"/>
+        <volume-leveler-out-target value="-256"/>
+        <graphic-equalizer-enable value="true"/>
+        <virtualizer-enable value="true"/>
+        <virtualizer-start-band value="0"/>
         <headphone-virtualizer-steerer-source-distance value="4"/>
-        <bass-enhancer-enable value="false" />
-        <virtual-bass-process-enable value="false" />
+        <bass-enhancer-enable value="false"/>
+        <virtual-bass-process-enable value="false"/>
       </endpoint_type>
       <endpoint_type id="other">
-        <include ieq_preset="2" />
-        <ieq-enable value="false" />
-        <ieq-amount value="6" />
-        <calibration-boost value="0" />
-        <dialog-enhancer-enable value="true" />
-        <dialog-enhancer-amount value="8" />
-        <dialog-enhancer-ducking value="0" />
-        <mi-virtualizer-binaural-steering-enable value="false" />
-        <peak-value value="256" />
-        <surround-decoder-enable value="true" />
-        <surround-boost value="0" />
-        <volmax-boost value="32" />
-        <hearing-protection-enable value="false" />
-        <hearing-protection-rms-averaging-time-win-len value="6" />
-        <hearing-protection-rms-attenuation-target value="-256" />
-        <hearing-protection-attenuation-attack-time value="900" />
-        <hearing-protection-attenuation-release-time value="1600" />
-        <volume-leveler-enable value="true" />
-        <volume-leveler-amount value="2" />
-        <volume-leveler-in-target value="-256" />
-        <volume-leveler-out-target value="-256" />
-        <graphic-equalizer-enable value="true" />
-        <virtualizer-enable value="false" />
-        <virtualizer-start-band value="0" />
+        <include ieq_preset="2"/>
+        <ieq-enable value="false"/>
+        <ieq-amount value="6"/>
+        <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
+        <dialog-enhancer-enable value="true"/>
+        <dialog-enhancer-amount value="8"/>
+        <dialog-enhancer-ducking value="0"/>
+        <mi-virtualizer-binaural-steering-enable value="false"/>
+        <peak-value value="256"/>
+        <surround-decoder-enable value="true"/>
+        <surround-boost value="0"/>
+        <volmax-boost value="32"/>
+        <hearing-protection-enable value="false"/>
+        <hearing-protection-rms-averaging-time-win-len value="6"/>
+        <hearing-protection-rms-attenuation-target value="-256"/>
+        <hearing-protection-attenuation-attack-time value="900"/>
+        <hearing-protection-attenuation-release-time value="1600"/>
+        <volume-leveler-enable value="true"/>
+        <volume-leveler-amount value="2"/>
+        <volume-leveler-in-target value="-256"/>
+        <volume-leveler-out-target value="-256"/>
+        <graphic-equalizer-enable value="true"/>
+        <virtualizer-enable value="false"/>
+        <virtualizer-start-band value="0"/>
         <headphone-virtualizer-steerer-source-distance value="4"/>
-        <bass-enhancer-enable value="false" />
-        <virtual-bass-process-enable value="false" />
+        <bass-enhancer-enable value="false"/>
+        <virtual-bass-process-enable value="false"/>
       </endpoint_type>
     </data>
   </profile>
   <profile id="7" name="Mobility_travel" group="mobility">
     <data>
-      <mi-dv-leveler-steering-enable value="true" />
-      <mi-ieq-steering-enable value="false" />
-      <mi-surround-compressor-steering-enable value="true" />
-      <mi-adaptive-virtualizer-steering-enable value="true" />
-      <headphone-virtualizer-mode value="2" />
-      <advanced-headphone-virtualizer-rendering-config value="103,32568,11164,5090,0,3,3,3" />
-      <volume-modeler-enable value="false" />
+      <mi-dv-leveler-steering-enable value="true"/>
+      <mi-ieq-steering-enable value="false"/>
+      <mi-surround-compressor-steering-enable value="true"/>
+      <mi-adaptive-virtualizer-steering-enable value="true"/>
+      <volume-modeler-enable value="false"/>
       <drc-metadata/>
-      <reverb-suppression-enable value="false" />
-      <reverb-suppression-amount value="0" />
+      <reverb-suppression-enable value="false"/>
+      <reverb-suppression-amount value="0"/>
+      <headphone-virtualizer-mode value="2"/>
+      <advanced-headphone-virtualizer-rendering-config value="103,32568,11164,5090,0,3,3,3"/>
+      <surround-decoder-diffuse-relocating-to-front-amount value="0"/>
+      <advanced-headphone-virtualizer-lr-angle value="45"/>
       <endpoint_type id="speaker">
-        <include ieq_preset="2" />
-        <ieq-enable value="false" />
-        <ieq-amount value="6" />
-        <calibration-boost value="0" />
-        <dialog-enhancer-enable value="true" />
-        <dialog-enhancer-amount value="12" />
-        <dialog-enhancer-ducking value="0" />
-        <mi-virtualizer-binaural-steering-enable value="false" />
-        <peak-value value="256" />
-        <surround-decoder-enable value="true" />
-        <surround-boost value="0" />
-        <volmax-boost value="32" />
-        <hearing-protection-enable value="false" />
-        <hearing-protection-rms-averaging-time-win-len value="6" />
-        <hearing-protection-rms-attenuation-target value="-256" />
-        <hearing-protection-attenuation-attack-time value="900" />
-        <hearing-protection-attenuation-release-time value="1600" />
-        <volume-leveler-enable value="true" />
-        <volume-leveler-amount value="3" />
-        <volume-leveler-in-target value="-256" />
-        <volume-leveler-out-target value="-256" />
-        <graphic-equalizer-enable value="true" />
-        <virtualizer-enable value="true" />
-        <virtualizer-start-band value="0" />
+        <include ieq_preset="2"/>
+        <ieq-enable value="false"/>
+        <ieq-amount value="6"/>
+        <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
+        <dialog-enhancer-enable value="true"/>
+        <dialog-enhancer-amount value="12"/>
+        <dialog-enhancer-ducking value="0"/>
+        <mi-virtualizer-binaural-steering-enable value="false"/>
+        <peak-value value="256"/>
+        <surround-decoder-enable value="true"/>
+        <surround-boost value="0"/>
+        <volmax-boost value="32"/>
+        <hearing-protection-enable value="false"/>
+        <hearing-protection-rms-averaging-time-win-len value="6"/>
+        <hearing-protection-rms-attenuation-target value="-256"/>
+        <hearing-protection-attenuation-attack-time value="900"/>
+        <hearing-protection-attenuation-release-time value="1600"/>
+        <volume-leveler-enable value="true"/>
+        <volume-leveler-amount value="3"/>
+        <volume-leveler-in-target value="-256"/>
+        <volume-leveler-out-target value="-256"/>
+        <graphic-equalizer-enable value="true"/>
+        <virtualizer-enable value="true"/>
+        <virtualizer-start-band value="0"/>
         <headphone-virtualizer-steerer-source-distance value="4"/>
-        <bass-enhancer-enable value="false" />
-        <virtual-bass-process-enable value="false" />
+        <bass-enhancer-enable value="false"/>
+        <virtual-bass-process-enable value="false"/>
       </endpoint_type>
       <endpoint_type id="headphone">
-        <include ieq_preset="2" />
-        <ieq-enable value="false" />
-        <ieq-amount value="6" />
-        <calibration-boost value="0" />
-        <dialog-enhancer-enable value="true" />
-        <dialog-enhancer-amount value="12" />
-        <dialog-enhancer-ducking value="0" />
-        <mi-virtualizer-binaural-steering-enable value="false" />
-        <peak-value value="256" />
-        <surround-decoder-enable value="true" />
-        <surround-boost value="0" />
-        <volmax-boost value="32" />
-        <hearing-protection-enable value="false" />
-        <hearing-protection-rms-averaging-time-win-len value="6" />
-        <hearing-protection-rms-attenuation-target value="-256" />
-        <hearing-protection-attenuation-attack-time value="900" />
-        <hearing-protection-attenuation-release-time value="1600" />
-        <volume-leveler-enable value="true" />
-        <volume-leveler-amount value="3" />
-        <volume-leveler-in-target value="-256" />
-        <volume-leveler-out-target value="-256" />
-        <graphic-equalizer-enable value="true" />
-        <virtualizer-enable value="true" />
-        <virtualizer-start-band value="0" />
+        <include ieq_preset="2"/>
+        <ieq-enable value="false"/>
+        <ieq-amount value="6"/>
+        <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
+        <dialog-enhancer-enable value="true"/>
+        <dialog-enhancer-amount value="12"/>
+        <dialog-enhancer-ducking value="0"/>
+        <mi-virtualizer-binaural-steering-enable value="false"/>
+        <peak-value value="256"/>
+        <surround-decoder-enable value="true"/>
+        <surround-boost value="0"/>
+        <volmax-boost value="32"/>
+        <hearing-protection-enable value="false"/>
+        <hearing-protection-rms-averaging-time-win-len value="6"/>
+        <hearing-protection-rms-attenuation-target value="-256"/>
+        <hearing-protection-attenuation-attack-time value="900"/>
+        <hearing-protection-attenuation-release-time value="1600"/>
+        <volume-leveler-enable value="true"/>
+        <volume-leveler-amount value="3"/>
+        <volume-leveler-in-target value="-256"/>
+        <volume-leveler-out-target value="-256"/>
+        <graphic-equalizer-enable value="true"/>
+        <virtualizer-enable value="true"/>
+        <virtualizer-start-band value="0"/>
         <headphone-virtualizer-steerer-source-distance value="4"/>
-        <bass-enhancer-enable value="false" />
-        <virtual-bass-process-enable value="false" />
+        <bass-enhancer-enable value="false"/>
+        <virtual-bass-process-enable value="false"/>
       </endpoint_type>
       <endpoint_type id="other">
-        <include ieq_preset="2" />
-        <ieq-enable value="false" />
-        <ieq-amount value="6" />
-        <calibration-boost value="0" />
-        <dialog-enhancer-enable value="true" />
-        <dialog-enhancer-amount value="12" />
-        <dialog-enhancer-ducking value="0" />
-        <mi-virtualizer-binaural-steering-enable value="false" />
-        <peak-value value="256" />
-        <surround-decoder-enable value="true" />
-        <surround-boost value="0" />
-        <volmax-boost value="32" />
-        <hearing-protection-enable value="false" />
-        <hearing-protection-rms-averaging-time-win-len value="6" />
-        <hearing-protection-rms-attenuation-target value="-256" />
-        <hearing-protection-attenuation-attack-time value="900" />
-        <hearing-protection-attenuation-release-time value="1600" />
-        <volume-leveler-enable value="true" />
-        <volume-leveler-amount value="3" />
-        <volume-leveler-in-target value="-256" />
-        <volume-leveler-out-target value="-256" />
-        <graphic-equalizer-enable value="true" />
-        <virtualizer-enable value="false" />
-        <virtualizer-start-band value="0" />
+        <include ieq_preset="2"/>
+        <ieq-enable value="false"/>
+        <ieq-amount value="6"/>
+        <calibration-boost value="0"/>
+        <mi-dialog-enhancer-steering-enable value="false"/>
+        <dialog-enhancer-enable value="true"/>
+        <dialog-enhancer-amount value="12"/>
+        <dialog-enhancer-ducking value="0"/>
+        <mi-virtualizer-binaural-steering-enable value="false"/>
+        <peak-value value="256"/>
+        <surround-decoder-enable value="true"/>
+        <surround-boost value="0"/>
+        <volmax-boost value="32"/>
+        <hearing-protection-enable value="false"/>
+        <hearing-protection-rms-averaging-time-win-len value="6"/>
+        <hearing-protection-rms-attenuation-target value="-256"/>
+        <hearing-protection-attenuation-attack-time value="900"/>
+        <hearing-protection-attenuation-release-time value="1600"/>
+        <volume-leveler-enable value="true"/>
+        <volume-leveler-amount value="3"/>
+        <volume-leveler-in-target value="-256"/>
+        <volume-leveler-out-target value="-256"/>
+        <graphic-equalizer-enable value="true"/>
+        <virtualizer-enable value="false"/>
+        <virtualizer-start-band value="0"/>
         <headphone-virtualizer-steerer-source-distance value="4"/>
-        <bass-enhancer-enable value="false" />
-        <virtual-bass-process-enable value="false" />
+        <bass-enhancer-enable value="false"/>
+        <virtual-bass-process-enable value="false"/>
       </endpoint_type>
     </data>
   </profile>
@@ -1155,11 +1195,13 @@
       <height-filter-mode value="1"/>
       <speaker-virtualizer-mode value="2"/>
       <advanced-speaker-virtualizer-start-bin value="3"/>
-      <advanced-speaker-virtualizer-rendering-config value="35,32568,11164,5090,0,3,3,3"/>
+      <advanced-speaker-virtualizer-rendering-config value="35,32603,11305,5079,0,3,3,3"/>
       <output-mode>
         <mix_matrix>
           <element value="0,2,16384,16384"/>
           <element value="1,4,16384,0,0,16384"/>
+          <element value="3,12,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384"/>
+          <element value="5,16,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384,16384,0,0,16384"/>
           <element value="10,12,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384"/>
           <element value="11,16,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384,16384,0,0,16384"/>
           <element value="6,16,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384,16384,0,0,16384"/>
@@ -1169,7 +1211,6 @@
       <regulator-timbre-preservation value="12"/>
       <regulator-stress-amount value="64,64,96,96"/>
       <regulator-distortion-slope value="8"/>
-      <bass-mbdrc-tuning value="1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0"/>
       <virtual-bass-mode value="3"/>
       <virtual-bass-overall-gain value="0"/>
       <virtual-bass-slope-gain value="0"/>
@@ -1182,9 +1223,12 @@
       <virtual-bass-blend-linear-gain value="10"/>
       <virtual-bass-mix-frequency value="100,1500"/>
       <virtual-bass-compressor-tuning value="0,0,-320,96,32,50,50"/>
+      <bass-mbdrc-tuning value="1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0"/>
       <virtualizer-front-speaker-angle value="10"/>
       <virtualizer-height-speaker-angle value="10"/>
       <virtualizer-surround-speaker-angle value="10"/>
+      <virtualizer-rear-surround-speaker-angle value="10"/>
+      <virtualizer-rear-height-speaker-angle value="10"/>
       <volume-modeler-calibration value="0"/>
       <audio-optimizer-enable value="true"/>
       <volume-leveler-compressor-enable value="false"/>
@@ -1197,7 +1241,8 @@
     </data>
   </tuning>
   <tuning name="speaker_landscape_180" endpoint_type="speaker" mono_device="false" tuned_rate="48000" orientation="1" output_channels="2">
-    <device_id id="speaker_landscape_180" endpoint_port="internal_speaker" />
+    <device_id id="default_internal_speaker" endpoint_port="internal_speaker"/>
+    <device_id id="speaker_landscape_180" endpoint_port="internal_speaker"/>
     <data>
       <audio-optimizer-bands>
         <band_optimizer frequency="47" gain_left="193" gain_right="190"/>
@@ -1254,11 +1299,13 @@
       <height-filter-mode value="1"/>
       <speaker-virtualizer-mode value="2"/>
       <advanced-speaker-virtualizer-start-bin value="3"/>
-      <advanced-speaker-virtualizer-rendering-config value="35,32568,11164,5090,0,3,3,3"/>
+      <advanced-speaker-virtualizer-rendering-config value="35,32603,11305,5079,0,3,3,3"/>
       <output-mode>
         <mix_matrix>
           <element value="0,2,16384,16384"/>
           <element value="1,4,16384,0,0,16384"/>
+          <element value="3,12,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384"/>
+          <element value="5,16,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384,16384,0,0,16384"/>
           <element value="10,12,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384"/>
           <element value="11,16,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384,16384,0,0,16384"/>
           <element value="6,16,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384,16384,0,0,16384"/>
@@ -1268,7 +1315,6 @@
       <regulator-timbre-preservation value="12"/>
       <regulator-stress-amount value="64,64,96,96"/>
       <regulator-distortion-slope value="8"/>
-      <bass-mbdrc-tuning value="0,-1600,0,-960,-384,-288,0,10,50,192,0,-1600,0,-960,-384,-288,0,5,50,192,0,-1600,0,-960,-384,-192,-96,5,50,96,0,-1600,96,-960,-384,-192,-48,5,50,48,0,-1600,0,-1120,-400,-240,0,5,10,0,0,-1600,0,-1120,-400,-240,0,5,10,0,0,-1600,0,-1120,-400,-240,0,5,10,0,0,-1600,0,-1120,-400,-240,0,5,10,0"/>
       <virtual-bass-mode value="3"/>
       <virtual-bass-overall-gain value="0"/>
       <virtual-bass-slope-gain value="0"/>
@@ -1281,9 +1327,12 @@
       <virtual-bass-blend-linear-gain value="10"/>
       <virtual-bass-mix-frequency value="100,1500"/>
       <virtual-bass-compressor-tuning value="0,0,-320,96,32,50,50"/>
+      <bass-mbdrc-tuning value="0,-1600,0,-960,-384,-288,0,10,50,192,0,-1600,0,-960,-384,-288,0,5,50,192,0,-1600,0,-960,-384,-192,-96,5,50,96,0,-1600,96,-960,-384,-192,-48,5,50,48,0,-1600,0,-1120,-400,-240,0,5,10,0,0,-1600,0,-1120,-400,-240,0,5,10,0,0,-1600,0,-1120,-400,-240,0,5,10,0,0,-1600,0,-1120,-400,-240,0,5,10,0"/>
       <virtualizer-front-speaker-angle value="10"/>
       <virtualizer-height-speaker-angle value="10"/>
       <virtualizer-surround-speaker-angle value="10"/>
+      <virtualizer-rear-surround-speaker-angle value="10"/>
+      <virtualizer-rear-height-speaker-angle value="10"/>
       <volume-modeler-calibration value="0"/>
       <audio-optimizer-enable value="true"/>
       <volume-leveler-compressor-enable value="false"/>
@@ -1353,11 +1402,13 @@
       <height-filter-mode value="1"/>
       <speaker-virtualizer-mode value="2"/>
       <advanced-speaker-virtualizer-start-bin value="3"/>
-      <advanced-speaker-virtualizer-rendering-config value="35,32568,11164,5090,0,3,3,3"/>
+      <advanced-speaker-virtualizer-rendering-config value="35,32603,11305,5079,0,3,3,3"/>
       <output-mode>
         <mix_matrix>
           <element value="0,2,16384,16384"/>
           <element value="1,4,16384,0,0,16384"/>
+          <element value="3,12,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384"/>
+          <element value="5,16,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384,16384,0,0,16384"/>
           <element value="10,12,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384"/>
           <element value="11,16,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384,16384,0,0,16384"/>
           <element value="6,16,16384,0,0,16384,11583,11583,8192,8192,16384,0,0,16384,16384,0,0,16384"/>
@@ -1367,7 +1418,6 @@
       <regulator-timbre-preservation value="12"/>
       <regulator-stress-amount value="96,96,96,96"/>
       <regulator-distortion-slope value="16"/>
-      <bass-mbdrc-tuning value="1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0"/>
       <virtual-bass-mode value="3"/>
       <virtual-bass-overall-gain value="0"/>
       <virtual-bass-slope-gain value="0"/>
@@ -1380,9 +1430,12 @@
       <virtual-bass-blend-linear-gain value="10"/>
       <virtual-bass-mix-frequency value="100,1500"/>
       <virtual-bass-compressor-tuning value="0,0,-320,96,32,50,50"/>
+      <bass-mbdrc-tuning value="1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0,1,-1600,0,-1120,-400,-240,0,5,10,0"/>
       <virtualizer-front-speaker-angle value="10"/>
       <virtualizer-height-speaker-angle value="10"/>
       <virtualizer-surround-speaker-angle value="10"/>
+      <virtualizer-rear-surround-speaker-angle value="10"/>
+      <virtualizer-rear-height-speaker-angle value="10"/>
       <volume-modeler-calibration value="0"/>
       <audio-optimizer-enable value="true"/>
       <volume-leveler-compressor-enable value="false"/>
@@ -1392,8 +1445,6 @@
       <regulator-speaker-dist-enable value="true"/>
       <regulator-sibilance-suppress-enable value="false"/>
       <bass-mbdrc-enable value="true"/>
-
-
     </data>
   </tuning>
   <tuning name="headphone" endpoint_type="headphone" mono_device="false" tuned_rate="48000" orientation="2" output_channels="2">
@@ -1457,7 +1508,7 @@
       <height-filter-mode value="0"/>
       <speaker-virtualizer-mode value="2"/>
       <advanced-speaker-virtualizer-start-bin value="3"/>
-      <advanced-speaker-virtualizer-rendering-config value="35,32568,11164,5090,0,3,3,3"/>
+      <advanced-speaker-virtualizer-rendering-config value="35,32603,11305,5079,0,3,3,3"/>
       <output-mode>
         <mix_matrix/>
       </output-mode>
@@ -1465,7 +1516,6 @@
       <regulator-timbre-preservation value="12"/>
       <regulator-stress-amount value="96,96,96,96"/>
       <regulator-distortion-slope value="16"/>
-      <bass-mbdrc-tuning value="1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0"/>
       <virtual-bass-mode value="3"/>
       <virtual-bass-overall-gain value="0"/>
       <virtual-bass-slope-gain value="0"/>
@@ -1478,10 +1528,12 @@
       <virtual-bass-blend-linear-gain value="10"/>
       <virtual-bass-mix-frequency value="100,1500"/>
       <virtual-bass-compressor-tuning value="0,0,-320,96,32,50,50"/>
-
+      <bass-mbdrc-tuning value="1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0"/>
       <virtualizer-front-speaker-angle value="10"/>
       <virtualizer-height-speaker-angle value="10"/>
       <virtualizer-surround-speaker-angle value="10"/>
+      <virtualizer-rear-surround-speaker-angle value="10"/>
+      <virtualizer-rear-height-speaker-angle value="10"/>
       <volume-modeler-calibration value="160"/>
       <audio-optimizer-enable value="false"/>
       <volume-leveler-compressor-enable value="true"/>
@@ -1491,8 +1543,6 @@
       <regulator-speaker-dist-enable value="false"/>
       <regulator-sibilance-suppress-enable value="false"/>
       <bass-mbdrc-enable value="false"/>
-
-
     </data>
   </tuning>
   <tuning name="unknown" endpoint_type="other" mono_device="false" tuned_rate="48000" orientation="2" output_channels="2">
@@ -1554,7 +1604,7 @@
       <height-filter-mode value="0"/>
       <speaker-virtualizer-mode value="2"/>
       <advanced-speaker-virtualizer-start-bin value="3"/>
-      <advanced-speaker-virtualizer-rendering-config value="35,32568,11164,5090,0,3,3,3"/>
+      <advanced-speaker-virtualizer-rendering-config value="35,32603,11305,5079,0,3,3,3"/>
       <output-mode>
         <mix_matrix/>
       </output-mode>
@@ -1562,7 +1612,6 @@
       <regulator-timbre-preservation value="12"/>
       <regulator-stress-amount value="96,96,96,96"/>
       <regulator-distortion-slope value="16"/>
-      <bass-mbdrc-tuning value="1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0"/>
       <virtual-bass-mode value="3"/>
       <virtual-bass-overall-gain value="0"/>
       <virtual-bass-slope-gain value="0"/>
@@ -1575,9 +1624,12 @@
       <virtual-bass-blend-linear-gain value="10"/>
       <virtual-bass-mix-frequency value="100,1500"/>
       <virtual-bass-compressor-tuning value="0,0,-320,96,32,50,50"/>
+      <bass-mbdrc-tuning value="1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,1,1,0"/>
       <virtualizer-front-speaker-angle value="10"/>
       <virtualizer-height-speaker-angle value="10"/>
       <virtualizer-surround-speaker-angle value="10"/>
+      <virtualizer-rear-surround-speaker-angle value="10"/>
+      <virtualizer-rear-height-speaker-angle value="10"/>
       <volume-modeler-calibration value="0"/>
       <audio-optimizer-enable value="false"/>
       <volume-leveler-compressor-enable value="false"/>
@@ -1589,8 +1641,8 @@
       <bass-mbdrc-enable value="false"/>
     </data>
   </tuning>
-  <authorized_technologies sku_name="DAX3 Android" device="dax3_android" bundle="DAP MOBILE v1.6">
-    <global_setting virtual_bass_process="1" />
-    <global_setting atmos_game_system_gain="0" />
+  <authorized_technologies sku_name="DAX3 Android" device="dax3_android" bundle="DAP MOBILE v2.2" format="2">
+    <global_setting virtual_bass_process="1"/>
+    <global_setting atmos_game_system_gain="0"/>
   </authorized_technologies>
 </device_data>
