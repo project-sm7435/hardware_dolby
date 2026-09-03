@@ -137,12 +137,12 @@ PRODUCT_PACKAGES += \
     libhwdap \
     libswgamedap \
     libswvqe \
-    libdsee.so \
-    libbundlewrapper.so \
-    libbundlewrapper1.so \
-    libbundlewrapper2.so \
-    libbundlewrapper3.so \
-    libbundlewrapper4.so 
+    libdsee \
+    libbundlewrapper \
+    libbundlewrapper1 \
+    libbundlewrapper2 \
+    libbundlewrapper3 \
+    libbundlewrapper4 
 
 # Dolby vision Proprietary blobs
 PRODUCT_COPY_FILES += \

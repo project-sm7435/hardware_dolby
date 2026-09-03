@@ -345,22 +345,18 @@ cc_prebuilt_library_shared {
     strip: {
         none: true,
     },
-    target: {
-        android_arm64: {
-            srcs: [
-                "proprietary/vendor/lib64/soundfx/libbundlewrapper.so",
-            ],
-            shared_libs: [
-                "libaudioutils",
-                "liblog",
-                "libcutils",
-                "libc++",
-                "libc",
-                "libm",
-                "libdl",
-            ],
-        },
-    },
+    srcs: [
+        "proprietary/vendor/lib64/soundfx/libbundlewrapper.so",
+    ],
+    shared_libs: [
+        "libaudioutils",
+        "liblog",
+        "libcutils",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
     compile_multilib: "64",
     relative_install_path: "soundfx",
     prefer: true,
@@ -373,22 +369,18 @@ cc_prebuilt_library_shared {
     strip: {
         none: true,
     },
-    target: {
-        android_arm64: {
-            srcs: [
-                "proprietary/vendor/lib64/soundfx/libbundlewrapper1.so",
-            ],
-            shared_libs: [
-                "libaudioutils",
-                "liblog",
-                "libcutils",
-                "libc++",
-                "libc",
-                "libm",
-                "libdl",
-            ],
-        },
-    },
+    srcs: [
+        "proprietary/vendor/lib64/soundfx/libbundlewrapper1.so",
+    ],
+    shared_libs: [
+        "libaudioutils",
+        "liblog",
+        "libcutils",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
     compile_multilib: "64",
     relative_install_path: "soundfx",
     prefer: true,
@@ -401,22 +393,18 @@ cc_prebuilt_library_shared {
     strip: {
         none: true,
     },
-    target: {
-        android_arm64: {
-            srcs: [
-                "proprietary/vendor/lib64/soundfx/libbundlewrapper2.so",
-            ],
-            shared_libs: [
-                "libaudioutils",
-                "liblog",
-                "libcutils",
-                "libc++",
-                "libc",
-                "libm",
-                "libdl",
-            ],
-        },
-    },
+    srcs: [
+        "proprietary/vendor/lib64/soundfx/libbundlewrapper2.so",
+    ],
+    shared_libs: [
+        "libaudioutils",
+        "liblog",
+        "libcutils",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
     compile_multilib: "64",
     relative_install_path: "soundfx",
     prefer: true,
@@ -429,22 +417,18 @@ cc_prebuilt_library_shared {
     strip: {
         none: true,
     },
-    target: {
-        android_arm64: {
-            srcs: [
-                "proprietary/vendor/lib64/soundfx/libbundlewrapper3.so",
-            ],
-            shared_libs: [
-                "libaudioutils",
-                "liblog",
-                "libcutils",
-                "libc++",
-                "libc",
-                "libm",
-                "libdl",
-            ],
-        },
-    },
+    srcs: [
+        "proprietary/vendor/lib64/soundfx/libbundlewrapper3.so",
+    ],
+    shared_libs: [
+        "libaudioutils",
+        "liblog",
+        "libcutils",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
     compile_multilib: "64",
     relative_install_path: "soundfx",
     prefer: true,
@@ -457,27 +441,23 @@ cc_prebuilt_library_shared {
     strip: {
         none: true,
     },
-    target: {
-        android_arm64: {
-            srcs: [
-                "proprietary/vendor/lib64/soundfx/libbundlewrapper4.so",
-            ],
-            shared_libs: [
-                "libaudioutils",
-                "liblog",
-                "libcutils",
-                "libc++",
-                "libc",
-                "libm",
-                "libdl",
-            ],
-        },
-    },
+    srcs: [
+        "proprietary/vendor/lib64/soundfx/libbundlewrapper4.so",
+    ],
+    shared_libs: [
+        "libaudioutils",
+        "liblog",
+        "libcutils",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
     compile_multilib: "64",
     relative_install_path: "soundfx",
     prefer: true,
     soc_specific: true,
-}
+}        
 
 cc_prebuilt_library_shared {
 	name: "libswvqe",
