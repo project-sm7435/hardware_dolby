@@ -110,6 +110,12 @@ fun CreditsDialog(
              githubUsername = "JosephMontfort",
              contribution = "Ported as a System App for OEM ROMs",
              isHighlighted = true
+        ),
+        Contributor(
+            name = "Pablo Escobar",
+            githubUsername = "pabloescobar-reborn",
+            contribution = "AutoEQ headphone correction profiles",
+            isHighlighted = true
         )
     )
     
