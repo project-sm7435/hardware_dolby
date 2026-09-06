@@ -104,8 +104,8 @@ fun CreditsDialog(
             githubUsername = "MrTopia",
             contribution = "Adding per-device dolby state memory",
             isHighlighted = true
-       ),
-       Contributor(
+        ),
+        Contributor(
              name = "Joseph Montfort. F",
              githubUsername = "JosephMontfort",
              contribution = "Ported as a System App for OEM ROMs",
@@ -141,7 +141,7 @@ fun CreditsDialog(
                 .fillMaxHeight(0.85f),
             shape = MaterialTheme.shapes.extraLarge,
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
             )
         ) {
             Column(
@@ -154,8 +154,8 @@ fun CreditsDialog(
                         .background(
                             brush = Brush.linearGradient(
                                 colors = listOf(
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
-                                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.8f)
+                                    MaterialTheme.colorScheme.primaryContainer,
+                                    MaterialTheme.colorScheme.tertiaryContainer
                                 )
                             )
                         ),
@@ -192,7 +192,7 @@ fun CreditsDialog(
                             modifier = Modifier.fillMaxWidth(),
                             shape = MaterialTheme.shapes.large,
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer
                             )
                         ) {
                             Row(
@@ -227,8 +227,10 @@ fun CreditsDialog(
                                 },
                             shape = MaterialTheme.shapes.large,
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer
-                            )
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
                             Row(
                                 modifier = Modifier
@@ -261,7 +263,7 @@ fun CreditsDialog(
                                     Text(
                                         text = "hardware_dolby",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                 }
                                 Icon(
@@ -314,8 +316,10 @@ fun CreditsDialog(
                             modifier = Modifier.fillMaxWidth(),
                             shape = MaterialTheme.shapes.large,
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                            )
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
                             Column(
                                 modifier = Modifier
@@ -351,7 +355,7 @@ fun CreditsDialog(
                                         Text(
                                             text = "Help us make Lunaris Dolby better in your language! Submit or update translations on GitHub.",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
                                         )
                                     }
                                 }
@@ -362,7 +366,7 @@ fun CreditsDialog(
                                         context.startActivity(intent)
                                     },
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = MaterialTheme.shapes.medium,
+                                    shape = MaterialTheme.shapes.large,
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = MaterialTheme.colorScheme.primary,
                                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -382,10 +386,12 @@ fun CreditsDialog(
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
+                            shape = MaterialTheme.shapes.large,
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            )
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
                             Column(
                                 modifier = Modifier
@@ -411,7 +417,7 @@ fun CreditsDialog(
                                 Text(
                                     text = "Check the GitHub repository for the complete list",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center
                                 )
                             }
@@ -430,7 +436,7 @@ fun CreditsDialog(
                     Button(
                         onClick = onDismiss,
                         modifier = Modifier.fillMaxWidth(0.5f),
-                        shape = MaterialTheme.shapes.medium,
+                        shape = MaterialTheme.shapes.large,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
@@ -465,14 +471,35 @@ private fun ContributorCard(
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(githubUrl))
                 context.startActivity(intent)
             },
-        shape = MaterialTheme.shapes.large,
+        shape = if (contributor.isHighlighted)
+            MaterialTheme.shapes.extraLarge
+        else
+            MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = if (contributor.isHighlighted)
-                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                MaterialTheme.colorScheme.tertiaryContainer
             else
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+                MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = if (contributor.isHighlighted)
+                MaterialTheme.colorScheme.onTertiaryContainer
+            else
+                MaterialTheme.colorScheme.onSurface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
+        val onContainer = if (contributor.isHighlighted)
+            MaterialTheme.colorScheme.onTertiaryContainer
+        else
+            MaterialTheme.colorScheme.onSurface
+        val onContainerMuted = if (contributor.isHighlighted)
+            MaterialTheme.colorScheme.onTertiaryContainer
+        else
+            MaterialTheme.colorScheme.onSurfaceVariant
+        val linkColor = if (contributor.isHighlighted)
+            MaterialTheme.colorScheme.onTertiaryContainer
+        else
+            MaterialTheme.colorScheme.primary
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -494,7 +521,7 @@ private fun ContributorCard(
                     text = contributor.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = onContainer
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(
@@ -504,27 +531,27 @@ private fun ContributorCard(
                         imageVector = Icons.Default.Code,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = linkColor
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "@${contributor.githubUsername}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = linkColor
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = contributor.contribution,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = onContainerMuted
                 )
             }
-            
+
             Icon(
                 imageVector = Icons.Default.OpenInNew,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = onContainerMuted,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -561,8 +588,10 @@ private fun CompactTranslationCard(
             },
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -581,7 +610,7 @@ private fun CompactTranslationCard(
                 Icon(
                     imageVector = Icons.Default.OpenInNew,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -632,7 +661,8 @@ private fun CompactTranslationCard(
 private fun StackedAvatars(
     translators: List<Translator>,
     currentIndex: Int,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    ringColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh
 ) {
     val count = translators.size
     val avatarSize = 36.dp
@@ -677,7 +707,7 @@ private fun StackedAvatars(
                     }
                     .border(
                         width = if (count > 1) 1.5.dp else 0.dp,
-                        color = MaterialTheme.colorScheme.surface,
+                        color = ringColor,
                         shape = MaterialTheme.shapes.medium
                     )
             ) {
@@ -771,5 +801,4 @@ private fun GithubAvatar(
         }
     }
 }
-
 
