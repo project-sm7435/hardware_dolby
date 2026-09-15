@@ -17,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,22 +35,26 @@ fun ModernDolbySettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showResetDialog by remember { mutableStateOf(false) }
     var showCreditsDialog by remember { mutableStateOf(false) }
-    val currentRoute by navController.currentBackStackEntryFlow.collectAsState(null)
-    
-    val layoutDirection = LocalLayoutDirection.current
-    val cutoutInsets = WindowInsets.displayCutout.asPaddingValues()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
-                    Text(
-                        stringResource(R.string.dolby_title),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    ) 
+                title = {
+                    Column {
+                        Text(
+                            stringResource(R.string.dolby_title),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            stringResource(R.string.dolby_summary),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 },
+                expandedHeight = 92.dp,
                 actions = {
                     IconButton(onClick = { showCreditsDialog = true }) {
                         Icon(
