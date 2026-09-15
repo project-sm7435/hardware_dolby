@@ -336,7 +336,7 @@
         <peak-value value="240"/>
         <surround-decoder-enable value="true"/>
         <surround-boost value="0"/>
-        <volmax-boost value="40"/>
+        <volmax-boost value="24"/>
         <volume-leveler-enable value="true"/>
         <volume-leveler-amount value="0"/>
         <volume-leveler-in-target value="-256"/>
@@ -453,24 +453,24 @@
         <headphone-virtualizer-steerer-source-distance value="4"/>
       </endpoint_type>
       <endpoint_type id="headphone">
-        <ieq-enable value="false"/>
-        <ieq-amount value="6"/>
+        <ieq-enable value="true"/>
+        <ieq-amount value="7"/>
         <include preset="ieq_balanced"/>
         <calibration-boost value="0"/>
-        <dialog-enhancer-enable value="false"/>
+        <dialog-enhancer-enable value="true"/>
         <dialog-enhancer-amount value="4"/>
         <dialog-enhancer-ducking value="0"/>
         <mi-virtualizer-binaural-steering-enable value="false"/>
         <peak-value value="256"/>
         <surround-decoder-enable value="true"/>
-        <surround-boost value="48"/>
+        <surround-boost value="88"/>
         <volmax-boost value="48"/>
         <volume-leveler-enable value="true"/>
         <volume-leveler-amount value="0"/>
         <volume-leveler-in-target value="-256"/>
         <volume-leveler-out-target value="-256"/>
         <graphic-equalizer-enable value="true"/>
-        <virtualizer-enable value="false"/>
+        <virtualizer-enable value="true"/>
         <bass-enhancer-enable value="false"/>
         <virtual-bass-process-enable value="false"/>
         <hearing-protection-enable value="false"/>
@@ -1211,25 +1211,25 @@
     <data>
       <audio-optimizer-bands>
         <band_optimizer frequency="47" gain_left="-480" gain_right="-480"/>
-        <band_optimizer frequency="141" gain_left="-20" gain_right="-20"/>
-        <band_optimizer frequency="234" gain_left="18" gain_right="18"/>
-        <band_optimizer frequency="328" gain_left="6" gain_right="6"/>
-        <band_optimizer frequency="469" gain_left="-54" gain_right="-52"/>
-        <band_optimizer frequency="656" gain_left="-44" gain_right="-58"/>
-        <band_optimizer frequency="844" gain_left="-54" gain_right="-74"/>
-        <band_optimizer frequency="1031" gain_left="-57" gain_right="-1"/>
-        <band_optimizer frequency="1313" gain_left="-28" gain_right="-28"/>
-        <band_optimizer frequency="1688" gain_left="0" gain_right="6"/>
-        <band_optimizer frequency="2250" gain_left="-49" gain_right="-81"/>
-        <band_optimizer frequency="3000" gain_left="-41" gain_right="-67"/>
-        <band_optimizer frequency="3750" gain_left="-146" gain_right="-162"/>
-        <band_optimizer frequency="4688" gain_left="-207" gain_right="-154"/>
-        <band_optimizer frequency="5813" gain_left="-93" gain_right="-93"/>
-        <band_optimizer frequency="7125" gain_left="-6" gain_right="-6"/>
-        <band_optimizer frequency="9000" gain_left="-4" gain_right="-4"/>
-        <band_optimizer frequency="11250" gain_left="-53" gain_right="-53"/>
-        <band_optimizer frequency="13875" gain_left="-55" gain_right="-55"/>
-        <band_optimizer frequency="19688" gain_left="-24" gain_right="-24"/>
+        <band_optimizer frequency="141" gain_left="-36" gain_right="-36"/>
+        <band_optimizer frequency="234" gain_left="-16" gain_right="2"/>
+        <band_optimizer frequency="328" gain_left="-44" gain_right="-10"/>
+        <band_optimizer frequency="469" gain_left="-70" gain_right="-68"/>
+        <band_optimizer frequency="656" gain_left="-60" gain_right="-74"/>
+        <band_optimizer frequency="844" gain_left="-70" gain_right="-90"/>
+        <band_optimizer frequency="1031" gain_left="-73" gain_right="-17"/>
+        <band_optimizer frequency="1313" gain_left="-44" gain_right="-44"/>
+        <band_optimizer frequency="1688" gain_left="-16" gain_right="-10"/>
+        <band_optimizer frequency="2250" gain_left="-44" gain_right="-97"/>
+        <band_optimizer frequency="3000" gain_left="-48" gain_right="-83"/>
+        <band_optimizer frequency="3750" gain_left="-143" gain_right="-178"/>
+        <band_optimizer frequency="4688" gain_left="-196" gain_right="-170"/>
+        <band_optimizer frequency="5813" gain_left="-109" gain_right="-109"/>
+        <band_optimizer frequency="7125" gain_left="-8" gain_right="-22"/>
+        <band_optimizer frequency="9000" gain_left="-4" gain_right="-20"/>
+        <band_optimizer frequency="11250" gain_left="-36" gain_right="-69"/>
+        <band_optimizer frequency="13875" gain_left="-46" gain_right="-71"/>
+        <band_optimizer frequency="19688" gain_left="-40" gain_right="-40"/>
       </audio-optimizer-bands>
       <regulator-tuning>
         <band_regulator frequency="47" threshold_low="-1152" threshold_high="-960" isolated_band="true"/>
