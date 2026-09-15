@@ -18,6 +18,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,10 +62,10 @@ fun FloatingNavToolbar(
                     bottom = FloatingToolbarDefaults.ScreenOffset
                 )
                 .shadow(
-                    elevation = 16.dp,
+                    elevation = 12.dp,
                     shape = MaterialTheme.shapes.extraLarge,
-                    ambientColor = Color.Black.copy(alpha = 0.4f),
-                    spotColor = Color.Black.copy(alpha = 0.5f)
+                    ambientColor = MaterialTheme.colorScheme.scrim,
+                    spotColor = MaterialTheme.colorScheme.scrim
                 )
         ) {
             NavToolbarItem(
@@ -148,7 +150,7 @@ private fun NavToolbarItem(
             androidx.compose.foundation.shape.CircleShape,
             androidx.compose.foundation.shape.CircleShape
         ),
-        modifier = modifier.height(56.dp)
+        modifier = modifier.height(48.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -164,6 +166,9 @@ private fun NavToolbarItem(
                 ) { isEq ->
                     if (isEq) {
                         AnimatedEqualizerIconDynamic(
+                            modifier = if (selected) Modifier else Modifier.semantics {
+                                contentDescription = label
+                            },
                             color = if (selected) onPrimaryColor else onContainerColor,
                             size = 24.dp
                         )
