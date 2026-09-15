@@ -16,7 +16,7 @@ import java.net.URL
 import java.util.zip.GZIPInputStream
 
 object AutoEqConfig {
-    const val BASE_URL = "https://raw.githubusercontent.com/aosp-pablo/dolby_profiles/main"
+    const val BASE_URL = "https://raw.githubusercontent.com/Pong-Development/DolbyProfiles/main"
     const val METADATA = "$BASE_URL/metadata.json"
     const val INDEX = "$BASE_URL/index.json.gz"
     fun profile(id: String) = "$BASE_URL/profiles/$id.json.gz"
@@ -30,7 +30,7 @@ class AutoEqDownloader(context: Context) {
     init {
         try {
             val cacheDir = File(context.cacheDir, "autoeq_http")
-            val cacheSize = 20L * 1024 * 1024 // 20 MB cache
+            val cacheSize = 20L * 1024 * 1024
             if (HttpResponseCache.getInstalled() == null) {
                 HttpResponseCache.install(cacheDir, cacheSize)
             }
