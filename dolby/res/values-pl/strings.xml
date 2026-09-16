@@ -7,6 +7,7 @@
 
     <!-- Dolby Atmos -->
     <string name="dolby_title">Dolby Atmos</string>
+    <string name="dolby_summary">Doświadcz immersyjnego dźwięku</string>
     <string name="dolby_enable">Użyj Dolby Atmos</string>
     <string name="dolby_profile_title">Wybierz profil</string>
     <string name="dolby_preset">Korektor</string>
@@ -33,12 +34,12 @@
     <string name="dolby_spk_virtualizer">Wirtualizacja dźwięku przestrzennego (głośniki)</string>
     <string name="dolby_hp_virtualizer">Wirtualizacja dźwięku przestrzennego (słuchawki)</string>
     <string name="dolby_volume_leveler">Wyrównanie głośności</string>
-    <string name="dolby_bass_enhancer_summary">Wzmacnia niskie częstotliwości, zapewniając głębszy bas</string>  
+    <string name="dolby_bass_enhancer_summary">Wzmacnia niskie częstotliwości, zapewniając głębszy bas</string>
     <string name="dolby_treble_enhancer_summary">Wzmacnia wysokie częstotliwości dla wyraźniejszych tonów wysokich</string>
-    <string name="dolby_dialogue_enhancer_summary">Poprawia wyrazistość głosu i mowy</string>  
-    <string name="dolby_spk_virtualizer_summary">Tworzy wirtualny dźwięk przestrzenny na głośnikach</string>  
-    <string name="dolby_hp_virtualizer_summary">Tworzy wirtualny dźwięk przestrzenny w słuchawkach</string>  
-    <string name="dolby_volume_leveler_summary">Wyrównuje poziom głośności dla spójnego odsłuchu</string>  
+    <string name="dolby_dialogue_enhancer_summary">Poprawia wyrazistość głosu i mowy</string>
+    <string name="dolby_spk_virtualizer_summary">Tworzy wirtualny dźwięk przestrzenny na głośnikach</string>
+    <string name="dolby_hp_virtualizer_summary">Tworzy wirtualny dźwięk przestrzenny w słuchawkach</string>
+    <string name="dolby_volume_leveler_summary">Wyrównuje poziom głośności dla spójnego odsłuchu</string>
     <string name="dolby_connect_headphones">Podłącz słuchawki</string>
     <string name="dolby_reset_all">Resetuj profile</string>
     <string name="dolby_reset_all_message">Spowoduje to przywrócenie wszystkich profili do ustawień fabrycznych.</string>
@@ -46,8 +47,6 @@
     <string name="dolby_hp_virtualizer_dolby_strength">Siła wirtualizacji przestrzennej</string>
     <string name="dolby_dialogue_enhancer_dolby_strength">Siła wzmocnienia dialogów</string>
     <string name="dolby_notification_listener_label">Usługa Dolby Atmos</string>
-    <string name="loading">Ładowanie...</string>
-    <string name="dolby_read_only">Tylko do odczytu</string>
 
     <!-- Dolby profiles -->
     <string name="dolby_profile_dynamic">Dynamiczny</string>
@@ -81,11 +80,11 @@
     <string name="dolby_preset_rb">R&amp;B</string>
     <string name="dolby_preset_vocal">Wzmocnienie wokalu</string>
     <string name="dolby_preset_custom">Niestandardowy</string>
+
+    <!-- Dolby equalizer UI -->
     <string name="equalizer">Korektor</string>
     <string name="advanced">Zaawansowane</string>
     <string name="home">Strona główna</string>
-
-    <!-- Dolby equalizer UI -->
     <string name="dolby_geq_slider_label_gain">Wzmocnienie</string>
     <string name="dolby_geq_preset">Preset</string>
     <string name="dolby_geq_preset_name">Nazwa presetu</string>
@@ -155,7 +154,7 @@
     <string name="open_settings">Otwórz ustawienia</string>
     <string name="cancel">Anuluj</string>
 
-    <!--import export -->
+    <!-- import export -->
     <string name="import_export_presets">Import/Eksport presetów</string>
     <string name="import_presets">Importuj presety</string>
     <string name="import_presets_description">Importuj presety z plików lub schowka</string>
@@ -181,4 +180,23 @@
     <string name="app_profile_conflict_toast">Wyłączono pamięć dla poszczególnych urządeń — niezgodne z profilami na aplikację</string>
     <string name="app_profile_conflict_summary">⚠ Funkcja jest wyłączona, gdy aktywne są profile poszczególnych aplikacji — powodują one konflikt</string>
     <string name="device_state_memory_section_title">Pamięć urządzenia audio</string>
+
+    <!-- Active audio output -->
+    <string name="audio_output_active_device">Aktywne wyjście audio</string>
+    <string name="audio_output_speaker">Głośnik</string>
+    <string name="audio_output_wired">Słuchawki przewodowe</string>
+    <string name="audio_output_bluetooth">Bluetooth</string>
+    <string name="audio_output_usb">Audio USB</string>
+    <string name="audio_output_unknown">Urządzenie audio</string>
+
+    <!-- AutoEQ Profile -->
+    <string name="dolby_autoeq_title">Zastosuj profil AutoEQ</string>
+    <string name="dolby_autoeq_applied">Zastosowano AutoEQ dla %1$s</string>
+    <string name="dolby_autoeq_preset_name">AutoEQ: %1$s</string>
+    <string name="dolby_autoeq_search_hint">Wyszukaj ponad 8000 profili...</string>
+    <string name="dolby_autoeq_currently_applied">Obecnie zastosowany</string>
+    <string name="dolby_autoeq_clear">Wyczyść wyszukiwanie</string>
+    <string name="dolby_autoeq_search">Szukaj</string>
+    <string name="dolby_autoeq_active">Aktywny profil</string>
+    <string name="dolby_autoeq_selected">Wybrany profil</string>
 </resources>

@@ -7,6 +7,7 @@
 
     <!-- Dolby Atmos -->
     <string name="dolby_title">Dolby Atmos</string>
+    <string name="dolby_summary">Погрузитесь в объёмный звук</string>
     <string name="dolby_enable">Включить Dolby Atmos</string>
     <string name="dolby_profile_title">Выберите звуковой профиль</string>
     <string name="dolby_preset">Эквалайзер</string>
@@ -21,29 +22,24 @@
     <string name="dolby_category_settings">Тонкая настройка</string>
     <string name="dolby_category_adv_settings">Дополнительные настройки</string>
     <string name="dolby_adv_settings_footer">Выберите другой профиль, чтобы открыть дополнительные настройки.</string>
-
     <string name="dolby_bass_enhancer">Усиление басов</string>
     <string name="dolby_bass_level">Глубина басов</string>
     <string name="dolby_bass_curve">Характер басов</string>
     <string name="dolby_bass_curve_balanced">Сбалансированный</string>
     <string name="dolby_bass_curve_sub_boost">Усиление саббаса</string>
     <string name="dolby_bass_curve_punch">Удар</string>
-
     <string name="dolby_treble_enhancer">Чёткость высоких частот</string>
     <string name="dolby_treble_level">Яркость звучания</string>
     <string name="dolby_dialogue_enhancer">Улучшение речи</string>
-
     <string name="dolby_spk_virtualizer">Объёмный звук для динамиков</string>
     <string name="dolby_hp_virtualizer">Объёмный звук для наушников</string>
     <string name="dolby_volume_leveler">Выравнивание громкости</string>
-
     <string name="dolby_bass_enhancer_summary">Добавляет глубину и насыщенность басам</string>
     <string name="dolby_treble_enhancer_summary">Делает звук ярче и детальнее</string>
     <string name="dolby_dialogue_enhancer_summary">Повышает разборчивость голосов и диалогов</string>
     <string name="dolby_spk_virtualizer_summary">Создаёт эффект объёмного звука через динамики</string>
     <string name="dolby_hp_virtualizer_summary">Создаёт эффект объёмного звука в наушниках</string>
     <string name="dolby_volume_leveler_summary">Поддерживает комфортный уровень громкости</string>
-
     <string name="dolby_connect_headphones">Подключить наушники</string>
     <string name="dolby_reset_all">Сбросить профили</string>
     <string name="dolby_reset_all_message">Все профили будут сброшены к заводским настройкам.</string>
@@ -51,7 +47,6 @@
     <string name="dolby_hp_virtualizer_dolby_strength">Интенсивность объёма</string>
     <string name="dolby_dialogue_enhancer_dolby_strength">Уровень усиления речи</string>
     <string name="dolby_notification_listener_label">Служба Dolby Atmos</string>
-    <string name="loading">Загрузка…</string>
 
     <!-- Dolby profiles -->
     <string name="dolby_profile_dynamic">Динамика</string>
@@ -85,11 +80,11 @@
     <string name="dolby_preset_rb">R&amp;B</string>
     <string name="dolby_preset_vocal">Фокус на вокале</string>
     <string name="dolby_preset_custom">Свой пресет</string>
+
+    <!-- Dolby equalizer UI -->
     <string name="equalizer">Эквалайзер</string>
     <string name="advanced">Дополнительно</string>
     <string name="home">Главная</string>
-
-    <!-- Dolby equalizer UI -->
     <string name="dolby_geq_slider_label_gain">Усиление</string>
     <string name="dolby_geq_preset">Пресет</string>
     <string name="dolby_geq_preset_name">Название пресета</string>
@@ -191,4 +186,23 @@
     <string name="app_profile_conflict_toast">Настройки по устройствам отключены — не работают вместе с профилями приложений</string>
     <string name="app_profile_conflict_summary">⚠ Недоступно, пока включены профили приложений</string>
     <string name="device_state_memory_section_title">Для разных устройств</string>
+
+    <!-- Active audio output -->
+    <string name="audio_output_active_device">Активный аудиовыход</string>
+    <string name="audio_output_speaker">Динамик</string>
+    <string name="audio_output_wired">Проводные наушники</string>
+    <string name="audio_output_bluetooth">Bluetooth</string>
+    <string name="audio_output_usb">USB-аудио</string>
+    <string name="audio_output_unknown">Аудиоустройство</string>
+
+    <!-- AutoEQ Profile -->
+    <string name="dolby_autoeq_title">Применить профиль AutoEQ</string>
+    <string name="dolby_autoeq_applied">AutoEQ применён для %1$s</string>
+    <string name="dolby_autoeq_preset_name">AutoEQ: %1$s</string>
+    <string name="dolby_autoeq_search_hint">Поиск среди 8 000+ профилей...</string>
+    <string name="dolby_autoeq_currently_applied">Применён сейчас</string>
+    <string name="dolby_autoeq_clear">Очистить поиск</string>
+    <string name="dolby_autoeq_search">Поиск</string>
+    <string name="dolby_autoeq_active">Активный профиль</string>
+    <string name="dolby_autoeq_selected">Выбранный профиль</string>
 </resources>
