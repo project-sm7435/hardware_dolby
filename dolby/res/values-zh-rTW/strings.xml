@@ -7,6 +7,7 @@
 
     <!-- Dolby Atmos -->
     <string name="dolby_title">Dolby Atmos</string>
+    <string name="dolby_summary">體驗沉浸式音效</string>
     <string name="dolby_enable">使用 Dolby Atmos</string>
     <string name="dolby_profile_title">選擇設定檔</string>
     <string name="dolby_preset">等化器</string>
@@ -33,12 +34,12 @@
     <string name="dolby_spk_virtualizer">揚聲器環繞虛擬化</string>
     <string name="dolby_hp_virtualizer">耳機環繞虛擬化</string>
     <string name="dolby_volume_leveler">音量平衡</string>
-    <string name="dolby_bass_enhancer_summary">增強低頻音訊，使低音更深沉</string>  
+    <string name="dolby_bass_enhancer_summary">增強低頻音訊，使低音更深沉</string>
     <string name="dolby_treble_enhancer_summary">增強高頻音訊，提升高音的清晰度</string>
-    <string name="dolby_dialogue_enhancer_summary">提升人聲與語音的清晰度</string>  
-    <string name="dolby_spk_virtualizer_summary">為揚聲器建立虛擬的空間環繞音效</string>  
-    <string name="dolby_hp_virtualizer_summary">為耳機建立虛擬的空間環繞音效</string>  
-    <string name="dolby_volume_leveler_summary">平衡音量以提供一致的聆聽體驗</string>  
+    <string name="dolby_dialogue_enhancer_summary">提升人聲與語音的清晰度</string>
+    <string name="dolby_spk_virtualizer_summary">為揚聲器建立虛擬的空間環繞音效</string>
+    <string name="dolby_hp_virtualizer_summary">為耳機建立虛擬的空間環繞音效</string>
+    <string name="dolby_volume_leveler_summary">平衡音量以提供一致的聆聽體驗</string>
     <string name="dolby_connect_headphones">連接耳機</string>
     <string name="dolby_reset_all">重設設定檔</string>
     <string name="dolby_reset_all_message">這會重設所有設定檔。</string>
@@ -46,7 +47,6 @@
     <string name="dolby_hp_virtualizer_dolby_strength">環繞虛擬化強度</string>
     <string name="dolby_dialogue_enhancer_dolby_strength">對話增強強度</string>
     <string name="dolby_notification_listener_label">Dolby Atmos 服務</string>
-    <string name="loading">載入中...</string>
 
     <!-- Dolby profiles -->
     <string name="dolby_profile_dynamic">動態</string>
@@ -80,11 +80,11 @@
     <string name="dolby_preset_rb">R&amp;B</string>
     <string name="dolby_preset_vocal">人聲增強</string>
     <string name="dolby_preset_custom">自訂</string>
+
+    <!-- Dolby equalizer UI -->
     <string name="equalizer">等化器</string>
     <string name="advanced">進階</string>
     <string name="home">首頁</string>
-
-    <!-- Dolby equalizer UI -->
     <string name="dolby_geq_slider_label_gain">增益</string>
     <string name="dolby_geq_preset">預設值</string>
     <string name="dolby_geq_preset_name">預設值名稱</string>
@@ -154,7 +154,7 @@
     <string name="open_settings">開啟設定</string>
     <string name="cancel">取消</string>
 
-    <!--import export -->
+    <!-- import export -->
     <string name="import_export_presets">匯入/匯出預設值</string>
     <string name="import_presets">匯入預設值</string>
     <string name="import_presets_description">從檔案或剪貼簿匯入預設值</string>
@@ -171,4 +171,32 @@
     <string name="dolby_mid_enhancer">中音增強</string>
     <string name="dolby_mid_level">中音等級</string>
     <string name="dolby_mid_enhancer_summary">增強中頻音訊，提升人聲與樂器的清晰度</string>
+
+    <!-- Per-device state memory -->
+    <string name="device_state_memory_title">每裝置音訊記憶</string>
+    <string name="device_state_memory_summary">記住每個音訊裝置的 Dolby 設定（耳機、喇叭、藍牙）</string>
+    <string name="device_state_memory_conflict_toast">每應用程式設定檔已停用 — 與每裝置記憶不相容</string>
+    <string name="device_state_memory_conflict_summary">⚠ 每裝置記憶啟用時已停用 — 兩者互相衝突</string>
+    <string name="app_profile_conflict_toast">每裝置記憶已停用 — 與每應用程式設定檔不相容</string>
+    <string name="app_profile_conflict_summary">⚠ 每應用程式設定檔啟用時已停用 — 兩者互相衝突</string>
+    <string name="device_state_memory_section_title">音訊裝置記憶</string>
+
+    <!-- Active audio output -->
+    <string name="audio_output_active_device">目前音訊輸出</string>
+    <string name="audio_output_speaker">喇叭</string>
+    <string name="audio_output_wired">有線耳機</string>
+    <string name="audio_output_bluetooth">藍牙</string>
+    <string name="audio_output_usb">USB 音訊</string>
+    <string name="audio_output_unknown">音訊裝置</string>
+
+    <!-- AutoEQ Profile -->
+    <string name="dolby_autoeq_title">套用 AutoEQ 設定檔</string>
+    <string name="dolby_autoeq_applied">已為 %1$s 套用 AutoEQ</string>
+    <string name="dolby_autoeq_preset_name">AutoEQ：%1$s</string>
+    <string name="dolby_autoeq_search_hint">搜尋 8,000+ 個設定檔...</string>
+    <string name="dolby_autoeq_currently_applied">目前已套用</string>
+    <string name="dolby_autoeq_clear">清除搜尋</string>
+    <string name="dolby_autoeq_search">搜尋</string>
+    <string name="dolby_autoeq_active">啟用中的設定檔</string>
+    <string name="dolby_autoeq_selected">已選取的設定檔</string>
 </resources>

@@ -7,6 +7,7 @@
 
     <!-- Dolby Atmos -->
     <string name="dolby_title">Dolby Atmos</string>
+    <string name="dolby_summary">Experimente um áudio imersivo</string>
     <string name="dolby_enable">Usar Dolby Atmos</string>
     <string name="dolby_profile_title">Escolha um perfil</string>
     <string name="dolby_preset">Equalizador</string>
@@ -33,12 +34,12 @@
     <string name="dolby_spk_virtualizer">Virtualizador surround para alto-falantes</string>
     <string name="dolby_hp_virtualizer">Virtualizador surround para fones</string>
     <string name="dolby_volume_leveler">Nivelador de volume</string>
-    <string name="dolby_bass_enhancer_summary">Realça sons de baixa frequência para graves mais profundos</string>  
+    <string name="dolby_bass_enhancer_summary">Realça sons de baixa frequência para graves mais profundos</string>
     <string name="dolby_treble_enhancer_summary">Realça sons de alta frequência para agudos mais claros</string>
-    <string name="dolby_dialogue_enhancer_summary">Melhora a clareza de vozes e diálogos</string>  
-    <string name="dolby_spk_virtualizer_summary">Cria som surround virtual nos alto-falantes</string>  
-    <string name="dolby_hp_virtualizer_summary">Cria som surround virtual nos fones de ouvido</string>  
-    <string name="dolby_volume_leveler_summary">Equilibra o volume para uma experiência auditiva consistente</string>  
+    <string name="dolby_dialogue_enhancer_summary">Melhora a clareza de vozes e diálogos</string>
+    <string name="dolby_spk_virtualizer_summary">Cria som surround virtual nos alto-falantes</string>
+    <string name="dolby_hp_virtualizer_summary">Cria som surround virtual nos fones de ouvido</string>
+    <string name="dolby_volume_leveler_summary">Equilibra o volume para uma experiência auditiva consistente</string>
     <string name="dolby_connect_headphones">Conecte fones de ouvido</string>
     <string name="dolby_reset_all">Redefinir perfis</string>
     <string name="dolby_reset_all_message">Isso redefinirá todos os perfis para os padrões de fábrica.</string>
@@ -46,7 +47,6 @@
     <string name="dolby_hp_virtualizer_dolby_strength">Intensidade do virtualizador surround</string>
     <string name="dolby_dialogue_enhancer_dolby_strength">Intensidade do realçador de diálogo</string>
     <string name="dolby_notification_listener_label">Serviço Dolby Atmos</string>
-    <string name="loading">Carregando...</string>
 
     <!-- Dolby profiles -->
     <string name="dolby_profile_dynamic">Dinâmico</string>
@@ -80,11 +80,11 @@
     <string name="dolby_preset_rb">R&amp;B</string>
     <string name="dolby_preset_vocal">Reforço vocal</string>
     <string name="dolby_preset_custom">Personalizado</string>
+
+    <!-- Dolby equalizer UI -->
     <string name="equalizer">Equalizador</string>
     <string name="advanced">Avançado</string>
     <string name="home">Início</string>
-
-    <!-- Dolby equalizer UI -->
     <string name="dolby_geq_slider_label_gain">Ganho</string>
     <string name="dolby_geq_preset">Predefinição</string>
     <string name="dolby_geq_preset_name">Nome da predefinição</string>
@@ -154,7 +154,7 @@
     <string name="open_settings">Abrir configurações</string>
     <string name="cancel">Cancelar</string>
 
-    <!--import export -->
+    <!-- import export -->
     <string name="import_export_presets">Importar/Exportar predefinições</string>
     <string name="import_presets">Importar predefinições</string>
     <string name="import_presets_description">Importe predefinições de arquivos ou da área de transferência</string>
@@ -166,4 +166,37 @@
     <string name="batch_export">Exportação em lote</string>
     <string name="batch_export_description">Exportar todas as %1$s predefinições personalizadas para um único arquivo?</string>
     <string name="export_all">Exportar tudo</string>
+
+    <!-- Dolby mid enhancer -->
+    <string name="dolby_mid_enhancer">Realçador de médios</string>
+    <string name="dolby_mid_level">Nível de médios</string>
+    <string name="dolby_mid_enhancer_summary">Realça as frequências médias para vozes e instrumentos mais nítidos</string>
+
+    <!-- Per-device state memory -->
+    <string name="device_state_memory_title">Memória de áudio por dispositivo</string>
+    <string name="device_state_memory_summary">Lembrar configurações do Dolby para cada dispositivo de áudio (fones, alto-falantes, Bluetooth)</string>
+    <string name="device_state_memory_conflict_toast">Perfis por aplicativo desativados — incompatíveis com a memória por dispositivo</string>
+    <string name="device_state_memory_conflict_summary">⚠ Desativado enquanto a memória por dispositivo estiver ativa — eles entram em conflito</string>
+    <string name="app_profile_conflict_toast">Memória por dispositivo desativada — incompatível com perfis por aplicativo</string>
+    <string name="app_profile_conflict_summary">⚠ Desativado enquanto os perfis por aplicativo estiverem ativos — eles entram em conflito</string>
+    <string name="device_state_memory_section_title">Memória de dispositivos de áudio</string>
+
+    <!-- Active audio output -->
+    <string name="audio_output_active_device">Saída de áudio ativa</string>
+    <string name="audio_output_speaker">Alto-falante</string>
+    <string name="audio_output_wired">Fones com fio</string>
+    <string name="audio_output_bluetooth">Bluetooth</string>
+    <string name="audio_output_usb">Áudio USB</string>
+    <string name="audio_output_unknown">Dispositivo de áudio</string>
+
+    <!-- AutoEQ Profile -->
+    <string name="dolby_autoeq_title">Aplicar perfil AutoEQ</string>
+    <string name="dolby_autoeq_applied">AutoEQ aplicado para %1$s</string>
+    <string name="dolby_autoeq_preset_name">AutoEQ: %1$s</string>
+    <string name="dolby_autoeq_search_hint">Pesquisar mais de 8.000 perfis...</string>
+    <string name="dolby_autoeq_currently_applied">Atualmente aplicado</string>
+    <string name="dolby_autoeq_clear">Limpar pesquisa</string>
+    <string name="dolby_autoeq_search">Pesquisar</string>
+    <string name="dolby_autoeq_active">Perfil ativo</string>
+    <string name="dolby_autoeq_selected">Perfil selecionado</string>
 </resources>
