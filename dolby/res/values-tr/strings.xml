@@ -7,6 +7,7 @@
 
     <!-- Dolby Atmos -->
     <string name="dolby_title">Dolby Atmos</string>
+    <string name="dolby_summary">Sürükleyici ses deneyimini yaşayın</string>
     <string name="dolby_enable">Dolby Atmos\'u aktif et</string>
     <string name="dolby_profile_title">Profil Seç</string>
     <string name="dolby_preset">Ekolayzer</string>
@@ -33,12 +34,12 @@
     <string name="dolby_spk_virtualizer">Hoparlör Çevresel sesleri</string>
     <string name="dolby_hp_virtualizer">Kulaklık çevresel sesleri</string>
     <string name="dolby_volume_leveler">Ses düzeyi dengeleyici</string>
-    <string name="dolby_bass_enhancer_summary">Derin baslar için düşük frekansların seviyesini artırır</string>  
+    <string name="dolby_bass_enhancer_summary">Derin baslar için düşük frekansların seviyesini artırır</string>
     <string name="dolby_treble_enhancer_summary">Belirgin tiz sesler için yüksek frekansların seviyesini artırır</string>
-    <string name="dolby_dialogue_enhancer_summary">Dış vokal seslerin ve konuşmaların netliğini iyileştirir</string>  
-    <string name="dolby_spk_virtualizer_summary">Hoparlör çıkışı için çevresel ses filtresi oluşturur</string>  
-    <string name="dolby_hp_virtualizer_summary">Kulaklık çıkışı için çevresel ses filtresi oluşturur</string>  
-    <string name="dolby_volume_leveler_summary">Ses seviyesini eşitleyerek kesintisiz ve dolgun bir dinleme deneyimi sağlar</string>  
+    <string name="dolby_dialogue_enhancer_summary">Dış vokal seslerin ve konuşmaların netliğini iyileştirir</string>
+    <string name="dolby_spk_virtualizer_summary">Hoparlör çıkışı için çevresel ses filtresi oluşturur</string>
+    <string name="dolby_hp_virtualizer_summary">Kulaklık çıkışı için çevresel ses filtresi oluşturur</string>
+    <string name="dolby_volume_leveler_summary">Ses seviyesini eşitleyerek kesintisiz ve dolgun bir dinleme deneyimi sağlar</string>
     <string name="dolby_connect_headphones">Kulaklık bağla</string>
     <string name="dolby_reset_all">Profilleri sıfırla</string>
     <string name="dolby_reset_all_message">Bu seçenek bütün profilleri fabrika ayarlarına döndürür.</string>
@@ -46,7 +47,6 @@
     <string name="dolby_hp_virtualizer_dolby_strength">Çevresel ses gücü</string>
     <string name="dolby_dialogue_enhancer_dolby_strength">Diyalog artırıcı şiddeti</string>
     <string name="dolby_notification_listener_label">Dolby Atmos Servisi</string>
-    <string name="loading">Loading...</string>
 
     <!-- Dolby profiles -->
     <string name="dolby_profile_dynamic">Dinamik</string>
@@ -80,11 +80,11 @@
     <string name="dolby_preset_rb">R&amp;B</string>
     <string name="dolby_preset_vocal">Vokal ses güçlendirici</string>
     <string name="dolby_preset_custom">Diğer</string>
+
+    <!-- Dolby equalizer UI -->
     <string name="equalizer">Ekolayzer</string>
     <string name="advanced">Gelişmiş</string>
     <string name="home">Ana menü</string>
-
-    <!-- Dolby equalizer UI -->
     <string name="dolby_geq_slider_label_gain">Seviye</string>
     <string name="dolby_geq_preset">Ön ayar</string>
     <string name="dolby_geq_preset_name">Ön ayar ismi</string>
@@ -154,7 +154,7 @@
     <string name="open_settings">Ayarları aç</string>
     <string name="cancel">İptal et</string>
 
-    <!--import export -->
+    <!-- import export -->
     <string name="import_export_presets">İçeri/Dışarı aktar</string>
     <string name="import_presets">İçeri aktar</string>
     <string name="import_presets_description">Ön ayarları dosya veya pano ile içeri aktar</string>
@@ -180,4 +180,23 @@
     <string name="app_profile_conflict_toast">Cihaz bellek özelliği devre dışı — Uygulama profilleriyle ile uyumsuz.</string>
     <string name="app_profile_conflict_summary">⚠ Uygulama profilleri etkinken kullanılamaz.</string>
     <string name="device_state_memory_section_title">Ses Cihazları Belleği</string>
+
+    <!-- Active audio output -->
+    <string name="audio_output_active_device">Etkin ses çıkışı</string>
+    <string name="audio_output_speaker">Hoparlör</string>
+    <string name="audio_output_wired">Kablolu kulaklık</string>
+    <string name="audio_output_bluetooth">Bluetooth</string>
+    <string name="audio_output_usb">USB sesi</string>
+    <string name="audio_output_unknown">Ses cihazı</string>
+
+    <!-- AutoEQ Profile -->
+    <string name="dolby_autoeq_title">AutoEQ Profilini Uygula</string>
+    <string name="dolby_autoeq_applied">%1$s için AutoEQ uygulandı</string>
+    <string name="dolby_autoeq_preset_name">AutoEQ: %1$s</string>
+    <string name="dolby_autoeq_search_hint">8.000+ profil ara...</string>
+    <string name="dolby_autoeq_currently_applied">Şu anda uygulanıyor</string>
+    <string name="dolby_autoeq_clear">Aramayı temizle</string>
+    <string name="dolby_autoeq_search">Ara</string>
+    <string name="dolby_autoeq_active">Etkin profil</string>
+    <string name="dolby_autoeq_selected">Seçili profil</string>
 </resources>
