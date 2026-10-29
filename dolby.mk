@@ -153,6 +153,7 @@ PRODUCT_PACKAGES += \
     c2.dolby.hevc.sec.dec \
     c2.dolby.store \
     libdolbyottcameracontrol \
+    liboem_specific \
     libdolbyvision \
     dolbycodec2
 
