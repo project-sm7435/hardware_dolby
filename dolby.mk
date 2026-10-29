@@ -154,6 +154,7 @@ PRODUCT_PACKAGES += \
     c2.dolby.store \
     libdolbyottcameracontrol \
     liboem_specific \
+    libswspatializer_ext \
     libdolbyvision \
     dolbycodec2
 
