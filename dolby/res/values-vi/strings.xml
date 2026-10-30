@@ -5,6 +5,13 @@
 -->
 <resources>
 
+    <!-- Expressive UI -->
+    <string name="dolby_credits">Ghi công</string>
+    <string name="dolby_more_options">Tùy chọn khác</string>
+    <string name="dolby_save_preset">Lưu cài đặt sẵn</string>
+    <string name="dolby_equalizer_summary">Tinh chỉnh âm thanh theo từng tần số</string>
+    <string name="dolby_advanced_summary">Tinh chỉnh chi tiết trải nghiệm nghe của bạn</string>
+
     <!-- Dolby Atmos -->
     <string name="dolby_title">Dolby Atmos</string>
     <string name="dolby_summary">Trải nghiệm âm thanh sống động</string>
@@ -34,12 +41,12 @@
     <string name="dolby_spk_virtualizer">Âm thanh vòm ảo cho loa</string>
     <string name="dolby_hp_virtualizer">Âm thanh vòm ảo cho tai nghe</string>
     <string name="dolby_volume_leveler">Cân bằng âm lượng</string>
-    <string name="dolby_bass_enhancer_summary">Tăng cường âm thanh tần số thấp để tạo âm trầm sâu hơn</string>
+    <string name="dolby_bass_enhancer_summary">Tăng cường âm thanh tần số thấp để tạo âm trầm sâu hơn</string>  
     <string name="dolby_treble_enhancer_summary">Tăng cường âm thanh tần số cao để âm cao rõ nét hơn</string>
-    <string name="dolby_dialogue_enhancer_summary">Cải thiện độ rõ của giọng nói và hội thoại</string>
-    <string name="dolby_spk_virtualizer_summary">Tạo hiệu ứng âm thanh vòm ảo trên loa</string>
-    <string name="dolby_hp_virtualizer_summary">Tạo hiệu ứng âm thanh vòm ảo trên tai nghe</string>
-    <string name="dolby_volume_leveler_summary">Cân bằng âm lượng để mang lại trải nghiệm nghe ổn định</string>
+    <string name="dolby_dialogue_enhancer_summary">Cải thiện độ rõ của giọng nói và hội thoại</string>  
+    <string name="dolby_spk_virtualizer_summary">Tạo hiệu ứng âm thanh vòm ảo trên loa</string>  
+    <string name="dolby_hp_virtualizer_summary">Tạo hiệu ứng âm thanh vòm ảo trên tai nghe</string>  
+    <string name="dolby_volume_leveler_summary">Cân bằng âm lượng để mang lại trải nghiệm nghe ổn định</string>  
     <string name="dolby_connect_headphones">Kết nối tai nghe</string>
     <string name="dolby_reset_all">Đặt lại cấu hình</string>
     <string name="dolby_reset_all_message">Thao tác này sẽ đặt lại tất cả cấu hình về mặc định ban đầu.</string>
@@ -51,6 +58,7 @@
 
     <!-- Dolby profiles -->
     <string name="dolby_profile_dynamic">Năng động</string>
+    <string name="dolby_profile_dynamic_summary">Tự động thích ứng với âm thanh của bạn</string>
     <string name="dolby_profile_video">Phim/Video</string>
     <string name="dolby_profile_music">Âm nhạc</string>
     <string name="dolby_profile_game">Trò chơi</string>
@@ -117,6 +125,10 @@
     <string name="dolby_balanced">Cân bằng</string>
     <string name="dolby_warm">Ấm</string>
     <string name="dolby_detailed">Chi tiết</string>
+    <string name="dolby_ieq_off_summary">Dùng cấu hình hiện tại mà không có bộ cân bằng thông minh.</string>
+    <string name="dolby_ieq_detailed_summary">Làm nổi bật chi tiết tinh tế và độ rõ nét.</string>
+    <string name="dolby_ieq_balanced_summary">Giữ cân bằng giữa âm trầm, âm trung và âm cao.</string>
+    <string name="dolby_ieq_warm_summary">Mang đến âm thanh mềm mại và ấm áp hơn.</string>
 
     <!-- Per-App Audio Profiles -->
     <string name="app_profiles_title">Cấu hình âm thanh theo ứng dụng</string>
@@ -201,5 +213,4 @@
     <string name="dolby_autoeq_search">Tìm kiếm</string>
     <string name="dolby_autoeq_active">Cấu hình đang hoạt động</string>
     <string name="dolby_autoeq_selected">Cấu hình đã chọn</string>
-
 </resources>

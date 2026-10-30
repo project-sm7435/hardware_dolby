@@ -5,8 +5,16 @@
 -->
 <resources>
 
+    <!-- Expressive UI -->
+    <string name="dolby_credits">Autorzy</string>
+    <string name="dolby_more_options">Więcej opcji</string>
+    <string name="dolby_save_preset">Zapisz preset</string>
+    <string name="dolby_equalizer_summary">Kształtuj dźwięk, częstotliwość po częstotliwości</string>
+    <string name="dolby_advanced_summary">Dopracuj szczegóły swoich wrażeń odsłuchowych</string>
+
     <!-- Dolby Atmos -->
     <string name="dolby_title">Dolby Atmos</string>
+    <string name="dolby_summary">Poczuj dźwięk przestrzenny</string>
     <string name="dolby_enable">Użyj Dolby Atmos</string>
     <string name="dolby_profile_title">Wybierz profil</string>
     <string name="dolby_preset">Korektor</string>
@@ -47,10 +55,10 @@
     <string name="dolby_dialogue_enhancer_dolby_strength">Siła wzmocnienia dialogów</string>
     <string name="dolby_notification_listener_label">Usługa Dolby Atmos</string>
     <string name="loading">Ładowanie...</string>
-    <string name="dolby_read_only">Tylko do odczytu</string>
 
     <!-- Dolby profiles -->
     <string name="dolby_profile_dynamic">Dynamiczny</string>
+    <string name="dolby_profile_dynamic_summary">Automatycznie dostosowuje się do odtwarzanego dźwięku</string>
     <string name="dolby_profile_video">Film/Wideo</string>
     <string name="dolby_profile_music">Muzyka</string>
     <string name="dolby_profile_game">Gra</string>
@@ -102,12 +110,25 @@
     <string name="locked">Zablokowane</string>
     <string name="band_configuration">Konfiguracja pasm</string>
     <string name="choose_equalizer_precision">Wybierz precyzję korektora: więcej pasm = dokładniejsza kontrola</string>
+    <string name="band_tuner">Dostrajanie pasm</string>
+    <string name="band_tuner_desc">Przechodź między pasmami i dostrajaj wzmocnienie co 0,1 dB</string>
+    <string name="band_tuner_position">Pasmo %1$d z %2$d</string>
+    <string name="band_tuner_label">Pasmo %1$d · %2$s</string>
+    <string name="band_tuner_previous">Poprzednie pasmo</string>
+    <string name="band_tuner_next">Następne pasmo</string>
+    <string name="band_tuner_decrement">−0.1 dB</string>
+    <string name="band_tuner_reset">0 dB</string>
+    <string name="band_tuner_increment">+0.1 dB</string>
 
     <!-- Dolby intelligent EQ -->
     <string name="dolby_ieq">Inteligentny korektor</string>
     <string name="dolby_balanced">Zrównoważony</string>
     <string name="dolby_warm">Ciepły</string>
     <string name="dolby_detailed">Szczegółowy</string>
+    <string name="dolby_ieq_off_summary">Użyj bieżącego profilu bez inteligentnego korektora.</string>
+    <string name="dolby_ieq_detailed_summary">Wydobądź subtelne szczegóły i klarowność.</string>
+    <string name="dolby_ieq_balanced_summary">Zachowaj równowagę niskich, średnich i wysokich tonów.</string>
+    <string name="dolby_ieq_warm_summary">Nadaj dźwiękowi łagodniejszy, cieplejszy charakter.</string>
 
     <!-- Per-App Audio Profiles -->
     <string name="app_profiles_title">Profile dźwięku dla aplikacji</string>
@@ -181,4 +202,15 @@
     <string name="app_profile_conflict_toast">Wyłączono pamięć dla poszczególnych urządeń — niezgodne z profilami na aplikację</string>
     <string name="app_profile_conflict_summary">⚠ Funkcja jest wyłączona, gdy aktywne są profile poszczególnych aplikacji — powodują one konflikt</string>
     <string name="device_state_memory_section_title">Pamięć urządzenia audio</string>
+
+    <!-- AutoEQ Profile -->
+    <string name="dolby_autoeq_title">Zastosuj profil AutoEQ</string>
+    <string name="dolby_autoeq_applied">Zastosowano AutoEQ dla %1$s</string>
+    <string name="dolby_autoeq_preset_name">AutoEQ: %1$s</string>
+    <string name="dolby_autoeq_search_hint">Szukaj wśród ponad 8000 profili...</string>
+    <string name="dolby_autoeq_currently_applied">Aktualnie zastosowany</string>
+    <string name="dolby_autoeq_clear">Wyczyść wyszukiwanie</string>
+    <string name="dolby_autoeq_search">Szukaj</string>
+    <string name="dolby_autoeq_active">Aktywny profil</string>
+    <string name="dolby_autoeq_selected">Wybrany profil</string>
 </resources>
