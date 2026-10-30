@@ -27,12 +27,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     private val defaultPrefs = context.getSharedPreferences("dolby_prefs", Context.MODE_PRIVATE)
     private val presetsPrefs = context.getSharedPreferences(DolbyConstants.PREF_FILE_PRESETS, Context.MODE_PRIVATE)
     
-    private val deviceStateManager = DeviceStateManager(context)
-
-    private val _activeAudioDevice = MutableStateFlow(resolveActiveAudioDevice())
-    val activeAudioDevice: StateFlow<ActiveAudioDevice> = _activeAudioDevice.asStateFlow()
-
-    private val _isOnSpeaker = MutableStateFlow(_activeAudioDevice.value.isOnSpeaker)
+    private val _isOnSpeaker = MutableStateFlow(checkIsOnSpeaker())
     val isOnSpeaker: StateFlow<Boolean> = _isOnSpeaker.asStateFlow()
     
     private val _currentProfile = MutableStateFlow(0)
@@ -134,44 +129,19 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
     }
 
-    fun getCurrentOutputDevice(): AudioDeviceInfo? {
-        val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-        for (type in OUTPUT_DEVICE_PRIORITY) {
-            val device = devices.firstOrNull { it.type == type }
-            if (device != null) return device
-        }
-        return devices.firstOrNull()
-    }
-
-    private fun resolveActiveAudioDevice(): ActiveAudioDevice {
-        val device = getCurrentOutputDevice() ?: return ActiveAudioDevice.Unknown
-        return ActiveAudioDevice(
-            name = deviceStateManager.deviceDisplayName(device),
-            category = device.toAudioCategory()
-        )
-    }
-
-    private fun AudioDeviceInfo.toAudioCategory(): AudioDeviceCategory {
-        return when (type) {
-            AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> AudioDeviceCategory.SPEAKER
-            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
-            AudioDeviceInfo.TYPE_WIRED_HEADSET -> AudioDeviceCategory.WIRED
-            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
-            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
-            AudioDeviceInfo.TYPE_BLE_HEADSET,
-            AudioDeviceInfo.TYPE_BLE_SPEAKER,
-            AudioDeviceInfo.TYPE_BLE_BROADCAST -> AudioDeviceCategory.BLUETOOTH
-            AudioDeviceInfo.TYPE_USB_HEADSET,
-            AudioDeviceInfo.TYPE_USB_DEVICE -> AudioDeviceCategory.USB
-            else -> AudioDeviceCategory.OTHER
+    private fun checkIsOnSpeaker(): Boolean {
+        return try {
+            val device = audioManager.getDevicesForAttributes(ATTRIBUTES_MEDIA)[0]
+            device.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Error checking speaker state: ${e.message}")
+            false
         }
     }
 
     fun updateSpeakerState() {
         if (!isReleased) {
-            val activeDevice = resolveActiveAudioDevice()
-            _activeAudioDevice.value = activeDevice
-            _isOnSpeaker.value = activeDevice.isOnSpeaker
+            _isOnSpeaker.value = checkIsOnSpeaker()
         }
     }
 
@@ -539,14 +509,8 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
 
     fun getStereoWideningAmount(profile: Int): Int {
         if (!stereoWideningSupported) return 0
-        val prefs = getProfilePrefs(profile)
-        if (prefs.contains(DolbyConstants.PREF_STEREO_WIDENING)) {
-            return prefs.getInt(DolbyConstants.PREF_STEREO_WIDENING, 32)
-        }
         return try {
-            val amount = dolbyEffect.getDapParameterInt(DsParam.STEREO_WIDENING_AMOUNT, profile)
-            prefs.edit().putInt(DolbyConstants.PREF_STEREO_WIDENING, amount).apply()
-            amount
+            dolbyEffect.getDapParameterInt(DsParam.STEREO_WIDENING_AMOUNT, profile)
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error getting stereo widening: ${e.message}")
             32
@@ -948,19 +912,6 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     companion object {
         private const val TAG = "DolbyRepository"
         private const val EFFECT_PRIORITY = 100
-
-        private val OUTPUT_DEVICE_PRIORITY = listOf(
-            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
-            AudioDeviceInfo.TYPE_BLE_HEADSET,
-            AudioDeviceInfo.TYPE_BLE_SPEAKER,
-            AudioDeviceInfo.TYPE_BLE_BROADCAST,
-            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
-            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
-            AudioDeviceInfo.TYPE_WIRED_HEADSET,
-            AudioDeviceInfo.TYPE_USB_HEADSET,
-            AudioDeviceInfo.TYPE_USB_DEVICE,
-            AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
-        )
         
         private const val BASS_GAIN_MULTIPLIER = 1.7f
         private const val MID_GAIN_MULTIPLIER = 1.3f
@@ -985,8 +936,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         
         private val FIFTEEN_BAND_INDICES = listOf(0, 1, 2, 3, 4, 5, 6, 8, 11, 12, 14, 15, 17, 18, 19)
         
-                private val BASS_CURVES = listOf(
-            // Curve 0: ViPER Natural Bass (2nd-order Butterworth simulation)
+        private val BASS_CURVES = listOf(
             floatArrayOf(
                 1.15f, 1.10f, 0.85f, 0.50f, 0.20f, 0.05f, 0.00f, 0.00f, 0.00f, 0.00f,
                 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f
@@ -1002,7 +952,5 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
                 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f
             )
         )
-
     }
 }
-        

@@ -26,23 +26,23 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: StateFlow<DolbyUiState> = _uiState.asStateFlow()
     val currentProfile: StateFlow<Int> = repository.currentProfile
     
-    private var audioOutputStateJob: Job? = null
+    private var speakerStateJob: Job? = null
     private var profileChangeJob: Job? = null
     @Volatile private var isCleared = false
 
     init {
         DolbyConstants.dlog(TAG, "ViewModel initialized")
         loadSettings()
-        observeAudioOutputState()
+        observeSpeakerState()
         observeProfileChanges()
     }
     
-    private fun observeAudioOutputState() {
-        audioOutputStateJob?.cancel()
-        audioOutputStateJob = viewModelScope.launch {
-            repository.activeAudioDevice.collect {
+    private fun observeSpeakerState() {
+        speakerStateJob?.cancel()
+        speakerStateJob = viewModelScope.launch {
+            repository.isOnSpeaker.collect { 
                 if (!isCleared) {
-                    DolbyConstants.dlog(TAG, "Audio output changed: ${it.name} (${it.category})")
+                    DolbyConstants.dlog(TAG, "Speaker state changed: $it")
                     loadSettings()
                 }
             }
@@ -100,8 +100,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                         settings = settings,
                         profileSettings = profileSettings,
                         currentPresetName = repository.getPresetName(profile),
-                        isOnSpeaker = repository.isOnSpeaker.value,
-                        activeAudioDevice = repository.activeAudioDevice.value
+                        isOnSpeaker = repository.isOnSpeaker.value
                     )
                 }
             } catch (e: Exception) {
@@ -318,8 +317,8 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         DolbyConstants.dlog(TAG, "ViewModel onCleared")
         isCleared = true
         viewModelScope.coroutineContext.cancelChildren()
-        audioOutputStateJob?.cancel()
-        audioOutputStateJob = null
+        speakerStateJob?.cancel()
+        speakerStateJob = null
         profileChangeJob?.cancel()
         profileChangeJob = null
         repository.close()
