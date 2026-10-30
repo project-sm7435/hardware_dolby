@@ -5,8 +5,16 @@
 -->
 <resources>
 
+    <!-- Expressive UI -->
+    <string name="dolby_credits">سازندگان</string>
+    <string name="dolby_more_options">گزینه‌های بیشتر</string>
+    <string name="dolby_save_preset">ذخیره پیش‌تنظیم</string>
+    <string name="dolby_equalizer_summary">صدای خود را فرکانس به فرکانس شکل دهید</string>
+    <string name="dolby_advanced_summary">جزئیات تجربه شنیداری خود را دقیق تنظیم کنید</string>
+
     <!-- Dolby Atmos -->
     <string name="dolby_title">دالبی اتموس</string>
+    <string name="dolby_summary">صدای فراگیر را تجربه کنید</string>
     <string name="dolby_enable">استفاده از دالبی اتموس</string>
     <string name="dolby_profile_title">یک پروفایل انتخاب کنید</string>
     <string name="dolby_preset">اکولایزر</string>
@@ -33,12 +41,12 @@
     <string name="dolby_spk_virtualizer">شبیه‌ساز صدای فراگیر بلندگو</string>
     <string name="dolby_hp_virtualizer">شبیه‌ساز صدای فراگیر هدفون</string>
     <string name="dolby_volume_leveler">تراز کننده صدا</string>
-    <string name="dolby_bass_enhancer_summary">صداهای فرکانس پایین را برای بیس عمیق‌تر تقویت می‌کند</string>
+    <string name="dolby_bass_enhancer_summary">صداهای فرکانس پایین را برای بیس عمیق‌تر تقویت می‌کند</string>  
     <string name="dolby_treble_enhancer_summary">صداهای فرکانس بالا را برای تربل واضح‌تر تقویت می‌کند</string>
-    <string name="dolby_dialogue_enhancer_summary">وضوح صدا و گفتار را بهبود می‌بخشد</string>
-    <string name="dolby_spk_virtualizer_summary">صدای فراگیر مجازی روی بلندگوها ایجاد می‌کند</string>
-    <string name="dolby_hp_virtualizer_summary">صدای فراگیر مجازی روی هدفون‌ها ایجاد می‌کند</string>
-    <string name="dolby_volume_leveler_summary">صدا را برای تجربه شنیداری یکنواخت متعادل می‌کند</string>
+    <string name="dolby_dialogue_enhancer_summary">وضوح صدا و گفتار را بهبود می‌بخشد</string>  
+    <string name="dolby_spk_virtualizer_summary">صدای فراگیر مجازی روی بلندگوها ایجاد می‌کند</string>  
+    <string name="dolby_hp_virtualizer_summary">صدای فراگیر مجازی روی هدفون‌ها ایجاد می‌کند</string>  
+    <string name="dolby_volume_leveler_summary">صدا را برای تجربه شنیداری یکنواخت متعادل می‌کند</string>  
     <string name="dolby_connect_headphones">اتصال هدفون</string>
     <string name="dolby_reset_all">بازنشانی پروفایل‌ها</string>
     <string name="dolby_reset_all_message">این کار همه پروفایل‌ها را به تنظیمات کارخانه بازمی‌گرداند.</string>
@@ -50,6 +58,7 @@
 
     <!-- Dolby profiles -->
     <string name="dolby_profile_dynamic">پویا</string>
+    <string name="dolby_profile_dynamic_summary">به‌طور خودکار با صدای شما سازگار می‌شود</string>
     <string name="dolby_profile_video">فیلم/ویدیو</string>
     <string name="dolby_profile_music">موسیقی</string>
     <string name="dolby_profile_game">بازی</string>
@@ -101,12 +110,25 @@
     <string name="locked">قفل شده</string>
     <string name="band_configuration">پیکربندی باند</string>
     <string name="choose_equalizer_precision">دقت اکولایزر را انتخاب کنید: باندهای بیشتر = کنترل دقیق‌تر</string>
+    <string name="band_tuner">تنظیم باند</string>
+    <string name="band_tuner_desc">باندها را یکی‌یکی مرور کنید و افزایش را با گام‌های ۰٫۱ دسی‌بل دقیق تنظیم کنید</string>
+    <string name="band_tuner_position">باند %1$d از %2$d</string>
+    <string name="band_tuner_label">باند %1$d · %2$s</string>
+    <string name="band_tuner_previous">باند قبلی</string>
+    <string name="band_tuner_next">باند بعدی</string>
+    <string name="band_tuner_decrement">−0.1 dB</string>
+    <string name="band_tuner_reset">0 dB</string>
+    <string name="band_tuner_increment">+0.1 dB</string>
 
     <!-- Dolby intelligent EQ -->
     <string name="dolby_ieq">اکولایزر هوشمند</string>
     <string name="dolby_balanced">متعادل</string>
     <string name="dolby_warm">گرم</string>
     <string name="dolby_detailed">دقیق</string>
+    <string name="dolby_ieq_off_summary">از پروفایل فعلی بدون اکولایزر هوشمند استفاده کنید.</string>
+    <string name="dolby_ieq_detailed_summary">جزئیات ظریف و وضوح صدا را برجسته کنید.</string>
+    <string name="dolby_ieq_balanced_summary">بیس، میانه و تربل را متعادل نگه دارید.</string>
+    <string name="dolby_ieq_warm_summary">به صدای خود حالتی نرم‌تر و گرم‌تر بدهید.</string>
 
     <!-- Per-App Audio Profiles -->
     <string name="app_profiles_title">پروفایل‌های صوتی هر برنامه</string>
@@ -180,14 +202,6 @@
     <string name="app_profile_conflict_toast">حافظه هر دستگاه غیرفعال شد — با پروفایل‌های هر برنامه ناسازگار است</string>
     <string name="app_profile_conflict_summary">⚠ در حین فعال بودن پروفایل‌های هر برنامه غیرفعال است — با هم تداخل دارند</string>
     <string name="device_state_memory_section_title">حافظه دستگاه صوتی</string>
-
-    <!-- Active audio output -->
-    <string name="audio_output_active_device">خروجی صوتی فعال</string>
-    <string name="audio_output_speaker">بلندگو</string>
-    <string name="audio_output_wired">هدفون سیمی</string>
-    <string name="audio_output_bluetooth">بلوتوث</string>
-    <string name="audio_output_usb">صدای USB</string>
-    <string name="audio_output_unknown">دستگاه صوتی</string>
 
     <!-- AutoEQ Profile -->
     <string name="dolby_autoeq_title">اعمال پروفایل AutoEQ</string>

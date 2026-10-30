@@ -5,8 +5,16 @@
 -->
 <resources>
 
+    <!-- Expressive UI -->
+    <string name="dolby_credits">Emeği geçenler</string>
+    <string name="dolby_more_options">Diğer seçenekler</string>
+    <string name="dolby_save_preset">Ön ayarı kaydet</string>
+    <string name="dolby_equalizer_summary">Sesinizi frekans frekans şekillendirin</string>
+    <string name="dolby_advanced_summary">Dinleme deneyiminizin ayrıntılarını ince ayarlayın</string>
+
     <!-- Dolby Atmos -->
     <string name="dolby_title">Dolby Atmos</string>
+    <string name="dolby_summary">Çevreleyici ses deneyimi yaşayın</string>
     <string name="dolby_enable">Dolby Atmos\'u aktif et</string>
     <string name="dolby_profile_title">Profil Seç</string>
     <string name="dolby_preset">Ekolayzer</string>
@@ -50,6 +58,7 @@
 
     <!-- Dolby profiles -->
     <string name="dolby_profile_dynamic">Dinamik</string>
+    <string name="dolby_profile_dynamic_summary">Sesinize otomatik olarak uyum sağlar</string>
     <string name="dolby_profile_video">Film/Video</string>
     <string name="dolby_profile_music">Müzik</string>
     <string name="dolby_profile_game">Oyun</string>
@@ -101,12 +110,25 @@
     <string name="locked">Engellendi</string>
     <string name="band_configuration">Bant sayısı</string>
     <string name="choose_equalizer_precision">Daha fazla bant = daha hassas ekolayzer kontrolü</string>
+    <string name="band_tuner">Bant ayarlayıcı</string>
+    <string name="band_tuner_desc">Bantlar arasında gezinin ve seviyeyi 0,1 dB\'lik adımlarla ince ayarlayın</string>
+    <string name="band_tuner_position">Bant %1$d / %2$d</string>
+    <string name="band_tuner_label">Bant %1$d · %2$s</string>
+    <string name="band_tuner_previous">Önceki bant</string>
+    <string name="band_tuner_next">Sonraki bant</string>
+    <string name="band_tuner_decrement">−0.1 dB</string>
+    <string name="band_tuner_reset">0 dB</string>
+    <string name="band_tuner_increment">+0.1 dB</string>
 
     <!-- Dolby intelligent EQ -->
     <string name="dolby_ieq">Akıllı ekolayzer</string>
     <string name="dolby_balanced">Dengeli</string>
     <string name="dolby_warm">Ilık</string>
     <string name="dolby_detailed">Detaylı</string>
+    <string name="dolby_ieq_off_summary">Akıllı ekolayzer olmadan mevcut profili kullanın.</string>
+    <string name="dolby_ieq_detailed_summary">İnce ayrıntıları ve netliği ön plana çıkarın.</string>
+    <string name="dolby_ieq_balanced_summary">Bas, orta ve tiz frekansları dengede tutun.</string>
+    <string name="dolby_ieq_warm_summary">Sesinize daha yumuşak ve sıcak bir karakter kazandırın.</string>
 
     <!-- Per-App Audio Profiles -->
     <string name="app_profiles_title">Uygulama başına ses profili</string>
@@ -180,4 +202,15 @@
     <string name="app_profile_conflict_toast">Cihaz bellek özelliği devre dışı — Uygulama profilleriyle ile uyumsuz.</string>
     <string name="app_profile_conflict_summary">⚠ Uygulama profilleri etkinken kullanılamaz.</string>
     <string name="device_state_memory_section_title">Ses Cihazları Belleği</string>
+
+    <!-- AutoEQ Profile -->
+    <string name="dolby_autoeq_title">AutoEQ profilini uygula</string>
+    <string name="dolby_autoeq_applied">%1$s için AutoEQ uygulandı</string>
+    <string name="dolby_autoeq_preset_name">AutoEQ: %1$s</string>
+    <string name="dolby_autoeq_search_hint">8.000\'den fazla profilde ara...</string>
+    <string name="dolby_autoeq_currently_applied">Şu anda uygulanan</string>
+    <string name="dolby_autoeq_clear">Aramayı temizle</string>
+    <string name="dolby_autoeq_search">Ara</string>
+    <string name="dolby_autoeq_active">Etkin profil</string>
+    <string name="dolby_autoeq_selected">Seçili profil</string>
 </resources>

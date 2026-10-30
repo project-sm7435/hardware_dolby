@@ -5,8 +5,16 @@
 -->
 <resources>
 
+    <!-- Expressive UI -->
+    <string name="dolby_credits">Créditos</string>
+    <string name="dolby_more_options">Mais opções</string>
+    <string name="dolby_save_preset">Salvar predefinição</string>
+    <string name="dolby_equalizer_summary">Molde seu som, frequência por frequência</string>
+    <string name="dolby_advanced_summary">Ajuste os detalhes da sua experiência de audição</string>
+
     <!-- Dolby Atmos -->
     <string name="dolby_title">Dolby Atmos</string>
+    <string name="dolby_summary">Experimente um áudio imersivo</string>
     <string name="dolby_enable">Usar Dolby Atmos</string>
     <string name="dolby_profile_title">Escolha um perfil</string>
     <string name="dolby_preset">Equalizador</string>
@@ -50,6 +58,7 @@
 
     <!-- Dolby profiles -->
     <string name="dolby_profile_dynamic">Dinâmico</string>
+    <string name="dolby_profile_dynamic_summary">Adapta-se automaticamente ao seu áudio</string>
     <string name="dolby_profile_video">Filme/Vídeo</string>
     <string name="dolby_profile_music">Música</string>
     <string name="dolby_profile_game">Jogos</string>
@@ -101,12 +110,25 @@
     <string name="locked">Bloqueado</string>
     <string name="band_configuration">Configuração de banda</string>
     <string name="choose_equalizer_precision">Escolha a precisão do equalizador: mais bandas = controle mais fino</string>
+    <string name="band_tuner">Ajuste de banda</string>
+    <string name="band_tuner_desc">Percorra as bandas e ajuste o ganho em incrementos de 0,1 dB</string>
+    <string name="band_tuner_position">Banda %1$d de %2$d</string>
+    <string name="band_tuner_label">Banda %1$d · %2$s</string>
+    <string name="band_tuner_previous">Banda anterior</string>
+    <string name="band_tuner_next">Próxima banda</string>
+    <string name="band_tuner_decrement">−0.1 dB</string>
+    <string name="band_tuner_reset">0 dB</string>
+    <string name="band_tuner_increment">+0.1 dB</string>
 
     <!-- Dolby intelligent EQ -->
     <string name="dolby_ieq">Equalizador inteligente</string>
     <string name="dolby_balanced">Equilibrado</string>
     <string name="dolby_warm">Quente</string>
     <string name="dolby_detailed">Detalhado</string>
+    <string name="dolby_ieq_off_summary">Use o perfil atual sem o equalizador inteligente.</string>
+    <string name="dolby_ieq_detailed_summary">Destaque detalhes sutis e clareza.</string>
+    <string name="dolby_ieq_balanced_summary">Mantenha graves, médios e agudos em equilíbrio.</string>
+    <string name="dolby_ieq_warm_summary">Dê ao seu som um caráter mais suave e quente.</string>
 
     <!-- Per-App Audio Profiles -->
     <string name="app_profiles_title">Perfis de áudio por app</string>
@@ -166,4 +188,29 @@
     <string name="batch_export">Exportação em lote</string>
     <string name="batch_export_description">Exportar todas as %1$s predefinições personalizadas para um único arquivo?</string>
     <string name="export_all">Exportar tudo</string>
+
+    <!-- Dolby mid enhancer -->
+    <string name="dolby_mid_enhancer">Realçador de médios</string>
+    <string name="dolby_mid_level">Nível de médios</string>
+    <string name="dolby_mid_enhancer_summary">Realça sons de média frequência para vocais e instrumentos mais claros</string>
+
+    <!-- Per-device state memory -->
+    <string name="device_state_memory_title">Memória de áudio por dispositivo</string>
+    <string name="device_state_memory_summary">Lembra as configurações do Dolby de cada dispositivo de áudio (fones de ouvido, alto-falantes, Bluetooth)</string>
+    <string name="device_state_memory_conflict_toast">Perfis por app desativados — incompatíveis com a memória por dispositivo</string>
+    <string name="device_state_memory_conflict_summary">⚠ Desativado enquanto a memória por dispositivo está ativa — há conflito</string>
+    <string name="app_profile_conflict_toast">Memória por dispositivo desativada — incompatível com os perfis por app</string>
+    <string name="app_profile_conflict_summary">⚠ Desativado enquanto os perfis por app estão ativos — há conflito</string>
+    <string name="device_state_memory_section_title">Memória de dispositivos de áudio</string>
+
+    <!-- AutoEQ Profile -->
+    <string name="dolby_autoeq_title">Aplicar perfil do AutoEQ</string>
+    <string name="dolby_autoeq_applied">AutoEQ aplicado para %1$s</string>
+    <string name="dolby_autoeq_preset_name">AutoEQ: %1$s</string>
+    <string name="dolby_autoeq_search_hint">Pesquisar mais de 8.000 perfis...</string>
+    <string name="dolby_autoeq_currently_applied">Aplicado no momento</string>
+    <string name="dolby_autoeq_clear">Limpar pesquisa</string>
+    <string name="dolby_autoeq_search">Pesquisar</string>
+    <string name="dolby_autoeq_active">Perfil ativo</string>
+    <string name="dolby_autoeq_selected">Perfil selecionado</string>
 </resources>

@@ -41,12 +41,12 @@
     <string name="dolby_spk_virtualizer">Virtualisasi surround speaker</string>
     <string name="dolby_hp_virtualizer">Virtualisasi surround headphone</string>
     <string name="dolby_volume_leveler">Penyeimbang volume</string>
-    <string name="dolby_bass_enhancer_summary">Meningkatkan frekuensi rendah untuk bass yang lebih dalam</string>
+    <string name="dolby_bass_enhancer_summary">Meningkatkan frekuensi rendah untuk bass yang lebih dalam</string>  
     <string name="dolby_treble_enhancer_summary">Meningkatkan frekuensi tinggi untuk treble yang lebih jernih</string>
-    <string name="dolby_dialogue_enhancer_summary">Meningkatkan kejernihan suara vokal dan dialog</string>
-    <string name="dolby_spk_virtualizer_summary">Menciptakan efek surround virtual pada speaker</string>
-    <string name="dolby_hp_virtualizer_summary">Menciptakan efek surround virtual pada headphone</string>
-    <string name="dolby_volume_leveler_summary">Menyeimbangkan volume untuk pengalaman mendengarkan yang konsisten</string>
+    <string name="dolby_dialogue_enhancer_summary">Meningkatkan kejernihan suara vokal dan dialog</string>  
+    <string name="dolby_spk_virtualizer_summary">Menciptakan efek surround virtual pada speaker</string>  
+    <string name="dolby_hp_virtualizer_summary">Menciptakan efek surround virtual pada headphone</string>  
+    <string name="dolby_volume_leveler_summary">Menyeimbangkan volume untuk pengalaman mendengarkan yang konsisten</string>  
     <string name="dolby_connect_headphones">Sambungkan headphone</string>
     <string name="dolby_reset_all">Atur ulang profil</string>
     <string name="dolby_reset_all_message">Semua profil akan dikembalikan ke setelan pabrik.</string>
@@ -110,6 +110,15 @@
     <string name="locked">Terkunci</string>
     <string name="band_configuration">Konfigurasi band</string>
     <string name="choose_equalizer_precision">Pilih presisi equalizer: semakin banyak band, semakin detail kontrol</string>
+    <string name="band_tuner">Penyetel Band</string>
+    <string name="band_tuner_desc">Telusuri band satu per satu dan atur gain dengan penambahan 0,1 dB</string>
+    <string name="band_tuner_position">Band %1$d dari %2$d</string>
+    <string name="band_tuner_label">Band %1$d · %2$s</string>
+    <string name="band_tuner_previous">Band sebelumnya</string>
+    <string name="band_tuner_next">Band berikutnya</string>
+    <string name="band_tuner_decrement">−0.1 dB</string>
+    <string name="band_tuner_reset">0 dB</string>
+    <string name="band_tuner_increment">+0.1 dB</string>
 
     <!-- Dolby intelligent EQ -->
     <string name="dolby_ieq">Equalizer cerdas</string>
@@ -185,7 +194,7 @@
     <string name="dolby_mid_level">Tingkat mid</string>
     <string name="dolby_mid_enhancer_summary">Meningkatkan frekuensi menengah untuk vokal dan instrumen yang lebih jernih</string>
 
-     <!-- Per-device state memory -->
+    <!-- Per-device state memory -->
     <string name="device_state_memory_title">Memori audio per perangkat</string>
     <string name="device_state_memory_summary">Mengingat pengaturan Dolby untuk setiap perangkat audio (headphone, speaker, Bluetooth)</string>
     <string name="device_state_memory_conflict_toast">Profil per aplikasi dinonaktifkan — tidak kompatibel dengan memori per perangkat</string>
@@ -194,7 +203,7 @@
     <string name="app_profile_conflict_summary">⚠ Dinonaktifkan saat profil per aplikasi aktif — terjadi konflik</string>
     <string name="device_state_memory_section_title">Memori Perangkat Audio</string>
 
-     <!-- AutoEQ Profile -->
+    <!-- AutoEQ Profile -->
     <string name="dolby_autoeq_title">Terapkan Profil AutoEQ</string>
     <string name="dolby_autoeq_applied">AutoEQ diterapkan untuk %1$s</string>
     <string name="dolby_autoeq_preset_name">AutoEQ: %1$s</string>

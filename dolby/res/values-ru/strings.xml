@@ -4,6 +4,14 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
+
+    <!-- Expressive UI -->
+    <string name="dolby_credits">Авторы</string>
+    <string name="dolby_more_options">Ещё</string>
+    <string name="dolby_save_preset">Сохранить пресет</string>
+    <string name="dolby_equalizer_summary">Настройте звук по каждой частоте</string>
+    <string name="dolby_advanced_summary">Тонкая настройка деталей звучания</string>
+
     <!-- Dolby Atmos -->
     <string name="dolby_title">Dolby Atmos</string>
     <string name="dolby_summary">Окунитесь в иммерсивный звук</string>
@@ -33,12 +41,12 @@
     <string name="dolby_spk_virtualizer">Объёмный звук для динамиков</string>
     <string name="dolby_hp_virtualizer">Объёмный звук для наушников</string>
     <string name="dolby_volume_leveler">Выравнивание громкости</string>
-    <string name="dolby_bass_enhancer_summary">Добавляет басам глубину и насыщенность</string>
+    <string name="dolby_bass_enhancer_summary">Добавляет басам глубину и насыщенность</string>  
     <string name="dolby_treble_enhancer_summary">Делает звук ярче и детальнее</string>
-    <string name="dolby_dialogue_enhancer_summary">Повышает разборчивость речи и диалогов</string>
-    <string name="dolby_spk_virtualizer_summary">Создаёт эффект объёмного звука через динамики</string>
-    <string name="dolby_hp_virtualizer_summary">Создаёт эффект объёмного звука в наушниках</string>
-    <string name="dolby_volume_leveler_summary">Поддерживает комфортный уровень громкости</string>
+    <string name="dolby_dialogue_enhancer_summary">Повышает разборчивость речи и диалогов</string>  
+    <string name="dolby_spk_virtualizer_summary">Создаёт эффект объёмного звука через динамики</string>  
+    <string name="dolby_hp_virtualizer_summary">Создаёт эффект объёмного звука в наушниках</string>  
+    <string name="dolby_volume_leveler_summary">Поддерживает комфортный уровень громкости</string>  
     <string name="dolby_connect_headphones">Подключить наушники</string>
     <string name="dolby_reset_all">Сбросить профили</string>
     <string name="dolby_reset_all_message">Все профили будут сброшены к заводским настройкам.</string>
@@ -50,6 +58,7 @@
 
     <!-- Dolby profiles -->
     <string name="dolby_profile_dynamic">Динамический</string>
+    <string name="dolby_profile_dynamic_summary">Автоматически подстраивается под звук</string>
     <string name="dolby_profile_video">Кино/Видео</string>
     <string name="dolby_profile_music">Музыка</string>
     <string name="dolby_profile_game">Игры</string>
@@ -101,12 +110,25 @@
     <string name="locked">Заблокировано</string>
     <string name="band_configuration">Настройка полос</string>
     <string name="choose_equalizer_precision">Выберите точность эквалайзера: больше полос — точнее настройка</string>
+    <string name="band_tuner">Тонкая настройка полос</string>
+    <string name="band_tuner_desc">Переключайтесь между полосами и точно настраивайте усиление с шагом 0,1 дБ</string>
+    <string name="band_tuner_position">Полоса %1$d из %2$d</string>
+    <string name="band_tuner_label">Полоса %1$d · %2$s</string>
+    <string name="band_tuner_previous">Предыдущая полоса</string>
+    <string name="band_tuner_next">Следующая полоса</string>
+    <string name="band_tuner_decrement">−0,1 дБ</string>
+    <string name="band_tuner_reset">0 дБ</string>
+    <string name="band_tuner_increment">+0,1 дБ</string>
 
     <!-- Dolby intelligent EQ -->
     <string name="dolby_ieq">Интеллектуальный эквалайзер</string>
     <string name="dolby_balanced">Сбалансированный</string>
     <string name="dolby_warm">Тёплый</string>
     <string name="dolby_detailed">Детальный</string>
+    <string name="dolby_ieq_off_summary">Использовать текущий профиль без интеллектуального эквалайзера.</string>
+    <string name="dolby_ieq_detailed_summary">Подчёркивает мелкие детали и чёткость звука.</string>
+    <string name="dolby_ieq_balanced_summary">Сохраняет баланс низких, средних и высоких частот.</string>
+    <string name="dolby_ieq_warm_summary">Придаёт звуку более мягкое и тёплое звучание.</string>
 
     <!-- Per-App Audio Profiles -->
     <string name="app_profiles_title">Профили приложений</string>
@@ -154,7 +176,7 @@
     <string name="open_settings">Открыть настройки</string>
     <string name="cancel">Отмена</string>
 
-    <!-- import export -->
+    <!--import export -->
     <string name="import_export_presets">Импорт и экспорт пресетов</string>
     <string name="import_presets">Импортировать пресеты</string>
     <string name="import_presets_description">Импорт пресетов из файлов или буфера обмена</string>
@@ -181,7 +203,7 @@
     <string name="app_profile_conflict_summary">⚠ Недоступно, пока активны профили приложений</string>
     <string name="device_state_memory_section_title">Настройки аудиоустройств</string>
 
-    <!-- Профиль AutoEQ -->
+    <!-- AutoEQ Profile -->
     <string name="dolby_autoeq_title">Применить профиль AutoEQ</string>
     <string name="dolby_autoeq_applied">Применён профиль AutoEQ для %1$s</string>
     <string name="dolby_autoeq_preset_name">AutoEQ: %1$s</string>

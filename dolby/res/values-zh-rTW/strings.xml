@@ -5,8 +5,16 @@
 -->
 <resources>
 
+    <!-- Expressive UI -->
+    <string name="dolby_credits">製作名單</string>
+    <string name="dolby_more_options">更多選項</string>
+    <string name="dolby_save_preset">儲存預設值</string>
+    <string name="dolby_equalizer_summary">逐一調整每個頻率，打造專屬音色</string>
+    <string name="dolby_advanced_summary">細部調整您的聆聽體驗</string>
+
     <!-- Dolby Atmos -->
     <string name="dolby_title">Dolby Atmos</string>
+    <string name="dolby_summary">體驗沉浸式音訊</string>
     <string name="dolby_enable">使用 Dolby Atmos</string>
     <string name="dolby_profile_title">選擇設定檔</string>
     <string name="dolby_preset">等化器</string>
@@ -50,6 +58,7 @@
 
     <!-- Dolby profiles -->
     <string name="dolby_profile_dynamic">動態</string>
+    <string name="dolby_profile_dynamic_summary">自動適應您的音訊</string>
     <string name="dolby_profile_video">電影/影片</string>
     <string name="dolby_profile_music">音樂</string>
     <string name="dolby_profile_game">遊戲</string>
@@ -101,12 +110,25 @@
     <string name="locked">已鎖定</string>
     <string name="band_configuration">頻段配置</string>
     <string name="choose_equalizer_precision">選擇等化器精確度：頻段越多 = 控制越精細</string>
+    <string name="band_tuner">頻段微調</string>
+    <string name="band_tuner_desc">逐一切換頻段，並以 0.1 dB 為單位微調增益</string>
+    <string name="band_tuner_position">第 %1$d 個頻段（共 %2$d 個）</string>
+    <string name="band_tuner_label">頻段 %1$d · %2$s</string>
+    <string name="band_tuner_previous">上一個頻段</string>
+    <string name="band_tuner_next">下一個頻段</string>
+    <string name="band_tuner_decrement">−0.1 dB</string>
+    <string name="band_tuner_reset">0 dB</string>
+    <string name="band_tuner_increment">+0.1 dB</string>
 
     <!-- Dolby intelligent EQ -->
     <string name="dolby_ieq">智慧等化器</string>
     <string name="dolby_balanced">平衡</string>
     <string name="dolby_warm">溫潤</string>
     <string name="dolby_detailed">細膩</string>
+    <string name="dolby_ieq_off_summary">使用目前的設定檔，不啟用智慧等化器。</string>
+    <string name="dolby_ieq_detailed_summary">凸顯細膩的細節與清晰度。</string>
+    <string name="dolby_ieq_balanced_summary">讓低音、中音與高音保持平衡。</string>
+    <string name="dolby_ieq_warm_summary">讓聲音更柔和、更溫暖。</string>
 
     <!-- Per-App Audio Profiles -->
     <string name="app_profiles_title">個別應用程式音訊設定檔</string>
@@ -171,4 +193,24 @@
     <string name="dolby_mid_enhancer">中音增強</string>
     <string name="dolby_mid_level">中音等級</string>
     <string name="dolby_mid_enhancer_summary">增強中頻音訊，提升人聲與樂器的清晰度</string>
+
+    <!-- Per-device state memory -->
+    <string name="device_state_memory_title">個別裝置音訊記憶</string>
+    <string name="device_state_memory_summary">記住每個音訊裝置（耳機、喇叭、藍牙）的 Dolby 設定</string>
+    <string name="device_state_memory_conflict_toast">已停用個別應用程式設定檔 — 與個別裝置記憶不相容</string>
+    <string name="device_state_memory_conflict_summary">⚠ 個別裝置記憶啟用時無法使用 — 兩者互相衝突</string>
+    <string name="app_profile_conflict_toast">已停用個別裝置記憶 — 與個別應用程式設定檔不相容</string>
+    <string name="app_profile_conflict_summary">⚠ 個別應用程式設定檔啟用時無法使用 — 兩者互相衝突</string>
+    <string name="device_state_memory_section_title">音訊裝置記憶</string>
+
+    <!-- AutoEQ Profile -->
+    <string name="dolby_autoeq_title">套用 AutoEQ 設定檔</string>
+    <string name="dolby_autoeq_applied">已為 %1$s 套用 AutoEQ</string>
+    <string name="dolby_autoeq_preset_name">AutoEQ: %1$s</string>
+    <string name="dolby_autoeq_search_hint">搜尋 8,000 多個設定檔...</string>
+    <string name="dolby_autoeq_currently_applied">目前已套用</string>
+    <string name="dolby_autoeq_clear">清除搜尋</string>
+    <string name="dolby_autoeq_search">搜尋</string>
+    <string name="dolby_autoeq_active">使用中的設定檔</string>
+    <string name="dolby_autoeq_selected">已選取的設定檔</string>
 </resources>
