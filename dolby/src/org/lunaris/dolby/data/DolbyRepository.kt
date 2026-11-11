@@ -296,12 +296,10 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     }
 
     private fun applyBassCurve(gains: IntArray, level: Int, curve: Int, direction: Int) {
-        val weights = BASS_CURVES.getOrElse(curve) { BASS_CURVES[0] }
-        val baseGain = level * BASS_GAIN_MULTIPLIER
-        for (i in weights.indices) {
+        val delta = ViperEffectModel.bassGains(curve, level, BAND_FREQUENCIES_20)
+        for (i in delta.indices) {
             if (i >= gains.size) break
-            val weightedGain = (baseGain * weights[i] * direction).toInt()
-            gains[i] = (gains[i] + weightedGain).coerceIn(-150, 150)
+            gains[i] = (gains[i] + delta[i] * direction).coerceIn(-150, 150)
         }
     }
 
@@ -366,6 +364,14 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         return prefs.getInt(DolbyConstants.PREF_TREBLE_LEVEL, 0)
     }
 
+    private fun applyClarity(gains: IntArray, level: Int, direction: Int) {
+        val delta = ViperEffectModel.clarityGains(CLARITY_MODE, level, BAND_FREQUENCIES_20)
+        for (i in delta.indices) {
+            if (i >= gains.size) break
+            gains[i] = (gains[i] + delta[i] * direction).coerceIn(-150, 150)
+        }
+    }
+
     fun setTrebleLevel(profile: Int, level: Int) {
         if (isReleased) return
         
@@ -387,23 +393,8 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             val currentGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile)
             val modifiedGains = currentGains.copyOf()
 
-            if (previousLevel > 0) {
-                val previousGain = (previousLevel * TREBLE_GAIN_MULTIPLIER).toInt()
-                for (i in 14..19) {
-                    if (i < modifiedGains.size) {
-                        modifiedGains[i] = (modifiedGains[i] - previousGain).coerceIn(-150, 150)
-                    }
-                }
-            }
-
-            if (level > 0) {
-                val trebleGain = (level * TREBLE_GAIN_MULTIPLIER).toInt()
-                for (i in 14..19) {
-                    if (i < modifiedGains.size) {
-                        modifiedGains[i] = (modifiedGains[i] + trebleGain).coerceIn(-150, 150)
-                    }
-                }
-            }
+            if (previousLevel > 0) applyClarity(modifiedGains, previousLevel, -1)
+            if (level > 0) applyClarity(modifiedGains, level, 1)
 
             dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
             
@@ -913,9 +904,8 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         private const val TAG = "DolbyRepository"
         private const val EFFECT_PRIORITY = 100
         
-        private const val BASS_GAIN_MULTIPLIER = 1.7f
         private const val MID_GAIN_MULTIPLIER = 1.3f
-        private const val TREBLE_GAIN_MULTIPLIER = 1.5f
+        private const val CLARITY_MODE = ViperEffectModel.CLARITY_NATURAL
         
         private val ATTRIBUTES_MEDIA = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -935,22 +925,5 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         private val TEN_BAND_INDICES = listOf(0, 2, 4, 6, 8, 10, 12, 14, 16, 18)
         
         private val FIFTEEN_BAND_INDICES = listOf(0, 1, 2, 3, 4, 5, 6, 8, 11, 12, 14, 15, 17, 18, 19)
-        
-        private val BASS_CURVES = listOf(
-            floatArrayOf(
-                1.15f, 1.10f, 0.85f, 0.50f, 0.20f, 0.05f, 0.00f, 0.00f, 0.00f, 0.00f,
-                0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f
-            ),
-            // Curve 1: ViPER Pure Bass (4th-order Chebyshev steep cutoff simulation)
-            floatArrayOf(
-                1.35f, 1.20f, 0.25f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
-                0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f
-            ),
-            // Curve 2: ViPER Subwoofer (Peaking resonant shelf simulation)
-            floatArrayOf(
-                1.10f, 1.35f, 1.00f, 0.65f, 0.30f, 0.10f, 0.00f, 0.00f, 0.00f, 0.00f,
-                0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f
-            )
-        )
     }
 }
