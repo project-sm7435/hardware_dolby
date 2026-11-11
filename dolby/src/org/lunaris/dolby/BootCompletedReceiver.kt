@@ -24,8 +24,6 @@ class BootCompletedReceiver : BroadcastReceiver() {
             Intent.ACTION_LOCKED_BOOT_COMPLETED,
             Intent.ACTION_BOOT_COMPLETED -> {
                 try {
-                    val repository = DolbyRepository(context)
-                    
                     DolbyEffectService.start(context)
                     
                     val prefs = context.getSharedPreferences("dolby_prefs", Context.MODE_PRIVATE)

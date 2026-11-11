@@ -58,7 +58,7 @@ class DeviceStateManager(private val context: Context) {
 
         editor.putInt(KEY_VERSION, SNAPSHOT_VERSION)
 
-        editor.putBoolean(KEY_DOLBY_ENABLED, repository.getDolbyEnabled())
+        editor.putBoolean(KEY_DOLBY_ENABLED, repository.getSavedDolbyEnabled())
         editor.putInt(KEY_PROFILE, profile)
 
         editor.putInt(KEY_IEQ, repository.getIeqPreset(profile))
@@ -73,6 +73,7 @@ class DeviceStateManager(private val context: Context) {
         editor.putInt(KEY_BASS_LEVEL, repository.getBassLevel(profile))
         editor.putInt(KEY_BASS_CURVE, repository.getBassCurve(profile))
         editor.putInt(KEY_CLARITY_MODE, repository.getClarityMode(profile))
+        editor.putInt(KEY_BASS_CUTOFF, repository.getBassCutoff(profile))
 
         editor.putBoolean(KEY_TREBLE_ENABLED, repository.getTrebleEnhancerEnabled(profile))
         editor.putInt(KEY_TREBLE_LEVEL, repository.getTrebleLevel(profile))
@@ -130,6 +131,7 @@ class DeviceStateManager(private val context: Context) {
             repository.setBassEnhancerEnabled(profile, prefs.getBoolean(KEY_BASS_ENABLED, false))
             repository.setBassCurve(profile, prefs.getInt(KEY_BASS_CURVE, 0))
             repository.setClarityMode(profile, prefs.getInt(KEY_CLARITY_MODE, 0))
+            repository.setBassCutoff(profile, prefs.getInt(KEY_BASS_CUTOFF, 60))
             repository.setBassLevel(profile, prefs.getInt(KEY_BASS_LEVEL, 0))
 
             repository.setTrebleEnhancerEnabled(profile, prefs.getBoolean(KEY_TREBLE_ENABLED, false))
@@ -215,6 +217,7 @@ class DeviceStateManager(private val context: Context) {
         private const val KEY_BASS_LEVEL = "bass_level"
         private const val KEY_BASS_CURVE = "bass_curve"
         private const val KEY_CLARITY_MODE = "clarity_mode"
+        private const val KEY_BASS_CUTOFF = "bass_cutoff"
         private const val KEY_TREBLE_ENABLED = "treble_enabled"
         private const val KEY_TREBLE_LEVEL = "treble_level"
         private const val KEY_MID_ENABLED = "mid_enabled"

@@ -38,6 +38,7 @@
     <string name="dolby_bass_curve_sub_boost">Pure Bass</string>
     <string name="dolby_bass_curve_punch">Subwoofer</string>
     <string name="dolby_bass_curve_dynamic">Dynamic Bass</string>
+    <string name="dolby_bass_cutoff">Bass cutoff</string>
     <string name="dolby_clarity_mode">Clarity mode</string>
     <string name="dolby_clarity_natural">Natural</string>
     <string name="dolby_clarity_ozone">OZone+</string>

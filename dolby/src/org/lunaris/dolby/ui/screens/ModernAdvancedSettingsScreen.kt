@@ -164,6 +164,17 @@ private fun ModernAdvancedSettingsContent(
                                     steps = 19,
                                     valueLabel = { "$it%" }
                                 )
+                                if (state.profileSettings.bassCurve <= 1) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    ModernSettingSlider(
+                                        title = stringResource(R.string.dolby_bass_cutoff),
+                                        value = state.profileSettings.bassCutoff,
+                                        onValueChange = { viewModel.setBassCutoff(it.toInt()) },
+                                        valueRange = 15f..150f,
+                                        steps = 26,
+                                        valueLabel = { "$it Hz" }
+                                    )
+                                }
                             }
                         }
                     }

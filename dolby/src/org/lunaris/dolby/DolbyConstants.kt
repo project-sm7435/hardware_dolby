@@ -24,6 +24,7 @@ object DolbyConstants {
     const val PREF_BASS_LEVEL = "dolby_bass_level"
     const val PREF_BASS_CURVE = "dolby_bass_curve"
     const val PREF_CLARITY_MODE = "dolby_clarity_mode"
+    const val PREF_BASS_CUTOFF = "dolby_bass_cutoff"
     const val PREF_MID = "dolby_mid"
     const val PREF_MID_LEVEL = "dolby_mid_level"
     const val PREF_TREBLE = "dolby_treble"

@@ -120,12 +120,23 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
     }
 
-    fun applySavedState() {
-    checkEffect()
-        val enabled = defaultPrefs.getBoolean(DolbyConstants.PREF_ENABLE, false)
-        dolbyEffect.dsOn = enabled
-        if (enabled) {
-            restoreSavedProfileIfNeeded()
+    fun getSavedDolbyEnabled(): Boolean =
+        defaultPrefs.getBoolean(DolbyConstants.PREF_ENABLE, false)
+
+    fun applySavedState(): Boolean {
+        return try {
+            checkEffect()
+            val enabled = getSavedDolbyEnabled()
+            dolbyEffect.dsOn = enabled
+            if (enabled) {
+                restoreSavedProfileIfNeeded()
+            }
+            val live = dolbyEffect.dsOn
+            DolbyConstants.dlog(TAG, "applySavedState: saved=$enabled live=$live")
+            live == enabled
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "applySavedState failed: ${e.message}")
+            false
         }
     }
 
@@ -275,6 +286,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             val prefs = getProfilePrefs(profile)
             val previousCurve = prefs.getInt(DolbyConstants.PREF_BASS_CURVE, 0)
             val level = prefs.getInt(DolbyConstants.PREF_BASS_LEVEL, 0)
+            val cutoff = prefs.getInt(DolbyConstants.PREF_BASS_CUTOFF, 60)
             if (previousCurve == curve) return
 
             prefs.edit().putInt(DolbyConstants.PREF_BASS_CURVE, curve).apply()
@@ -283,8 +295,8 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             checkEffect()
             val currentGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile)
             val modifiedGains = currentGains.copyOf()
-            applyBassCurve(modifiedGains, level, previousCurve, -1)
-            applyBassCurve(modifiedGains, level, curve, 1)
+            applyBassCurve(modifiedGains, level, previousCurve, -1, cutoff)
+            applyBassCurve(modifiedGains, level, curve, 1, cutoff)
             dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
             
             val gainsString = modifiedGains.joinToString(",")
@@ -295,11 +307,48 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
     }
 
-    private fun applyBassCurve(gains: IntArray, level: Int, curve: Int, direction: Int) {
-        val delta = ViperEffectModel.bassGains(curve, level, BAND_FREQUENCIES_20)
+    private fun applyBassCurve(
+        gains: IntArray,
+        level: Int,
+        curve: Int,
+        direction: Int,
+        cutoff: Int = ViperEffectModel.BASS_CUTOFF_HZ.toInt(),
+    ) {
+        val delta = ViperEffectModel.bassGains(curve, level, BAND_FREQUENCIES_20, cutoff.toDouble())
         for (i in delta.indices) {
             if (i >= gains.size) break
             gains[i] = (gains[i] + delta[i] * direction).coerceIn(-150, 150)
+        }
+    }
+
+    fun getBassCutoff(profile: Int): Int {
+        return getProfilePrefs(profile).getInt(DolbyConstants.PREF_BASS_CUTOFF, 60)
+    }
+
+    /** ViPER "speaker" crossover frequency (15-150 Hz) used by Natural Bass and Pure Bass. */
+    fun setBassCutoff(profile: Int, hz: Int) {
+        if (isReleased) return
+        try {
+            val prefs = getProfilePrefs(profile)
+            val previousCutoff = prefs.getInt(DolbyConstants.PREF_BASS_CUTOFF, 60)
+            val newCutoff = hz.coerceIn(15, 150)
+            if (previousCutoff == newCutoff) return
+            val level = prefs.getInt(DolbyConstants.PREF_BASS_LEVEL, 0)
+            val curve = prefs.getInt(DolbyConstants.PREF_BASS_CURVE, 0)
+            prefs.edit().putInt(DolbyConstants.PREF_BASS_CUTOFF, newCutoff).apply()
+
+            // Subwoofer and Dynamic Bass use fixed filters, so only the first two curves change.
+            if (level <= 0 || curve > 1) return
+            checkEffect()
+            val currentGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile)
+            val modifiedGains = currentGains.copyOf()
+            applyBassCurve(modifiedGains, level, curve, -1, previousCutoff)
+            applyBassCurve(modifiedGains, level, curve, 1, newCutoff)
+            dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
+            prefs.edit().putString(DolbyConstants.PREF_PRESET, modifiedGains.joinToString(",")).apply()
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Error setting bass cutoff: ${e.message}")
+            throw e
         }
     }
 
@@ -326,12 +375,13 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             val modifiedGains = currentGains.copyOf()
             
             val curve = prefs.getInt(DolbyConstants.PREF_BASS_CURVE, 0)
+            val cutoff = prefs.getInt(DolbyConstants.PREF_BASS_CUTOFF, 60)
             if (previousLevel > 0) {
-                applyBassCurve(modifiedGains, previousLevel, curve, -1)
+                applyBassCurve(modifiedGains, previousLevel, curve, -1, cutoff)
             }
 
             if (level > 0) {
-                applyBassCurve(modifiedGains, level, curve, 1)
+                applyBassCurve(modifiedGains, level, curve, 1, cutoff)
             }
             dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
             

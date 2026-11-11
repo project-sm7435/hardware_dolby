@@ -112,14 +112,19 @@ internal object ViperEffectModel {
     /**
      * GEQ gains (0.1 dB) for the ViPER bass mode [curve] at slider [level] (0..100).
      */
-    fun bassGains(curve: Int, level: Int, freqs: List<Int>): IntArray {
+    fun bassGains(
+        curve: Int,
+        level: Int,
+        freqs: List<Int>,
+        cutoffHz: Double = BASS_CUTOFF_HZ,
+    ): IntArray {
         if (level <= 0) return IntArray(freqs.size)
         val factor = level / 100.0 * MAX_BASS_FACTOR
 
         val db = when (curve) {
             // out = in + factor * LPF(in)   (LPF: 2nd order, Q = 0.53, fc = speaker)
             BASS_NATURAL -> {
-                val lp = lowPass(BASS_CUTOFF_HZ, 0.53)
+                val lp = lowPass(cutoffHz, 0.53)
                 DoubleArray(freqs.size) {
                     val h = lp.at(freqs[it].toDouble())
                     toDb((Cx(1.0, 0.0) + h * factor).abs())
@@ -127,7 +132,7 @@ internal object ViperEffectModel {
             }
             // Bass path is time-aligned (delayed) with the dry path -> magnitudes add coherently
             BASS_PURE -> {
-                val lp = lowPass(BASS_CUTOFF_HZ, 0.53)
+                val lp = lowPass(cutoffHz, 0.53)
                 DoubleArray(freqs.size) {
                     toDb(1.0 + factor * lp.at(freqs[it].toDouble()).abs())
                 }

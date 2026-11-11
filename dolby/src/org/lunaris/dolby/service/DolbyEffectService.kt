@@ -33,6 +33,24 @@ class DolbyEffectService : Service() {
     private lateinit var repository: DolbyRepository
     private lateinit var deviceStateManager: DeviceStateManager
     private var previousActiveDevice: AudioDeviceInfo? = null
+    private var retryAttempt = 0
+    private val retryRunnable = Runnable { applyStateWithRetry() }
+
+    private fun applyStateWithRetry() {
+        handler.removeCallbacks(retryRunnable)
+        val ok = try {
+            repository.applySavedState()
+        } catch (e: Exception) {
+            Log.w(TAG, "applySavedState threw", e)
+            false
+        }
+        Log.i(TAG, "applySavedState ok=$ok attempt=$retryAttempt")
+        if (ok) {
+            retryAttempt = 0
+        } else if (retryAttempt < RETRY_DELAYS_MS.size) {
+            handler.postDelayed(retryRunnable, RETRY_DELAYS_MS[retryAttempt++])
+        }
+    }
 
     private val audioDeviceCallback = object : AudioDeviceCallback() {
         override fun onAudioDevicesAdded(addedDevices: Array<AudioDeviceInfo>) {
@@ -72,12 +90,12 @@ class DolbyEffectService : Service() {
             if (isDeviceStateMemoryEnabled) {
                 val key = deviceStateManager.deviceKey(currentDevice)
                 val restored = deviceStateManager.restoreSnapshot(key, repository)
-                if (!restored) repository.applySavedState()
+                if (!restored) applyStateWithRetry()
             } else {
-                repository.applySavedState()
+                applyStateWithRetry()
             }
         } else {
-            repository.applySavedState()
+            applyStateWithRetry()
         }
 
         audioManager.registerAudioDeviceCallback(audioDeviceCallback, handler)
@@ -152,7 +170,8 @@ class DolbyEffectService : Service() {
         "name=$productName,type=$type,id=$id,address=$address,isSink=$isSink"
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        repository.applySavedState()
+        retryAttempt = 0
+        applyStateWithRetry()
         return START_STICKY
     }
 
@@ -174,6 +193,7 @@ class DolbyEffectService : Service() {
 
     companion object {
         private const val TAG = "DolbyEffectService"
+        private val RETRY_DELAYS_MS = longArrayOf(1_000, 2_000, 4_000, 8_000, 15_000, 30_000)
 
         private val ATTRIBUTES_MEDIA = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)
