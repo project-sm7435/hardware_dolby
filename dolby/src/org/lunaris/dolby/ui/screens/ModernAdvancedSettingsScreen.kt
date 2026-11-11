@@ -218,6 +218,15 @@ private fun ModernAdvancedSettingsContent(
                         AnimatedVisibility(visible = state.profileSettings.trebleLevel > 0) {
                             Column {
                                 Spacer(modifier = Modifier.height(8.dp))
+                                ModernSettingSelector(
+                                    title = stringResource(R.string.dolby_clarity_mode),
+                                    currentValue = state.profileSettings.clarityMode,
+                                    entries = R.array.dolby_clarity_mode_entries,
+                                    values = R.array.dolby_clarity_mode_values,
+                                    onValueChange = { viewModel.setClarityMode(it) },
+                                    icon = Icons.Default.GraphicEq
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
                                 ModernSettingSlider(
                                     title = stringResource(R.string.dolby_treble_level),
                                     value = state.profileSettings.trebleLevel,
@@ -250,7 +259,7 @@ private fun ModernAdvancedSettingsContent(
             if (state.settings.currentProfile != 0) {
                 item {
                     ModernSettingsCard(
-                        title = "Surround Virtualizer",
+                        title = "3D sound",
                         icon = Icons.Default.Headphones
                     ) {
                         if (state.isOnSpeaker) {

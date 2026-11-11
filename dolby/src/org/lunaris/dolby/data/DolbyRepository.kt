@@ -364,11 +364,37 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         return prefs.getInt(DolbyConstants.PREF_TREBLE_LEVEL, 0)
     }
 
-    private fun applyClarity(gains: IntArray, level: Int, direction: Int) {
-        val delta = ViperEffectModel.clarityGains(CLARITY_MODE, level, BAND_FREQUENCIES_20)
+    private fun applyClarity(gains: IntArray, level: Int, mode: Int, direction: Int) {
+        val delta = ViperEffectModel.clarityGains(mode, level, BAND_FREQUENCIES_20)
         for (i in delta.indices) {
             if (i >= gains.size) break
             gains[i] = (gains[i] + delta[i] * direction).coerceIn(-150, 150)
+        }
+    }
+
+    fun getClarityMode(profile: Int): Int {
+        return getProfilePrefs(profile).getInt(DolbyConstants.PREF_CLARITY_MODE, 0)
+    }
+
+    fun setClarityMode(profile: Int, mode: Int) {
+        if (isReleased) return
+        try {
+            val prefs = getProfilePrefs(profile)
+            val previousMode = prefs.getInt(DolbyConstants.PREF_CLARITY_MODE, 0)
+            val level = prefs.getInt(DolbyConstants.PREF_TREBLE_LEVEL, 0)
+            prefs.edit().putInt(DolbyConstants.PREF_CLARITY_MODE, mode).apply()
+
+            if (level <= 0) return
+            checkEffect()
+            val currentGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile)
+            val modifiedGains = currentGains.copyOf()
+            applyClarity(modifiedGains, level, previousMode, -1)
+            applyClarity(modifiedGains, level, mode, 1)
+            dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
+            prefs.edit().putString(DolbyConstants.PREF_PRESET, modifiedGains.joinToString(",")).apply()
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Error setting clarity mode: ${e.message}")
+            throw e
         }
     }
 
@@ -393,8 +419,9 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             val currentGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile)
             val modifiedGains = currentGains.copyOf()
 
-            if (previousLevel > 0) applyClarity(modifiedGains, previousLevel, -1)
-            if (level > 0) applyClarity(modifiedGains, level, 1)
+            val clarityMode = prefs.getInt(DolbyConstants.PREF_CLARITY_MODE, 0)
+            if (previousLevel > 0) applyClarity(modifiedGains, previousLevel, clarityMode, -1)
+            if (level > 0) applyClarity(modifiedGains, level, clarityMode, 1)
 
             dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
             
@@ -905,7 +932,6 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         private const val EFFECT_PRIORITY = 100
         
         private const val MID_GAIN_MULTIPLIER = 1.3f
-        private const val CLARITY_MODE = ViperEffectModel.CLARITY_NATURAL
         
         private val ATTRIBUTES_MEDIA = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)

@@ -33,9 +33,14 @@ internal object ViperEffectModel {
     const val BASS_NATURAL = 0
     const val BASS_PURE = 1
     const val BASS_SUBWOOFER = 2
+    const val BASS_DYNAMIC = 3
 
     const val CLARITY_NATURAL = 0
     const val CLARITY_OZONE = 1
+    const val CLARITY_XHIFI = 2
+
+    /** DynamicBass: bass gain at 100% (resonance Q = 0.5 + 0.12 * (gain - 1)). */
+    private const val DYNAMIC_BASS_MAX_GAIN = 11.0
 
     private class Cx(val re: Double, val im: Double) {
         operator fun plus(o: Cx) = Cx(re + o.re, im + o.im)
@@ -127,6 +132,15 @@ internal object ViperEffectModel {
                     toDb(1.0 + factor * lp.at(freqs[it].toDouble()).abs())
                 }
             }
+            // DynamicBass: out = in + mono(L+R) * LPF55(Q) -> for centred content 1 + 2 * LPF
+            BASS_DYNAMIC -> {
+                val mix = level / 100.0
+                val q = 0.5 + 0.12 * (DYNAMIC_BASS_MAX_GAIN - 1.0) * mix
+                val lp = lowPass(55.0, q)
+                DoubleArray(freqs.size) {
+                    toDb((Cx(1.0, 0.0) + lp.at(freqs[it].toDouble()) * (2.0 * mix)).abs())
+                }
+            }
             // Subwoofer: 0.5*x + 0.6 * LP380( peak44(x) -> peak80 - x )
             else -> {
                 val g = factor * 2.5
@@ -156,6 +170,19 @@ internal object ViperEffectModel {
             CLARITY_OZONE -> {
                 val shelf = highShelf(20.0 * log10(1.0 + gain), 8250.0)
                 DoubleArray(freqs.size) { toDb(shelf.at(freqs[it].toDouble()).abs()) }
+            }
+            // HiFi (XHiFi): LP 120 Hz (x1) + BP 120-1200 Hz (x g) + HP 1200 Hz (x 1.2 g), g = 1 + clarity.
+            // Shown relative to g = 1 so the slider at 0 is flat.
+            CLARITY_XHIFI -> {
+                val g = 1.0 + gain
+                DoubleArray(freqs.size) {
+                    val f = freqs[it].toDouble()
+                    val lp = 1.0 / sqrt(1.0 + (f / 120.0).pow(2))
+                    val hp = (f / 1200.0).pow(3) / sqrt(1.0 + (f / 1200.0).pow(6))
+                    val bp = ((f / 120.0).pow(3) / sqrt(1.0 + (f / 120.0).pow(6))) /
+                        sqrt(1.0 + (f / 1200.0).pow(6))
+                    toDb((lp + g * bp + 1.2 * g * hp) / (lp + bp + 1.2 * hp))
+                }
             }
             // NoiseSharpening: (1 + g(1 - z^-1)) * (K/(1+K) + z^-1/(1+K)), K = tan(pi(fs/2-1000)/fs)
             else -> {

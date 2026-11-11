@@ -92,7 +92,8 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                     bassLevel = repository.getBassLevel(profile),
                     midLevel = repository.getMidLevel(profile),
                     trebleLevel = repository.getTrebleLevel(profile),
-                    bassCurve = repository.getBassCurve(profile)
+                    bassCurve = repository.getBassCurve(profile),
+                    clarityMode = repository.getClarityMode(profile)
                 )
                 
                 if (!isCleared) {
@@ -174,6 +175,18 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                 loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting bass curve: ${e.message}")
+            }
+        }
+    }
+
+    fun setClarityMode(mode: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val profile = repository.getCurrentProfile()
+                repository.setClarityMode(profile, mode)
+                loadSettings()
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting clarity mode: ${e.message}")
             }
         }
     }

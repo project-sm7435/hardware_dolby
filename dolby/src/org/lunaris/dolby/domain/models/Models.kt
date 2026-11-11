@@ -41,7 +41,8 @@ data class ProfileSettings(
     val bassLevel: Int = 0,
     val midLevel: Int = 0,
     val trebleLevel: Int = 0,
-    val bassCurve: Int = 0
+    val bassCurve: Int = 0,
+    val clarityMode: Int = 0
 )
 
 data class EqualizerPreset(
