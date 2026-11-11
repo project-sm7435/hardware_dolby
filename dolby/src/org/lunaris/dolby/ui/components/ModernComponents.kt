@@ -163,33 +163,11 @@ fun DolbyMainCard(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = if (enabled) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier.size(72.dp),
-                ) {
-                    DolbyLogo(
-                        modifier = Modifier.padding(16.dp),
-                        leftColor = if (enabled) MaterialTheme.colorScheme.onPrimary else contentColor,
-                        rightColor = if (enabled) MaterialTheme.colorScheme.onPrimary else contentColor,
-                    )
-                }
-                AnimatedWaveformBanner(
-                    modifier = Modifier.weight(1f).height(64.dp),
-                    barColor = if (enabled) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.outline,
-                    accentColor = if (enabled) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.outline,
-                    barCount = 28,
-                    animated = enabled,
-                )
-            }
+            AtmosRingGraphic(
+                enabled = enabled,
+                ringColor = contentColor,
+                modifier = Modifier.fillMaxWidth().height(190.dp),
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -197,24 +175,17 @@ fun DolbyMainCard(
             ) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = stringResource(R.string.dolby_enable),
+                        text = stringResource(R.string.dolby_title),
                         style = MaterialTheme.typography.headlineSmallEmphasized,
                     )
                     Text(
-                        text = stringResource(if (enabled) R.string.dolby_on else R.string.dolby_off),
+                        text = stringResource(if (enabled) R.string.dolby_atmos_on else R.string.dolby_atmos_off),
                         style = MaterialTheme.typography.labelLargeEmphasized,
                     )
                 }
                 Switch(
                     checked = enabled,
                     onCheckedChange = null,
-                    thumbContent = {
-                        Icon(
-                            if (enabled) Icons.Rounded.Check else Icons.Rounded.Close,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    },
                 )
             }
         }

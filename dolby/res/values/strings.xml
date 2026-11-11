@@ -14,6 +14,8 @@
 
     <!-- Dolby Atmos -->
     <string name="dolby_title">Dolby Atmos</string>
+    <string name="dolby_atmos_on">Immersive sound on</string>
+    <string name="dolby_atmos_off">Immersive sound off</string>
     <string name="dolby_summary">Experience immersive audio</string>
     <string name="dolby_enable">Use Dolby Atmos</string>
     <string name="dolby_profile_title">Choose a profile</string>
