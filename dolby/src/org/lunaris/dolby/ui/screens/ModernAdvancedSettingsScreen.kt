@@ -254,6 +254,22 @@ private fun ModernAdvancedSettingsContent(
             
             item {
                 ModernSettingsCard(
+                    title = stringResource(R.string.dolby_speaker_correction),
+                    icon = Icons.Default.Speaker
+                ) {
+                    ModernSettingSlider(
+                        title = stringResource(R.string.dolby_speaker_correction_strength),
+                        value = state.profileSettings.speakerCorrection,
+                        onValueChange = { viewModel.setSpeakerCorrection(it.toInt()) },
+                        valueRange = 0f..100f,
+                        steps = 19,
+                        valueLabel = { "$it%" }
+                    )
+                }
+            }
+
+            item {
+                ModernSettingsCard(
                     title = "Volume Leveler",
                     icon = Icons.Default.VolumeDown
                 ) {

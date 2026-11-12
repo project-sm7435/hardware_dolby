@@ -400,6 +400,42 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
     }
 
+    private fun applySpeakerCorrection(gains: IntArray, level: Int, direction: Int) {
+        if (level <= 0) return
+        val delta = ViperEffectModel.speakerCorrectionGains(level, BAND_FREQUENCIES_20)
+        for (i in delta.indices) {
+            if (i >= gains.size) break
+            gains[i] = (gains[i] + delta[i] * direction).coerceIn(-150, 150)
+        }
+    }
+
+    fun getSpeakerCorrection(profile: Int): Int {
+        return getProfilePrefs(profile).getInt(DolbyConstants.PREF_SPEAKER_CORRECTION, 0)
+    }
+
+    /** ViPER speaker correction strength, 0 (off) to 100 (full ViPER curve). */
+    fun setSpeakerCorrection(profile: Int, level: Int) {
+        if (isReleased) return
+        try {
+            val prefs = getProfilePrefs(profile)
+            val previous = prefs.getInt(DolbyConstants.PREF_SPEAKER_CORRECTION, 0)
+            val newLevel = level.coerceIn(0, 100)
+            if (previous == newLevel) return
+            prefs.edit().putInt(DolbyConstants.PREF_SPEAKER_CORRECTION, newLevel).apply()
+
+            checkEffect()
+            val currentGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile)
+            val modifiedGains = currentGains.copyOf()
+            applySpeakerCorrection(modifiedGains, previous, -1)
+            applySpeakerCorrection(modifiedGains, newLevel, 1)
+            dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
+            prefs.edit().putString(DolbyConstants.PREF_PRESET, modifiedGains.joinToString(",")).apply()
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Error setting speaker correction: ${e.message}")
+            throw e
+        }
+    }
+
     fun getTrebleEnhancerEnabled(profile: Int): Boolean {
         val prefs = getProfilePrefs(profile)
         return prefs.getBoolean(DolbyConstants.PREF_TREBLE, false)

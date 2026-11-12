@@ -102,6 +102,22 @@ internal object ViperEffectModel {
         )
     }
 
+    // RBJ high-pass, Q form (MultiBiquad HIGH_PASS, bandwidth = false)
+    private fun highPass(fc: Double, q: Double): Biquad {
+        val w = 2.0 * PI * fc / FS
+        val c = cos(w)
+        val alpha = sin(w) / (2.0 * q)
+        return Biquad((1 + c) / 2, -(1 + c), (1 + c) / 2, 1 + alpha, -2 * c, 1 - alpha)
+    }
+
+    // Biquad::SetBandPassParameter: b0 = sin(w)/2, b2 = -sin(w)/2 (peak gain equals Q)
+    private fun bandPass(fc: Double, q: Double): Biquad {
+        val w = 2.0 * PI * fc / FS
+        val s = sin(w)
+        val alpha = s / (2.0 * q)
+        return Biquad(s / 2, 0.0, -s / 2, 1 + alpha, -2 * cos(w), 1 - alpha)
+    }
+
     private fun toDb(m: Double): Double = if (m <= 1e-9) -60.0 else 20.0 * log10(m)
 
     private fun toGeq(db: DoubleArray): IntArray {
@@ -161,6 +177,24 @@ internal object ViperEffectModel {
             }
         }
         return toGeq(db)
+    }
+
+    /**
+     * ViPER SpeakerCorrection: out = 0.5 * x_f * (1 + BP420), x_f = HP80(LP13500(x)).
+     * Cuts sub-bass, lifts ~420 Hz by up to ~12 dB and rolls off the top. [level] (0..100)
+     * scales the correction in dB; 100 is the full ViPER curve.
+     */
+    fun speakerCorrectionGains(level: Int, freqs: List<Int>): IntArray {
+        if (level <= 0) return IntArray(freqs.size)
+        val scale = level / 100.0
+        val hp = highPass(80.0, 1.0)
+        val lp = lowPass(13500.0, 1.0)
+        val bp = bandPass(420.0, 3.88)
+        return IntArray(freqs.size) {
+            val f = freqs[it].toDouble()
+            val h = hp.at(f) * lp.at(f) * (Cx(1.0, 0.0) + bp.at(f))
+            (toDb(h.abs()) * scale * 10.0).roundToInt().coerceIn(-MAX_GAIN, MAX_GAIN)
+        }
     }
 
     /**

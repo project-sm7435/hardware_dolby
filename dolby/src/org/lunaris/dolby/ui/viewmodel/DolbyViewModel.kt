@@ -94,7 +94,8 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                     trebleLevel = repository.getTrebleLevel(profile),
                     bassCurve = repository.getBassCurve(profile),
                     clarityMode = repository.getClarityMode(profile),
-                    bassCutoff = repository.getBassCutoff(profile)
+                    bassCutoff = repository.getBassCutoff(profile),
+                    speakerCorrection = repository.getSpeakerCorrection(profile)
                 )
                 
                 if (!isCleared) {
@@ -188,6 +189,18 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                 loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting bass cutoff: ${e.message}")
+            }
+        }
+    }
+
+    fun setSpeakerCorrection(level: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val profile = repository.getCurrentProfile()
+                repository.setSpeakerCorrection(profile, level)
+                loadSettings()
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting speaker correction: ${e.message}")
             }
         }
     }
