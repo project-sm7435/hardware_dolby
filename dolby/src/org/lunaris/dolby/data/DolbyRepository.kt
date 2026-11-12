@@ -409,11 +409,43 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
     }
 
+    private fun readSpeakerApplied(prefs: SharedPreferences): IntArray? {
+        val parts = prefs.getString(DolbyConstants.PREF_SPEAKER_APPLIED, null)
+            ?.split(",")?.mapNotNull { it.toIntOrNull() } ?: return null
+        return if (parts.size == 20) parts.toIntArray() else null
+    }
+
+    private fun replaceSpeakerCorrection(prefs: SharedPreferences, gains: IntArray, previous: Int, newLevel: Int) {
+        val applied = readSpeakerApplied(prefs)
+        if (applied != null) {
+            for (i in gains.indices) {
+                if (i < applied.size) gains[i] = (gains[i] - applied[i]).coerceIn(-150, 150)
+            }
+        } else if (previous > 0) {
+            applySpeakerCorrection(gains, previous, -1) // older installs: nothing stored yet
+        }
+
+        if (newLevel > 0) {
+            val delta = ViperEffectModel.speakerCorrectionGains(newLevel, BAND_FREQUENCIES_20)
+            val added = IntArray(20)
+            for (i in delta.indices) {
+                if (i >= gains.size || i >= added.size) break
+                val updated = (gains[i] + delta[i]).coerceIn(-150, 150)
+                added[i] = updated - gains[i]
+                gains[i] = updated
+            }
+            prefs.edit().putString(DolbyConstants.PREF_SPEAKER_APPLIED, added.joinToString(",")).apply()
+        } else {
+            prefs.edit().remove(DolbyConstants.PREF_SPEAKER_APPLIED).apply()
+        }
+    }
+
     fun getSpeakerCorrection(profile: Int): Int {
         return getProfilePrefs(profile).getInt(DolbyConstants.PREF_SPEAKER_CORRECTION, 0)
     }
 
     /** ViPER speaker correction strength, 0 (off) to 100 (full ViPER curve). */
+    @Synchronized
     fun setSpeakerCorrection(profile: Int, level: Int) {
         if (isReleased) return
         try {
@@ -426,8 +458,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             checkEffect()
             val currentGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile)
             val modifiedGains = currentGains.copyOf()
-            applySpeakerCorrection(modifiedGains, previous, -1)
-            applySpeakerCorrection(modifiedGains, newLevel, 1)
+            replaceSpeakerCorrection(prefs, modifiedGains, previous, newLevel)
             dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
             prefs.edit().putString(DolbyConstants.PREF_PRESET, modifiedGains.joinToString(",")).apply()
         } catch (e: Exception) {

@@ -17,6 +17,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.channels.BufferOverflow
 
 class DolbyViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -30,13 +31,33 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     private var profileChangeJob: Job? = null
     @Volatile private var isCleared = false
 
+    private val speakerCorrectionRequests = MutableSharedFlow<Int>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+
     init {
         DolbyConstants.dlog(TAG, "ViewModel initialized")
         loadSettings()
+        observeSpeakerCorrectionRequests()
         observeSpeakerState()
         observeProfileChanges()
     }
     
+    private fun observeSpeakerCorrectionRequests() {
+        viewModelScope.launch(Dispatchers.IO) {
+            speakerCorrectionRequests.collect { level ->
+                try {
+                    val profile = repository.getCurrentProfile()
+                    repository.setSpeakerCorrection(profile, level)
+                    loadSettings()
+                } catch (e: Exception) {
+                    DolbyConstants.dlog(TAG, "Error setting speaker correction: ${e.message}")
+                }
+            }
+        }
+    }
+
     private fun observeSpeakerState() {
         speakerStateJob?.cancel()
         speakerStateJob = viewModelScope.launch {
@@ -194,15 +215,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setSpeakerCorrection(level: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val profile = repository.getCurrentProfile()
-                repository.setSpeakerCorrection(profile, level)
-                loadSettings()
-            } catch (e: Exception) {
-                DolbyConstants.dlog(TAG, "Error setting speaker correction: ${e.message}")
-            }
-        }
+        speakerCorrectionRequests.tryEmit(level)
     }
 
     fun setClarityMode(mode: Int) {

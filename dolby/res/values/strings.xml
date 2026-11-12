@@ -41,6 +41,7 @@
     <string name="dolby_bass_cutoff">Bass cutoff</string>
     <string name="dolby_speaker_correction">Speaker correction</string>
     <string name="dolby_speaker_correction_strength">Strength</string>
+    <string name="dolby_speaker_correction_summary">Corrects the speaker sound; turning it off restores your equalizer</string>
     <string name="dolby_clarity_mode">Clarity mode</string>
     <string name="dolby_clarity_natural">Natural</string>
     <string name="dolby_clarity_ozone">OZone+</string>

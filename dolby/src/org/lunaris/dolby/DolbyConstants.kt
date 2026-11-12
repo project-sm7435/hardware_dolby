@@ -26,6 +26,8 @@ object DolbyConstants {
     const val PREF_CLARITY_MODE = "dolby_clarity_mode"
     const val PREF_BASS_CUTOFF = "dolby_bass_cutoff"
     const val PREF_SPEAKER_CORRECTION = "dolby_speaker_correction"
+    // GEQ delta (0.1 dB per band) the speaker correction really added, after the +-15 dB clamp
+    const val PREF_SPEAKER_APPLIED = "dolby_speaker_correction_applied"
     const val PREF_MID = "dolby_mid"
     const val PREF_MID_LEVEL = "dolby_mid_level"
     const val PREF_TREBLE = "dolby_treble"

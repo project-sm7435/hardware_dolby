@@ -257,14 +257,34 @@ private fun ModernAdvancedSettingsContent(
                     title = stringResource(R.string.dolby_speaker_correction),
                     icon = Icons.Default.Speaker
                 ) {
-                    ModernSettingSlider(
-                        title = stringResource(R.string.dolby_speaker_correction_strength),
-                        value = state.profileSettings.speakerCorrection,
-                        onValueChange = { viewModel.setSpeakerCorrection(it.toInt()) },
-                        valueRange = 0f..100f,
-                        steps = 19,
-                        valueLabel = { "$it%" }
+                    ModernSettingSwitch(
+                        title = stringResource(R.string.dolby_speaker_correction),
+                        subtitle = stringResource(R.string.dolby_speaker_correction_summary),
+                        checked = state.profileSettings.speakerCorrection > 0,
+                        onCheckedChange = { enabled ->
+                            if (enabled && state.profileSettings.speakerCorrection == 0) {
+                                viewModel.setSpeakerCorrection(50)
+                            } else if (!enabled) {
+                                viewModel.setSpeakerCorrection(0)
+                            }
+                        },
+                        icon = Icons.Default.Speaker
                     )
+
+                    // Dragging the slider all the way down turns speaker correction off again.
+                    AnimatedVisibility(visible = state.profileSettings.speakerCorrection > 0) {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            ModernSettingSlider(
+                                title = stringResource(R.string.dolby_speaker_correction_strength),
+                                value = state.profileSettings.speakerCorrection,
+                                onValueChange = { viewModel.setSpeakerCorrection(it.toInt()) },
+                                valueRange = 0f..100f,
+                                steps = 19,
+                                valueLabel = { "$it%" }
+                            )
+                        }
+                    }
                 }
             }
 
