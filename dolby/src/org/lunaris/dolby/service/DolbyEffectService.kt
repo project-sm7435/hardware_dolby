@@ -36,6 +36,10 @@ class DolbyEffectService : Service() {
     private var retryAttempt = 0
     private val retryRunnable = Runnable { applyStateWithRetry() }
 
+    /**
+     * Applies the saved master switch/profile and keeps retrying with a growing delay until the
+     * effect reports the saved state. Fixes Dolby being off after reboot.
+     */
     private fun applyStateWithRetry() {
         handler.removeCallbacks(retryRunnable)
         val ok = try {

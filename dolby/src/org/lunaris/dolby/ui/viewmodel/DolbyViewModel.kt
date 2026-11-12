@@ -6,6 +6,7 @@
 package org.lunaris.dolby.ui.viewmodel
 
 import android.app.Application
+import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import org.lunaris.dolby.DolbyConstants
@@ -17,7 +18,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancelChildren
-import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 
 class DolbyViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -31,31 +32,49 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     private var profileChangeJob: Job? = null
     @Volatile private var isCleared = false
 
-    private val speakerCorrectionRequests = MutableSharedFlow<Int>(
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST,
-    )
+    private val effectOps = LinkedHashMap<String, suspend () -> Unit>()
+    private val effectLock = Any()
+    private val effectWake = Channel<Unit>(Channel.CONFLATED)
+    private var loadJob: Job? = null
+
+    // Reloads the card when the master switch is flipped somewhere else (the QS tile).
+    private val enabledListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == DolbyConstants.PREF_ENABLE && !isCleared) loadSettings()
+    }
 
     init {
         DolbyConstants.dlog(TAG, "ViewModel initialized")
+        repository.registerEnabledListener(enabledListener)
         loadSettings()
-        observeSpeakerCorrectionRequests()
+        startEffectWorker()
         observeSpeakerState()
         observeProfileChanges()
     }
     
-    private fun observeSpeakerCorrectionRequests() {
+    private fun startEffectWorker() {
         viewModelScope.launch(Dispatchers.IO) {
-            speakerCorrectionRequests.collect { level ->
-                try {
-                    val profile = repository.getCurrentProfile()
-                    repository.setSpeakerCorrection(profile, level)
-                    loadSettings()
-                } catch (e: Exception) {
-                    DolbyConstants.dlog(TAG, "Error setting speaker correction: ${e.message}")
+            for (wake in effectWake) {
+                while (true) {
+                    val op = synchronized(effectLock) {
+                        val key = effectOps.keys.firstOrNull()
+                        if (key == null) null else effectOps.remove(key)
+                    } ?: break
+                    try {
+                        op()
+                    } catch (e: Exception) {
+                        DolbyConstants.dlog(TAG, "Effect request failed: ${e.message}")
+                    }
                 }
             }
         }
+    }
+
+    private fun submitEffectOp(key: String, op: suspend () -> Unit) {
+        synchronized(effectLock) {
+            effectOps.remove(key)
+            effectOps[key] = op
+        }
+        effectWake.trySend(Unit)
     }
 
     private fun observeSpeakerState() {
@@ -88,9 +107,10 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         
-        viewModelScope.launch(Dispatchers.IO) {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch(Dispatchers.IO) {
             try {
-                val enabled = repository.getDolbyEnabled()
+                val enabled = repository.getSavedDolbyEnabled()
                 val profile = repository.getCurrentProfile()
                 val bandMode = repository.getBandMode()
                 
@@ -139,12 +159,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     fun setDolbyEnabled(enabled: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                repository.setDolbyEnabled(enabled)
-                if (enabled) {
-                    DolbyEffectService.start(getApplication())
-                } else {
-                    DolbyEffectService.stop(getApplication())
-                }
+                repository.setDolbyEnabledFromUser(enabled)
                 loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting Dolby enabled: ${e.message}")
@@ -175,7 +190,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setBassLevel(level: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
+        submitEffectOp("setBassLevel") {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setBassLevel(profile, level)
@@ -191,7 +206,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setBassCurve(curve: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
+        submitEffectOp("setBassCurve") {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setBassCurve(profile, curve)
@@ -203,7 +218,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setBassCutoff(hz: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
+        submitEffectOp("setBassCutoff") {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setBassCutoff(profile, hz)
@@ -215,11 +230,19 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setSpeakerCorrection(level: Int) {
-        speakerCorrectionRequests.tryEmit(level)
+        submitEffectOp("setSpeakerCorrection") {
+            try {
+                val profile = repository.getCurrentProfile()
+                repository.setSpeakerCorrection(profile, level)
+                loadSettings()
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting speaker correction: ${e.message}")
+            }
+        }
     }
 
     fun setClarityMode(mode: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
+        submitEffectOp("setClarityMode") {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setClarityMode(profile, mode)
@@ -231,7 +254,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setMidLevel(level: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
+        submitEffectOp("setMidLevel") {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setMidLevel(profile, level)
@@ -247,7 +270,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setTrebleLevel(level: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
+        submitEffectOp("setTrebleLevel") {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setTrebleLevel(profile, level)
@@ -368,6 +391,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         DolbyConstants.dlog(TAG, "ViewModel onCleared")
         isCleared = true
+        repository.unregisterEnabledListener(enabledListener)
         viewModelScope.coroutineContext.cancelChildren()
         speakerStateJob?.cancel()
         speakerStateJob = null

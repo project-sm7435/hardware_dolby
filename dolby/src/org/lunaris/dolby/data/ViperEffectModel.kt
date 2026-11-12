@@ -121,7 +121,7 @@ internal object ViperEffectModel {
     private fun toDb(m: Double): Double = if (m <= 1e-9) -60.0 else 20.0 * log10(m)
 
     private fun toGeq(db: DoubleArray): IntArray {
-        val ref = db.last() 
+        val ref = db.last() // keep the top band at 0 dB so overall volume is untouched
         return IntArray(db.size) { ((db[it] - ref) * 10.0).roundToInt().coerceIn(-MAX_GAIN, MAX_GAIN) }
     }
 

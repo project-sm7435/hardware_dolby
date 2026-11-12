@@ -15,6 +15,7 @@ import org.lunaris.dolby.DolbyConstants.DsParam
 import org.lunaris.dolby.R
 import org.lunaris.dolby.audio.DolbyAudioEffect
 import org.lunaris.dolby.domain.models.*
+import org.lunaris.dolby.service.DolbyEffectService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -193,14 +194,39 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
 
     fun setDolbyEnabled(enabled: Boolean) {
         if (isReleased) return
-        
+
+        defaultPrefs.edit().putBoolean(DolbyConstants.PREF_ENABLE, enabled).apply()
         try {
             checkEffect()
             dolbyEffect.dsOn = enabled
-            defaultPrefs.edit().putBoolean(DolbyConstants.PREF_ENABLE, enabled).apply()
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting Dolby enabled: ${e.message}")
+            try {
+                dolbyEffect.release()
+                dolbyEffect = createDolbyEffect()
+                dolbyEffect.dsOn = enabled
+            } catch (e2: Exception) {
+                DolbyConstants.dlog(TAG, "Retry setting Dolby enabled failed: ${e2.message}")
+            }
         }
+    }
+
+    fun setDolbyEnabledFromUser(enabled: Boolean) {
+        setDolbyEnabled(enabled)
+        if (enabled) {
+            DolbyEffectService.start(context)
+        } else {
+            DolbyEffectService.stop(context)
+        }
+    }
+
+    /** Calls [onChange] whenever the master switch changes, from the app or from the QS tile. */
+    fun registerEnabledListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
+        defaultPrefs.registerOnSharedPreferenceChangeListener(listener)
+    }
+
+    fun unregisterEnabledListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
+        defaultPrefs.unregisterOnSharedPreferenceChangeListener(listener)
     }
 
     fun getCurrentProfile(): Int {
@@ -274,6 +300,46 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         defaultPrefs.edit().putString(DolbyConstants.PREF_BAND_MODE, mode.value).apply()
     }
 
+    private fun readApplied(prefs: SharedPreferences, key: String): IntArray? {
+        val parts = prefs.getString(key, null)
+            ?.split(",")?.mapNotNull { it.toIntOrNull() } ?: return null
+        return if (parts.size == 20) parts.toIntArray() else null
+    }
+
+    private fun replaceEffectDelta(
+        prefs: SharedPreferences,
+        key: String,
+        gains: IntArray,
+        legacyOldDelta: IntArray?,
+        newDelta: IntArray?,
+    ) {
+        val applied = readApplied(prefs, key)
+        val old = applied ?: legacyOldDelta
+        if (old != null) {
+            for (i in gains.indices) {
+                if (i < old.size) gains[i] = (gains[i] - old[i]).coerceIn(-150, 150)
+            }
+        }
+        if (newDelta != null) {
+            val added = IntArray(20)
+            for (i in newDelta.indices) {
+                if (i >= gains.size || i >= added.size) break
+                val updated = (gains[i] + newDelta[i]).coerceIn(-150, 150)
+                added[i] = updated - gains[i]
+                gains[i] = updated
+            }
+            prefs.edit().putString(key, added.joinToString(",")).apply()
+        } else {
+            prefs.edit().remove(key).apply()
+        }
+    }
+
+    private fun bassDelta(level: Int, curve: Int, cutoff: Int): IntArray? =
+        if (level > 0) ViperEffectModel.bassGains(curve, level, BAND_FREQUENCIES_20, cutoff.toDouble()) else null
+
+    private fun clarityDelta(level: Int, mode: Int): IntArray? =
+        if (level > 0) ViperEffectModel.clarityGains(mode, level, BAND_FREQUENCIES_20) else null
+
     fun getBassEnhancerEnabled(profile: Int): Boolean {
         return try {
             dolbyEffect.getDapParameterBool(DsParam.BASS_ENHANCER_ENABLE, profile)
@@ -305,6 +371,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         return prefs.getInt(DolbyConstants.PREF_BASS_CURVE, 0)
     }
 
+    @Synchronized
     fun setBassCurve(profile: Int, curve: Int) {
         if (isReleased) return
         
@@ -321,8 +388,10 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             checkEffect()
             val currentGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile)
             val modifiedGains = currentGains.copyOf()
-            applyBassCurve(modifiedGains, level, previousCurve, -1, cutoff)
-            applyBassCurve(modifiedGains, level, curve, 1, cutoff)
+            replaceEffectDelta(
+                prefs, DolbyConstants.PREF_BASS_APPLIED, modifiedGains,
+                bassDelta(level, previousCurve, cutoff), bassDelta(level, curve, cutoff),
+            )
             dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
             
             val gainsString = modifiedGains.joinToString(",")
@@ -333,25 +402,12 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
     }
 
-    private fun applyBassCurve(
-        gains: IntArray,
-        level: Int,
-        curve: Int,
-        direction: Int,
-        cutoff: Int = ViperEffectModel.BASS_CUTOFF_HZ.toInt(),
-    ) {
-        val delta = ViperEffectModel.bassGains(curve, level, BAND_FREQUENCIES_20, cutoff.toDouble())
-        for (i in delta.indices) {
-            if (i >= gains.size) break
-            gains[i] = (gains[i] + delta[i] * direction).coerceIn(-150, 150)
-        }
-    }
-
     fun getBassCutoff(profile: Int): Int {
         return getProfilePrefs(profile).getInt(DolbyConstants.PREF_BASS_CUTOFF, 60)
     }
 
     /** ViPER "speaker" crossover frequency (15-150 Hz) used by Natural Bass and Pure Bass. */
+    @Synchronized
     fun setBassCutoff(profile: Int, hz: Int) {
         if (isReleased) return
         try {
@@ -368,8 +424,10 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             checkEffect()
             val currentGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile)
             val modifiedGains = currentGains.copyOf()
-            applyBassCurve(modifiedGains, level, curve, -1, previousCutoff)
-            applyBassCurve(modifiedGains, level, curve, 1, newCutoff)
+            replaceEffectDelta(
+                prefs, DolbyConstants.PREF_BASS_APPLIED, modifiedGains,
+                bassDelta(level, curve, previousCutoff), bassDelta(level, curve, newCutoff),
+            )
             dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
             prefs.edit().putString(DolbyConstants.PREF_PRESET, modifiedGains.joinToString(",")).apply()
         } catch (e: Exception) {
@@ -378,6 +436,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
     }
 
+    @Synchronized
     fun setBassLevel(profile: Int, level: Int) {
         if (isReleased) return
         
@@ -402,13 +461,10 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             
             val curve = prefs.getInt(DolbyConstants.PREF_BASS_CURVE, 0)
             val cutoff = prefs.getInt(DolbyConstants.PREF_BASS_CUTOFF, 60)
-            if (previousLevel > 0) {
-                applyBassCurve(modifiedGains, previousLevel, curve, -1, cutoff)
-            }
-
-            if (level > 0) {
-                applyBassCurve(modifiedGains, level, curve, 1, cutoff)
-            }
+            replaceEffectDelta(
+                prefs, DolbyConstants.PREF_BASS_APPLIED, modifiedGains,
+                bassDelta(previousLevel, curve, cutoff), bassDelta(level, curve, cutoff),
+            )
             dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
             
             val gainsString = modifiedGains.joinToString(",")
@@ -507,18 +563,11 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         return prefs.getInt(DolbyConstants.PREF_TREBLE_LEVEL, 0)
     }
 
-    private fun applyClarity(gains: IntArray, level: Int, mode: Int, direction: Int) {
-        val delta = ViperEffectModel.clarityGains(mode, level, BAND_FREQUENCIES_20)
-        for (i in delta.indices) {
-            if (i >= gains.size) break
-            gains[i] = (gains[i] + delta[i] * direction).coerceIn(-150, 150)
-        }
-    }
-
     fun getClarityMode(profile: Int): Int {
         return getProfilePrefs(profile).getInt(DolbyConstants.PREF_CLARITY_MODE, 0)
     }
 
+    @Synchronized
     fun setClarityMode(profile: Int, mode: Int) {
         if (isReleased) return
         try {
@@ -531,8 +580,10 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             checkEffect()
             val currentGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile)
             val modifiedGains = currentGains.copyOf()
-            applyClarity(modifiedGains, level, previousMode, -1)
-            applyClarity(modifiedGains, level, mode, 1)
+            replaceEffectDelta(
+                prefs, DolbyConstants.PREF_TREBLE_APPLIED, modifiedGains,
+                clarityDelta(level, previousMode), clarityDelta(level, mode),
+            )
             dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
             prefs.edit().putString(DolbyConstants.PREF_PRESET, modifiedGains.joinToString(",")).apply()
         } catch (e: Exception) {
@@ -541,6 +592,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
     }
 
+    @Synchronized
     fun setTrebleLevel(profile: Int, level: Int) {
         if (isReleased) return
         
@@ -563,8 +615,10 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             val modifiedGains = currentGains.copyOf()
 
             val clarityMode = prefs.getInt(DolbyConstants.PREF_CLARITY_MODE, 0)
-            if (previousLevel > 0) applyClarity(modifiedGains, previousLevel, clarityMode, -1)
-            if (level > 0) applyClarity(modifiedGains, level, clarityMode, 1)
+            replaceEffectDelta(
+                prefs, DolbyConstants.PREF_TREBLE_APPLIED, modifiedGains,
+                clarityDelta(previousLevel, clarityMode), clarityDelta(level, clarityMode),
+            )
 
             dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
             
