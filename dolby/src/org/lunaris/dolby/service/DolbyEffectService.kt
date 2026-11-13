@@ -7,7 +7,10 @@ package org.lunaris.dolby.service
 
 import android.app.Service
 import android.content.Context
+import android.content.BroadcastReceiver
 import android.content.Intent
+import android.content.IntentFilter
+import android.media.audiofx.AudioEffect
 import android.media.AudioAttributes
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
@@ -16,7 +19,10 @@ import android.media.AudioPlaybackConfiguration
 import android.os.Handler
 import android.content.SharedPreferences
 import android.os.IBinder
+import android.content.ComponentName
+import android.service.quicksettings.TileService
 import android.util.Log
+import org.lunaris.dolby.tile.DolbyTileService
 import org.lunaris.dolby.DolbyConstants
 import org.lunaris.dolby.data.DeviceStateManager
 import org.lunaris.dolby.data.DolbyRepository
@@ -30,7 +36,10 @@ class DolbyEffectService : Service() {
     private val isDeviceStateMemoryEnabled: Boolean
         get() = dolbyPrefs.getBoolean(DolbyConstants.PREF_DEVICE_STATE_MEMORY, false)
     private val handler = Handler()
-    private lateinit var repository: DolbyRepository
+    private var repositoryOrNull: DolbyRepository? = null
+
+    private val repository: DolbyRepository
+        get() = repositoryOrNull ?: DolbyRepository(this).also { repositoryOrNull = it }
     private lateinit var deviceStateManager: DeviceStateManager
     private var previousActiveDevice: AudioDeviceInfo? = null
     private var retryAttempt = 0
@@ -51,6 +60,20 @@ class DolbyEffectService : Service() {
         Log.i(TAG, "applySavedState ok=$ok attempt=$retryAttempt")
         if (ok) {
             retryAttempt = 0
+            try {
+                val activeSessions = resolveActiveSessionIds(audioManager.activePlaybackConfigurations)
+                if (activeSessions.isNotEmpty()) {
+                    repository.syncPlaybackSessions(activeSessions)
+                }
+            } catch (_: Exception) {
+            }
+            try {
+                TileService.requestListeningState(
+                    this,
+                    ComponentName(this, DolbyTileService::class.java)
+                )
+            } catch (_: Exception) {
+            }
         } else if (retryAttempt < RETRY_DELAYS_MS.size) {
             handler.postDelayed(retryRunnable, RETRY_DELAYS_MS[retryAttempt++])
         }
@@ -75,39 +98,162 @@ class DolbyEffectService : Service() {
         }
     }
 
+    private var wasPlaybackActive = false
+    private val trackedSessions = LinkedHashSet<Int>()
+    private val trackedPiids = LinkedHashSet<Int>()
+    private var isSessionReceiverRegistered = false
+
+    private val sessionBroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val action = intent?.action ?: return
+            val sessionId = intent.getIntExtra(AudioEffect.EXTRA_AUDIO_SESSION, AudioEffect.ERROR)
+            if (sessionId <= 0) return
+            when (action) {
+                AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION -> {
+                    trackedSessions.add(sessionId)
+                    repository.syncPlaybackSessions(trackedSessions.toSet())
+                    schedulePlaybackRefresh()
+                }
+                AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION -> {
+                    trackedSessions.remove(sessionId)
+                    repository.syncPlaybackSessions(trackedSessions.toSet())
+                }
+            }
+        }
+    }
+
+    private val playbackRefreshRunnable = Runnable {
+        try {
+            val sessions = resolveActiveSessionIds(audioManager.activePlaybackConfigurations)
+            repository.refreshOnPlayback(sessions)
+        } catch (e: Exception) {
+            Log.w(TAG, "refreshOnPlayback failed", e)
+        }
+    }
+
+    private fun schedulePlaybackRefresh() {
+        handler.removeCallbacks(playbackRefreshRunnable)
+        handler.postDelayed(playbackRefreshRunnable, PLAYBACK_REFRESH_DELAY_MS)
+    }
+
+    private fun resolveActiveSessionIds(configs: List<AudioPlaybackConfiguration>?): Set<Int> {
+        val result = LinkedHashSet<Int>(trackedSessions)
+        if (configs == null) return result
+        try {
+            val cls = AudioPlaybackConfiguration::class.java
+            val isActiveMethod = cls.getMethod("isActive")
+            val getSessionIdMethod = cls.getMethod("getSessionId")
+            for (cfg in configs) {
+                if (isActiveMethod.invoke(cfg) as? Boolean != true) continue
+                val sid = getSessionIdMethod.invoke(cfg) as? Int ?: continue
+                if (sid > 0) result.add(sid)
+            }
+        } catch (_: Exception) {
+        }
+        return result
+    }
+
+    private fun resolveActivePiids(configs: List<AudioPlaybackConfiguration>?): Set<Int> {
+        val result = LinkedHashSet<Int>()
+        if (configs == null) return result
+        try {
+            val cls = AudioPlaybackConfiguration::class.java
+            val isActiveMethod = cls.getMethod("isActive")
+            val getPiidMethod = cls.getMethod("getPlayerInterfaceId")
+            for (cfg in configs) {
+                if (isActiveMethod.invoke(cfg) as? Boolean != true) continue
+                val piid = getPiidMethod.invoke(cfg) as? Int ?: continue
+                if (piid != 0) result.add(piid)
+            }
+        } catch (_: Exception) {
+        }
+        return result
+    }
+
     private val playbackCallback = object : AudioManager.AudioPlaybackCallback() {
         override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>?) {
             val isActive = configs?.any { it.isActive } == true
+            val activeSessions = resolveActiveSessionIds(configs)
+            val activePiids = resolveActivePiids(configs)
+            val newSessionStarted = (activeSessions - trackedSessions).isNotEmpty()
+            val newPlayerStarted = (activePiids - trackedPiids).isNotEmpty()
+
+            trackedSessions.clear()
+            trackedSessions.addAll(activeSessions)
+            trackedPiids.clear()
+            trackedPiids.addAll(activePiids)
+
             if (isActive) {
-                repository.applySavedState()
+                if (!wasPlaybackActive) {
+                    try {
+                        repository.ensureLiveState()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "ensureLiveState on playback failed", e)
+                    }
+                }
+                if (newSessionStarted || newPlayerStarted || !wasPlaybackActive) {
+                    repository.syncPlaybackSessions(activeSessions)
+                    schedulePlaybackRefresh()
+                }
+            } else if (wasPlaybackActive) {
+                repository.syncPlaybackSessions(emptySet())
             }
+            wasPlaybackActive = isActive
         }
     }
 
     override fun onCreate() {
         super.onCreate()
-        repository = DolbyRepository(this)
         deviceStateManager = DeviceStateManager(this)
-        val currentDevice = getCurrentOutputDevice()
-        if (currentDevice != null) {
-            previousActiveDevice = currentDevice
-            if (isDeviceStateMemoryEnabled) {
-                val key = deviceStateManager.deviceKey(currentDevice)
-                val restored = deviceStateManager.restoreSnapshot(key, repository)
-                if (!restored) applyStateWithRetry()
+        try {
+            val currentDevice = getCurrentOutputDevice()
+            if (currentDevice != null) {
+                previousActiveDevice = currentDevice
+                if (isDeviceStateMemoryEnabled) {
+                    val key = deviceStateManager.deviceKey(currentDevice)
+                    val restored = deviceStateManager.restoreSnapshot(key, repository)
+                    if (!restored) {
+                        applyStateWithRetry()
+                    } else {
+                        // audioserver/DAP HAL may still be starting: check again shortly.
+                        handler.postDelayed(retryRunnable, 2_000L)
+                    }
+                } else {
+                    applyStateWithRetry()
+                }
             } else {
                 applyStateWithRetry()
             }
-        } else {
-            applyStateWithRetry()
+        } catch (e: Exception) {
+            Log.w(TAG, "Initial Dolby setup failed, will retry", e)
+            retryAttempt = 0
+            handler.postDelayed(retryRunnable, RETRY_DELAYS_MS[0])
         }
 
         audioManager.registerAudioDeviceCallback(audioDeviceCallback, handler)
         audioManager.registerAudioPlaybackCallback(playbackCallback, handler)
+        if (!isSessionReceiverRegistered) {
+            val filter = IntentFilter().apply {
+                addAction(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION)
+                addAction(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION)
+            }
+            registerReceiver(sessionBroadcastReceiver, filter, Context.RECEIVER_EXPORTED)
+            isSessionReceiverRegistered = true
+        }
         Log.d(TAG, "Dolby effect service created")
     }
 
     private fun handleDeviceChange() {
+        try {
+            handleDeviceChangeInner()
+        } catch (e: Exception) {
+            Log.w(TAG, "Device change handling failed, will retry", e)
+            retryAttempt = 0
+            handler.postDelayed(retryRunnable, RETRY_DELAYS_MS[0])
+        }
+    }
+
+    private fun handleDeviceChangeInner() {
         val newDevice = getCurrentOutputDevice()
         val oldDevice = previousActiveDevice
 
@@ -181,15 +327,29 @@ class DolbyEffectService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (isDeviceStateMemoryEnabled) {
+        val repo = repositoryOrNull
+        if (repo != null && isDeviceStateMemoryEnabled) {
             previousActiveDevice?.let { device ->
                 val key = deviceStateManager.deviceKey(device)
-                deviceStateManager.saveSnapshot(key, repository)
+                deviceStateManager.saveSnapshot(key, repo)
             }
         }
         audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
         audioManager.unregisterAudioPlaybackCallback(playbackCallback)
+        if (isSessionReceiverRegistered) {
+            try {
+                unregisterReceiver(sessionBroadcastReceiver)
+            } catch (_: Exception) {
+            }
+            isSessionReceiverRegistered = false
+        }
         handler.removeCallbacksAndMessages(null)
+        try {
+            repo?.close()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error closing repository", e)
+        }
+        repositoryOrNull = null
         Log.d(TAG, "Dolby effect service destroyed")
     }
 
@@ -197,7 +357,8 @@ class DolbyEffectService : Service() {
 
     companion object {
         private const val TAG = "DolbyEffectService"
-        private val RETRY_DELAYS_MS = longArrayOf(1_000, 2_000, 4_000, 8_000, 15_000, 30_000)
+        private const val PLAYBACK_REFRESH_DELAY_MS = 150L
+        private val RETRY_DELAYS_MS = longArrayOf(1_000, 2_000, 4_000, 8_000, 15_000, 30_000, 60_000, 120_000)
 
         private val ATTRIBUTES_MEDIA = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)

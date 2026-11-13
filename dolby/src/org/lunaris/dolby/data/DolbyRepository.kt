@@ -23,7 +23,13 @@ import kotlinx.coroutines.flow.asStateFlow
 class DolbyRepository(private val context: Context) : AutoCloseable {
 
     private val audioManager = context.getSystemService(AudioManager::class.java)
-    private var dolbyEffect = createDolbyEffect()
+
+    private val dolbyEffect: DolbyAudioEffect get() = SharedDolbyEffect.get { createDolbyEffect() }
+
+    private fun recreateDolbyEffect() {
+        SharedDolbyEffect.drop()
+        SharedDolbyEffect.get { createDolbyEffect() }
+    }
     
     private val defaultPrefs = context.getSharedPreferences("dolby_prefs", Context.MODE_PRIVATE)
     private val presetsPrefs = context.getSharedPreferences(DolbyConstants.PREF_FILE_PRESETS, Context.MODE_PRIVATE)
@@ -31,7 +37,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     private val _isOnSpeaker = MutableStateFlow(checkIsOnSpeaker())
     val isOnSpeaker: StateFlow<Boolean> = _isOnSpeaker.asStateFlow()
     
-    private val _currentProfile = MutableStateFlow(0)
+    private val _currentProfile = MutableStateFlow(defaultPrefs.getString(DolbyConstants.PREF_PROFILE, null)?.toIntOrNull() ?: 0)
     val currentProfile: StateFlow<Int> = _currentProfile.asStateFlow()
 
     val stereoWideningSupported = context.resources.getBoolean(R.bool.dolby_stereo_widening_supported)
@@ -60,12 +66,16 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         try {
             if (!dolbyEffect.hasControl()) {
                 DolbyConstants.dlog(TAG, "Lost audio effect control, recreating")
-                dolbyEffect.release()
-                dolbyEffect = createDolbyEffect()
+                recreateDolbyEffect()
                 restoreSavedProfileIfNeeded()
             }
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error checking effect: ${e.message}")
+            try {
+                recreateDolbyEffect()
+            } catch (e2: Exception) {
+                DolbyConstants.dlog(TAG, "Could not recreate effect: ${e2.message}")
+            }
         }
     }
 
@@ -81,6 +91,8 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
         restoreProfilePreset(savedProfile)
         applyProfileSettings(savedProfile)
+        applyViper(savedProfile)
+        applyDsee(savedProfile)
     }
 
     private fun applyProfileSettings(profile: Int) {
@@ -150,19 +162,38 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     fun getSavedDolbyEnabled(): Boolean =
         defaultPrefs.getBoolean(DolbyConstants.PREF_ENABLE, false)
 
+    @Synchronized
     fun applySavedState(): Boolean {
         return try {
             checkEffect()
             val enabled = getSavedDolbyEnabled()
             dolbyEffect.dsOn = enabled
-            if (enabled) {
-                restoreSavedProfileIfNeeded()
+            if (dolbyEffect.dsOn != enabled) {
+                // Early boot: audioserver/DAP HAL may have restarted after initial handle creation; recreate handle.
+                recreateDolbyEffect()
+                dolbyEffect.dsOn = enabled
             }
+            val savedProfile = readSavedProfile() ?: 0
+            if (enabled) {
+                if (dolbyEffect.profile != savedProfile) {
+                    dolbyEffect.profile = savedProfile
+                }
+                restoreProfilePreset(savedProfile)
+                applyProfileSettings(savedProfile)
+            }
+            applyViper(savedProfile, forceRebind = enabled)
+            applyDsee(savedProfile, forceRebind = enabled)
             val live = dolbyEffect.dsOn
-            DolbyConstants.dlog(TAG, "applySavedState: saved=$enabled live=$live")
+            DolbyConstants.dlog(TAG, "applySavedState: saved=$enabled live=$live profile=$savedProfile")
+            android.util.Log.i(TAG, "applySavedState: saved=$enabled live=$live profile=$savedProfile")
             live == enabled
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "applySavedState failed: ${e.message}")
+            android.util.Log.w(TAG, "applySavedState failed: ${e.message}")
+            try {
+                recreateDolbyEffect()
+            } catch (_: Exception) {
+            }
             false
         }
     }
@@ -192,6 +223,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
     }
 
+    @Synchronized
     fun setDolbyEnabled(enabled: Boolean) {
         if (isReleased) return
 
@@ -199,15 +231,110 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         try {
             checkEffect()
             dolbyEffect.dsOn = enabled
+            if (enabled) {
+                restoreSavedProfileIfNeeded()
+            }
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting Dolby enabled: ${e.message}")
             try {
-                dolbyEffect.release()
-                dolbyEffect = createDolbyEffect()
+                recreateDolbyEffect()
                 dolbyEffect.dsOn = enabled
+                if (enabled) {
+                    restoreSavedProfileIfNeeded()
+                }
             } catch (e2: Exception) {
                 DolbyConstants.dlog(TAG, "Retry setting Dolby enabled failed: ${e2.message}")
             }
+        }
+        // The switch must really have reached the effect. If not, take a fresh handle and set it
+        // again, so one tap is enough (the screen and the tile show the saved switch).
+        try {
+            if (dolbyEffect.dsOn != enabled) {
+                DolbyConstants.dlog(TAG, "Dolby switch did not stick, retrying with a new handle")
+                android.util.Log.i(TAG, "Dolby switch did not stick (want $enabled), retrying with a new handle")
+                recreateDolbyEffect()
+                dolbyEffect.dsOn = enabled
+                if (enabled) {
+                    restoreSavedProfileIfNeeded()
+                }
+            }
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Verifying Dolby switch failed: ${e.message}")
+        }
+        val activeProfile = readSavedProfile() ?: 0
+        applyViper(activeProfile, forceRebind = enabled)
+        applyDsee(activeProfile, forceRebind = enabled)
+    }
+
+    /**
+     * If the saved switch says on but the live effect is off (for example after a reboot or an
+     * audioserver restart), applies the saved state again so the screen never lies about it.
+     */
+    /**
+     * Light re-push of the saved state when a new track/stream starts. Unlike applySavedState()
+     * it never drops/rebinds the ViPER or DSEE handles, so it can run during playback.
+     */
+    @Synchronized
+    fun syncPlaybackSessions(activeSessionIds: Set<Int>) {
+        if (isReleased) return
+        try {
+            val enabled = getSavedDolbyEnabled()
+            if (!enabled) {
+                viper.syncActiveSessions(emptySet())
+                dsee.syncActiveSessions(emptySet())
+                return
+            }
+            val savedProfile = readSavedProfile() ?: 0
+            applyViper(savedProfile, forceRebind = false)
+            applyDsee(savedProfile, forceRebind = false)
+            viper.syncActiveSessions(activeSessionIds)
+            dsee.syncActiveSessions(activeSessionIds)
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "syncPlaybackSessions failed: ${e.message}")
+        }
+    }
+
+    @Synchronized
+    fun refreshOnPlayback(activeSessionIds: Set<Int> = emptySet()) {
+        if (isReleased) return
+        try {
+            checkEffect()
+            val enabled = getSavedDolbyEnabled()
+            if (dolbyEffect.dsOn != enabled) {
+                dolbyEffect.dsOn = enabled
+            }
+            if (!enabled) {
+                viper.syncActiveSessions(emptySet())
+                dsee.syncActiveSessions(emptySet())
+                return
+            }
+            val savedProfile = readSavedProfile() ?: 0
+            if (dolbyEffect.profile != savedProfile) {
+                dolbyEffect.profile = savedProfile
+            }
+            restoreProfilePreset(savedProfile)
+            applyProfileSettings(savedProfile)
+            dolbyEffect.dsOn = true
+            applyViper(savedProfile, forceRebind = false)
+            applyDsee(savedProfile, forceRebind = false)
+            if (activeSessionIds.isNotEmpty()) {
+                viper.syncActiveSessions(activeSessionIds)
+                dsee.syncActiveSessions(activeSessionIds)
+            }
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "refreshOnPlayback failed: ${e.message}")
+        }
+    }
+
+    fun ensureLiveState() {
+        if (isReleased) return
+        try {
+            if (getDolbyEnabled() != getSavedDolbyEnabled()) {
+                DolbyConstants.dlog(TAG, "Live Dolby state differs from the saved switch, re-applying")
+                applySavedState()
+            }
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "ensureLiveState failed: ${e.message}")
         }
     }
 
@@ -232,26 +359,45 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     fun getCurrentProfile(): Int {
         return try {
             checkEffect()
-            restoreSavedProfileIfNeeded()
+            val saved = readSavedProfile()
+            if (saved != null && dolbyEffect.profile != saved) {
+                dolbyEffect.profile = saved
+            }
             dolbyEffect.profile
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error getting current profile: ${e.message}")
-            0
+            readSavedProfile() ?: 0
         }
     }
 
+    @Synchronized
     fun setCurrentProfile(profile: Int) {
         if (isReleased) return
         
         try {
+            defaultPrefs.edit().putString(DolbyConstants.PREF_PROFILE, profile.toString()).commit()
             checkEffect()
+            val enabled = getSavedDolbyEnabled()
             dolbyEffect.profile = profile
-            defaultPrefs.edit().putString(DolbyConstants.PREF_PROFILE, profile.toString()).apply()
-            if (!verifyProfileSaved(profile)) {
-                DolbyConstants.dlog(TAG, "WARNING: Profile may not have been saved correctly!")
+            if (dolbyEffect.profile != profile) {
+                recreateDolbyEffect()
+                dolbyEffect.profile = profile
             }
             restoreProfilePreset(profile)
+            applyProfileSettings(profile)
+            // Re-assert dsOn after profile & parameters are written so Xiaomi/Qualcomm libhwdap.so
+            // commits the selected profile's DSP coefficients immediately on the first click.
+            dolbyEffect.dsOn = enabled
+            if (dolbyEffect.dsOn != enabled) {
+                recreateDolbyEffect()
+                dolbyEffect.profile = profile
+                restoreProfilePreset(profile)
+                applyProfileSettings(profile)
+                dolbyEffect.dsOn = enabled
+            }
             _currentProfile.value = profile
+            applyViper(profile, forceRebind = true)
+            applyDsee(profile, forceRebind = true)
             DolbyConstants.dlog(TAG, "Profile set to: $profile")
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting current profile: ${e.message}")
@@ -335,10 +481,102 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     }
 
     private fun bassDelta(level: Int, curve: Int, cutoff: Int): IntArray? =
-        if (level > 0) ViperEffectModel.bassGains(curve, level, BAND_FREQUENCIES_20, cutoff.toDouble()) else null
+        if (level > 0) ViperEffectModel.bassGains(curve, level, DAX_GEQ_FREQUENCIES, cutoff.toDouble()) else null
 
     private fun clarityDelta(level: Int, mode: Int): IntArray? =
-        if (level > 0) ViperEffectModel.clarityGains(mode, level, BAND_FREQUENCIES_20) else null
+        if (level > 0) ViperEffectModel.clarityGains(mode, level, DAX_GEQ_FREQUENCIES) else null
+
+    private val viper: ViperController get() = ViperController.get(context)
+    private val dsee: DseeController get() = DseeController.get(context)
+
+    /** True when the ViPER effect is installed; bass, clarity and dynamic bass then run in it. */
+    private fun viperActive(): Boolean = !isReleased && viper.isAvailable()
+
+    /** Takes bass or clarity out of the equalizer bands, where an older version had baked them in. */
+    private fun clearGeqEffect(profile: Int, key: String) {
+        val prefs = getProfilePrefs(profile)
+        val applied = readApplied(prefs, key) ?: return
+        checkEffect()
+        val gains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile).copyOf()
+        for (i in gains.indices) {
+            if (i < applied.size) gains[i] = (gains[i] - applied[i]).coerceIn(-150, 150)
+        }
+        dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, gains, profile)
+        prefs.edit().remove(key).putString(DolbyConstants.PREF_PRESET, gains.joinToString(",")).apply()
+    }
+
+    /** Sends the saved bass, clarity and dynamic bass settings of [profile] to ViPER. */
+    @Synchronized
+    fun applyViper(profile: Int = readSavedProfile() ?: 0, forceRebind: Boolean = false) {
+        if (!viperActive()) return
+        try {
+            checkEffect()
+            val enabled = getSavedDolbyEnabled()
+            if (dolbyEffect.dsOn != enabled) {
+                dolbyEffect.dsOn = enabled
+            }
+            if (dolbyEffect.profile != profile) {
+                dolbyEffect.profile = profile
+            }
+            clearGeqEffect(profile, DolbyConstants.PREF_BASS_APPLIED)
+            clearGeqEffect(profile, DolbyConstants.PREF_TREBLE_APPLIED)
+            clearGeqEffect(profile, DolbyConstants.PREF_DYNAMIC_APPLIED)
+
+            val prefs = getProfilePrefs(profile)
+            val bassLevel = prefs.getInt(DolbyConstants.PREF_BASS_LEVEL, 0)
+            val curve = prefs.getInt(DolbyConstants.PREF_BASS_CURVE, 0)
+            val trebleLevel = prefs.getInt(DolbyConstants.PREF_TREBLE_LEVEL, 0)
+            // Dynamic system runs next to ViPER bass (both can be on). Curve 3 is the old way of
+            // storing it, so it never counts as ViPER bass.
+            val dynamicLevel = getDynamicLevel(profile)
+            val dynamic = curve == ViperEffectModel.BASS_DYNAMIC
+            val speakerLevel = prefs.getInt(DolbyConstants.PREF_SPEAKER_CORRECTION, 0)
+            viper.apply(
+                ViperController.Settings(
+                    bassOn = bassLevel > 0 && !dynamic,
+                    bassMode = curve.coerceIn(0, 2),
+                    bassFrequency = prefs.getInt(DolbyConstants.PREF_BASS_CUTOFF, 60),
+                    bassGain = bassLevel,
+                    clarityOn = trebleLevel > 0,
+                    clarityMode = prefs.getInt(DolbyConstants.PREF_CLARITY_MODE, 0),
+                    clarityGain = trebleLevel,
+                    dynamicOn = dynamicLevel > 0,
+                    dynamicStrength = dynamicLevel,
+                    speakerCorrectionOn = speakerLevel > 0,
+                    speakerStrength = speakerLevel,
+                ),
+                getSavedDolbyEnabled(),
+                forceRebind,
+            )
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Error applying ViPER settings: ${e.message}")
+        }
+    }
+
+
+    @Synchronized
+    fun applyDsee(profile: Int = readSavedProfile() ?: 0, forceRebind: Boolean = false) {
+        try {
+            val enabled = getDseeEnabled(profile)
+            dsee.apply(enabled, getSavedDolbyEnabled(), forceRebind)
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Error applying DSEE settings: ${e.message}")
+        }
+    }
+
+    fun getDseeEnabled(profile: Int): Boolean {
+        return getProfilePrefs(profile).getBoolean(DolbyConstants.PREF_DSEE, false)
+    }
+
+    fun setDseeEnabled(profile: Int, enabled: Boolean) {
+        if (isReleased) return
+        try {
+            getProfilePrefs(profile).edit().putBoolean(DolbyConstants.PREF_DSEE, enabled).apply()
+            applyDsee(profile)
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Error setting DSEE: ${e.message}")
+        }
+    }
 
     fun getBassEnhancerEnabled(profile: Int): Boolean {
         return try {
@@ -374,6 +612,12 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     @Synchronized
     fun setBassCurve(profile: Int, curve: Int) {
         if (isReleased) return
+        if (viperActive()) {
+            getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_BASS_CURVE, curve).apply()
+            applyViper(profile)
+            applyDsee(profile)
+            return
+        }
         
         try {
             val prefs = getProfilePrefs(profile)
@@ -410,6 +654,12 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     @Synchronized
     fun setBassCutoff(profile: Int, hz: Int) {
         if (isReleased) return
+        if (viperActive()) {
+            getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_BASS_CUTOFF, hz.coerceIn(15, 150)).apply()
+            applyViper(profile)
+            applyDsee(profile)
+            return
+        }
         try {
             val prefs = getProfilePrefs(profile)
             val previousCutoff = prefs.getInt(DolbyConstants.PREF_BASS_CUTOFF, 60)
@@ -420,7 +670,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             prefs.edit().putInt(DolbyConstants.PREF_BASS_CUTOFF, newCutoff).apply()
 
             // Subwoofer and Dynamic Bass use fixed filters, so only the first two curves change.
-            if (level <= 0 || curve > 1) return
+            if (level <= 0) return
             checkEffect()
             val currentGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile)
             val modifiedGains = currentGains.copyOf()
@@ -448,6 +698,15 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
         
         try {
+            if (viperActive()) {
+                getProfilePrefs(profile).edit()
+                    .putInt(DolbyConstants.PREF_BASS_LEVEL, level)
+                    .putBoolean(DolbyConstants.PREF_BASS, level > 0)
+                    .apply()
+                applyViper(profile)
+            applyDsee(profile)
+                return
+            }
             val prefs = getProfilePrefs(profile)
             val previousLevel = prefs.getInt(DolbyConstants.PREF_BASS_LEVEL, 0)
             
@@ -484,7 +743,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
 
     private fun applySpeakerCorrection(gains: IntArray, level: Int, direction: Int) {
         if (level <= 0) return
-        val delta = ViperEffectModel.speakerCorrectionGains(level, BAND_FREQUENCIES_20)
+        val delta = ViperEffectModel.speakerCorrectionGains(level, DAX_GEQ_FREQUENCIES)
         for (i in delta.indices) {
             if (i >= gains.size) break
             gains[i] = (gains[i] + delta[i] * direction).coerceIn(-150, 150)
@@ -508,7 +767,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
 
         if (newLevel > 0) {
-            val delta = ViperEffectModel.speakerCorrectionGains(newLevel, BAND_FREQUENCIES_20)
+            val delta = ViperEffectModel.speakerCorrectionGains(newLevel, DAX_GEQ_FREQUENCIES)
             val added = IntArray(20)
             for (i in delta.indices) {
                 if (i >= gains.size || i >= added.size) break
@@ -536,6 +795,12 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             val newLevel = level.coerceIn(0, 100)
             if (previous == newLevel) return
             prefs.edit().putInt(DolbyConstants.PREF_SPEAKER_CORRECTION, newLevel).apply()
+
+            // Dispatch PARAM_SPEAKER_OPTIMIZATION (0x10043) to vendor libv4a_re.so + native JNI SpeakerCorrection
+            if (viperActive()) {
+                applyViper(profile)
+                return
+            }
 
             checkEffect()
             val currentGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile)
@@ -570,6 +835,12 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     @Synchronized
     fun setClarityMode(profile: Int, mode: Int) {
         if (isReleased) return
+        if (viperActive()) {
+            getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_CLARITY_MODE, mode).apply()
+            applyViper(profile)
+            applyDsee(profile)
+            return
+        }
         try {
             val prefs = getProfilePrefs(profile)
             val previousMode = prefs.getInt(DolbyConstants.PREF_CLARITY_MODE, 0)
@@ -604,6 +875,15 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
 
         try {
+            if (viperActive()) {
+                getProfilePrefs(profile).edit()
+                    .putInt(DolbyConstants.PREF_TREBLE_LEVEL, level)
+                    .putBoolean(DolbyConstants.PREF_TREBLE, level > 0)
+                    .apply()
+                applyViper(profile)
+            applyDsee(profile)
+                return
+            }
             val prefs = getProfilePrefs(profile)
             val previousLevel = prefs.getInt(DolbyConstants.PREF_TREBLE_LEVEL, 0)
 
@@ -633,6 +913,57 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             throw e
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "setTrebleLevel: unexpected error - ${e.message}")
+            throw e
+        }
+    }
+
+    /** Dynamic system strength, 0 (off) to 100. Older saves kept it as bass curve 3. */
+    fun getDynamicLevel(profile: Int): Int {
+        val prefs = getProfilePrefs(profile)
+        if (prefs.contains(DolbyConstants.PREF_DYNAMIC_LEVEL)) {
+            return prefs.getInt(DolbyConstants.PREF_DYNAMIC_LEVEL, 0)
+        }
+        val curve = prefs.getInt(DolbyConstants.PREF_BASS_CURVE, 0)
+        return if (curve == ViperEffectModel.BASS_DYNAMIC) prefs.getInt(DolbyConstants.PREF_BASS_LEVEL, 0) else 0
+    }
+
+    private fun dynamicDelta(level: Int): IntArray? =
+        if (level > 0) ViperEffectModel.bassGains(ViperEffectModel.BASS_DYNAMIC, level, DAX_GEQ_FREQUENCIES, 60.0) else null
+
+    @Synchronized
+    fun setDynamicLevel(profile: Int, level: Int) {
+        if (isReleased) return
+        if (level !in 0..100) throw IllegalArgumentException("Dynamic system level must be between 0 and 100")
+        val prefs = getProfilePrefs(profile)
+        var previousLevel = getDynamicLevel(profile)
+        // Older saves kept Dynamic system in the bass slot (curve 3); its equalizer part sits under the bass key.
+        val legacyBassSlot = !prefs.contains(DolbyConstants.PREF_DYNAMIC_LEVEL) && previousLevel > 0
+        prefs.edit().putInt(DolbyConstants.PREF_DYNAMIC_LEVEL, level).apply()
+
+        if (viperActive()) {
+            applyViper(profile)
+            applyDsee(profile)
+            return
+        }
+        try {
+            checkEffect()
+            val modifiedGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile).copyOf()
+            if (legacyBassSlot) {
+                replaceEffectDelta(
+                    prefs, DolbyConstants.PREF_BASS_APPLIED, modifiedGains,
+                    dynamicDelta(previousLevel), null,
+                )
+                prefs.edit().putInt(DolbyConstants.PREF_BASS_LEVEL, 0).apply()
+                previousLevel = 0
+            }
+            replaceEffectDelta(
+                prefs, DolbyConstants.PREF_DYNAMIC_APPLIED, modifiedGains,
+                dynamicDelta(previousLevel), dynamicDelta(level),
+            )
+            dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
+            prefs.edit().putString(DolbyConstants.PREF_PRESET, modifiedGains.joinToString(",")).apply()
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Error setting dynamic system: ${e.message}")
             throw e
         }
     }
@@ -675,6 +1006,9 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             checkEffect()
             dolbyEffect.setDapParameter(DsParam.IEQ_PRESET, preset, profile)
             getProfilePrefs(profile).edit().putString(DolbyConstants.PREF_IEQ, preset.toString()).apply()
+            if (getSavedDolbyEnabled() && dolbyEffect.profile == profile) {
+                dolbyEffect.dsOn = true
+            }
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting IEQ preset: ${e.message}")
         }
@@ -950,6 +1284,8 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             checkEffect()
             dolbyEffect.resetProfileSpecificSettings(profile)
             context.deleteSharedPreferences("profile_$profile")
+            applyViper(profile, forceRebind = true)
+            applyDsee(profile, forceRebind = true)
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error resetting profile: ${e.message}")
         }
@@ -1112,11 +1448,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         if (!isReleased) {
             DolbyConstants.dlog(TAG, "Releasing repository resources")
             isReleased = true
-            try {
-                dolbyEffect.release()
-            } catch (e: Exception) {
-                DolbyConstants.dlog(TAG, "Error releasing effect: ${e.message}")
-            }
+            // The effect is shared with every other repository, so it stays alive.
         }
     }
     
@@ -1140,6 +1472,15 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             32, 47, 94, 141, 234, 469, 844, 1313, 2250, 3750, 5813, 9000, 11250, 13875, 19688
         )
         
+        /**
+         * The 20 graphic equalizer bands of the Dolby engine, as written in dax-default.xml. The ViPER
+         * curves are worked out on these so each band gets the gain of its own frequency.
+         */
+        val DAX_GEQ_FREQUENCIES = listOf(
+            47, 141, 234, 328, 469, 656, 844, 1031, 1313, 1688,
+            2250, 3000, 3750, 4688, 5813, 7125, 9000, 11250, 13875, 19688
+        )
+
         val BAND_FREQUENCIES_20 = listOf(
             32, 47, 141, 234, 328, 469, 656, 844, 1031, 1313,
             1688, 2250, 3000, 3750, 4688, 5813, 7125, 9000, 11250, 19688
@@ -1148,5 +1489,23 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         private val TEN_BAND_INDICES = listOf(0, 2, 4, 6, 8, 10, 12, 14, 16, 18)
         
         private val FIFTEEN_BAND_INDICES = listOf(0, 1, 2, 3, 4, 5, 6, 8, 11, 12, 14, 15, 17, 18, 19)
+    }
+}
+
+/** The single Dolby effect handle of this process, shared by every [DolbyRepository]. */
+private object SharedDolbyEffect {
+    private var effect: DolbyAudioEffect? = null
+
+    @Synchronized
+    fun get(create: () -> DolbyAudioEffect): DolbyAudioEffect =
+        effect ?: create().also { effect = it }
+
+    @Synchronized
+    fun drop() {
+        try {
+            effect?.release()
+        } catch (_: Exception) {
+        }
+        effect = null
     }
 }
