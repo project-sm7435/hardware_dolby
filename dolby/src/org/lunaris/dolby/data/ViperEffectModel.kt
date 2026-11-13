@@ -118,6 +118,35 @@ internal object ViperEffectModel {
         return Biquad(s / 2, 0.0, -s / 2, 1 + alpha, -2 * cos(w), 1 - alpha)
     }
 
+    // First-order section of IIR_1st: y = b0*x + s ; s' = b1*x + a1*y  ->  H = (b0 + b1 z^-1) / (1 - a1 z^-1)
+    private class Iir1(val b0: Double, val b1: Double, val a1: Double) {
+        fun at(f: Double): Cx {
+            val z1 = zInv(f, 1)
+            return (Cx(b0, 0.0) + z1 * b1) / (Cx(1.0, 0.0) - z1 * a1)
+        }
+    }
+
+    // IIR_1st::setLPF_BW
+    private fun iirLp(fc: Double): Iir1 {
+        val t = tan(PI * fc / FS)
+        return Iir1(t / (1 + t), t / (1 + t), (1 - t) / (1 + t))
+    }
+
+    // IIR_1st::setHPF_BW
+    private fun iirHp(fc: Double): Iir1 {
+        val t = tan(PI * fc / FS)
+        val b0 = 1.0 / (1 + t)
+        return Iir1(b0, -b0, (1 - t) / (1 + t))
+    }
+
+    // z^-n evaluated at f
+    private fun zInv(f: Double, n: Int): Cx {
+        val w = 2.0 * PI * f / FS * n
+        return Cx(cos(w), -sin(w))
+    }
+
+    private fun cube(c: Cx): Cx = c * c * c
+
     private fun toDb(m: Double): Double = if (m <= 1e-9) -60.0 else 20.0 * log10(m)
 
     private fun toGeq(db: DoubleArray): IntArray {
@@ -210,28 +239,34 @@ internal object ViperEffectModel {
                 val shelf = highShelf(20.0 * log10(1.0 + gain), 8250.0)
                 DoubleArray(freqs.size) { toDb(shelf.at(freqs[it].toDouble()).abs()) }
             }
-            // HiFi (XHiFi): LP 120 Hz (x1) + BP 120-1200 Hz (x g) + HP 1200 Hz (x 1.2 g), g = 1 + clarity.
-            // Shown relative to g = 1 so the slider at 0 is flat.
+            // HiFi (XHiFi): out = 1.2*g*HP1200^3 + g*BP + LP120 delayed fs/200,  g = 1 + clarity
+            // (each "order 3" filter is 3 cascaded 1st-order sections; BP = HP120^3 * LP1200^3,
+            // delayed fs/400). Shown relative to g = 1 so the slider at 0 is flat.
             CLARITY_XHIFI -> {
                 val g = 1.0 + gain
+                val lp = iirLp(120.0)
+                val hpLow = iirHp(120.0)
+                val hpHigh = iirHp(1200.0)
+                val lpHigh = iirLp(1200.0)
+                val delayBp = (FS / 400.0).toInt()
+                val delayLp = (FS / 200.0).toInt()
                 DoubleArray(freqs.size) {
                     val f = freqs[it].toDouble()
-                    val lp = 1.0 / sqrt(1.0 + (f / 120.0).pow(2))
-                    val hp = (f / 1200.0).pow(3) / sqrt(1.0 + (f / 1200.0).pow(6))
-                    val bp = ((f / 120.0).pow(3) / sqrt(1.0 + (f / 120.0).pow(6))) /
-                        sqrt(1.0 + (f / 1200.0).pow(6))
-                    toDb((lp + g * bp + 1.2 * g * hp) / (lp + bp + 1.2 * hp))
+                    val low = lp.at(f) * zInv(f, delayLp)
+                    val band = cube(hpLow.at(f)) * cube(lpHigh.at(f)) * zInv(f, delayBp)
+                    val high = cube(hpHigh.at(f))
+                    val withGain = low + band * g + high * (1.2 * g)
+                    val flat = low + band + high * 1.2
+                    toDb(withGain.abs() / flat.abs())
                 }
             }
-            // NoiseSharpening: (1 + g(1 - z^-1)) * (K/(1+K) + z^-1/(1+K)), K = tan(pi(fs/2-1000)/fs)
+            // NoiseSharpening: x + g*(x - x[-1]) -> IIR_1st setLPF_BW(fs/2 - 1000)
             else -> {
-                val k = tan(PI * (FS / 2.0 - 1000.0) / FS)
+                val smooth = iirLp(FS / 2.0 - 1000.0)
                 DoubleArray(freqs.size) {
-                    val w = 2.0 * PI * freqs[it] / FS
-                    val z1 = Cx(cos(w), -sin(w))
-                    val sharpen = Cx(1.0, 0.0) + (Cx(1.0, 0.0) - z1) * gain
-                    val smooth = Cx(k / (1 + k), 0.0) + z1 * (1.0 / (1 + k))
-                    toDb((sharpen * smooth).abs())
+                    val f = freqs[it].toDouble()
+                    val sharpen = Cx(1.0, 0.0) + (Cx(1.0, 0.0) - zInv(f, 1)) * gain
+                    toDb((sharpen * smooth.at(f)).abs())
                 }
             }
         }

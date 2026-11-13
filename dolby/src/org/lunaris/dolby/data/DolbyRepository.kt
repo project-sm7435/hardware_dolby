@@ -338,10 +338,10 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     }
 
     private fun bassDelta(level: Int, curve: Int, cutoff: Int): IntArray? =
-        if (level > 0) ViperEffectModel.bassGains(curve, level, BAND_FREQUENCIES_20, cutoff.toDouble()) else null
+        if (level > 0) ViperEffectModel.bassGains(curve, level, DAX_GEQ_FREQUENCIES, cutoff.toDouble()) else null
 
     private fun clarityDelta(level: Int, mode: Int): IntArray? =
-        if (level > 0) ViperEffectModel.clarityGains(mode, level, BAND_FREQUENCIES_20) else null
+        if (level > 0) ViperEffectModel.clarityGains(mode, level, DAX_GEQ_FREQUENCIES) else null
 
     private val viper: ViperController get() = ViperController.get(context)
 
@@ -368,12 +368,15 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         try {
             clearGeqEffect(profile, DolbyConstants.PREF_BASS_APPLIED)
             clearGeqEffect(profile, DolbyConstants.PREF_TREBLE_APPLIED)
+            clearGeqEffect(profile, DolbyConstants.PREF_DYNAMIC_APPLIED)
 
             val prefs = getProfilePrefs(profile)
             val bassLevel = prefs.getInt(DolbyConstants.PREF_BASS_LEVEL, 0)
             val curve = prefs.getInt(DolbyConstants.PREF_BASS_CURVE, 0)
             val trebleLevel = prefs.getInt(DolbyConstants.PREF_TREBLE_LEVEL, 0)
-            // Curve 3 is Dynamic Bass, which ViPER runs as Dynamic system.
+            // Dynamic system runs next to ViPER bass (both can be on). Curve 3 is the old way of
+            // storing it, so it never counts as ViPER bass.
+            val dynamicLevel = getDynamicLevel(profile)
             val dynamic = curve == ViperEffectModel.BASS_DYNAMIC
             viper.apply(
                 ViperController.Settings(
@@ -384,8 +387,8 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
                     clarityOn = trebleLevel > 0,
                     clarityMode = prefs.getInt(DolbyConstants.PREF_CLARITY_MODE, 0),
                     clarityGain = trebleLevel,
-                    dynamicOn = bassLevel > 0 && dynamic,
-                    dynamicStrength = bassLevel,
+                    dynamicOn = dynamicLevel > 0,
+                    dynamicStrength = dynamicLevel,
                 ),
                 getSavedDolbyEnabled(),
             )
@@ -556,7 +559,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
 
     private fun applySpeakerCorrection(gains: IntArray, level: Int, direction: Int) {
         if (level <= 0) return
-        val delta = ViperEffectModel.speakerCorrectionGains(level, BAND_FREQUENCIES_20)
+        val delta = ViperEffectModel.speakerCorrectionGains(level, DAX_GEQ_FREQUENCIES)
         for (i in delta.indices) {
             if (i >= gains.size) break
             gains[i] = (gains[i] + delta[i] * direction).coerceIn(-150, 150)
@@ -580,7 +583,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
 
         if (newLevel > 0) {
-            val delta = ViperEffectModel.speakerCorrectionGains(newLevel, BAND_FREQUENCIES_20)
+            val delta = ViperEffectModel.speakerCorrectionGains(newLevel, DAX_GEQ_FREQUENCIES)
             val added = IntArray(20)
             for (i in delta.indices) {
                 if (i >= gains.size || i >= added.size) break
@@ -718,6 +721,56 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             throw e
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "setTrebleLevel: unexpected error - ${e.message}")
+            throw e
+        }
+    }
+
+    /** Dynamic system strength, 0 (off) to 100. Older saves kept it as bass curve 3. */
+    fun getDynamicLevel(profile: Int): Int {
+        val prefs = getProfilePrefs(profile)
+        if (prefs.contains(DolbyConstants.PREF_DYNAMIC_LEVEL)) {
+            return prefs.getInt(DolbyConstants.PREF_DYNAMIC_LEVEL, 0)
+        }
+        val curve = prefs.getInt(DolbyConstants.PREF_BASS_CURVE, 0)
+        return if (curve == ViperEffectModel.BASS_DYNAMIC) prefs.getInt(DolbyConstants.PREF_BASS_LEVEL, 0) else 0
+    }
+
+    private fun dynamicDelta(level: Int): IntArray? =
+        if (level > 0) ViperEffectModel.bassGains(ViperEffectModel.BASS_DYNAMIC, level, DAX_GEQ_FREQUENCIES, 60.0) else null
+
+    @Synchronized
+    fun setDynamicLevel(profile: Int, level: Int) {
+        if (isReleased) return
+        if (level !in 0..100) throw IllegalArgumentException("Dynamic system level must be between 0 and 100")
+        val prefs = getProfilePrefs(profile)
+        var previousLevel = getDynamicLevel(profile)
+        // Older saves kept Dynamic system in the bass slot (curve 3); its equalizer part sits under the bass key.
+        val legacyBassSlot = !prefs.contains(DolbyConstants.PREF_DYNAMIC_LEVEL) && previousLevel > 0
+        prefs.edit().putInt(DolbyConstants.PREF_DYNAMIC_LEVEL, level).apply()
+
+        if (viperActive()) {
+            applyViper(profile)
+            return
+        }
+        try {
+            checkEffect()
+            val modifiedGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile).copyOf()
+            if (legacyBassSlot) {
+                replaceEffectDelta(
+                    prefs, DolbyConstants.PREF_BASS_APPLIED, modifiedGains,
+                    dynamicDelta(previousLevel), null,
+                )
+                prefs.edit().putInt(DolbyConstants.PREF_BASS_LEVEL, 0).apply()
+                previousLevel = 0
+            }
+            replaceEffectDelta(
+                prefs, DolbyConstants.PREF_DYNAMIC_APPLIED, modifiedGains,
+                dynamicDelta(previousLevel), dynamicDelta(level),
+            )
+            dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, modifiedGains, profile)
+            prefs.edit().putString(DolbyConstants.PREF_PRESET, modifiedGains.joinToString(",")).apply()
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Error setting dynamic system: ${e.message}")
             throw e
         }
     }
@@ -1226,6 +1279,15 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             32, 47, 94, 141, 234, 469, 844, 1313, 2250, 3750, 5813, 9000, 11250, 13875, 19688
         )
         
+        /**
+         * The 20 graphic equalizer bands of the Dolby engine, as written in dax-default.xml. The ViPER
+         * curves are worked out on these so each band gets the gain of its own frequency.
+         */
+        val DAX_GEQ_FREQUENCIES = listOf(
+            47, 141, 234, 328, 469, 656, 844, 1031, 1313, 1688,
+            2250, 3000, 3750, 4688, 5813, 7125, 9000, 11250, 13875, 19688
+        )
+
         val BAND_FREQUENCIES_20 = listOf(
             32, 47, 141, 234, 328, 469, 656, 844, 1031, 1313,
             1688, 2250, 3000, 3750, 4688, 5813, 7125, 9000, 11250, 19688

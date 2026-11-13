@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -109,6 +110,11 @@ private fun ModernAdvancedSettingsContent(
     bottomPadding: Dp,
     modifier: Modifier = Modifier
 ) {
+    // Which ViperFX rows are open. Kept when rotating the screen; independent of the on/off switches.
+    var bassExpanded by rememberSaveable { mutableStateOf(false) }
+    var dynamicExpanded by rememberSaveable { mutableStateOf(false) }
+    var clarityExpanded by rememberSaveable { mutableStateOf(false) }
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         state = listState,
@@ -129,12 +135,14 @@ private fun ModernAdvancedSettingsContent(
                     title = stringResource(R.string.dolby_category_settings),
                     icon = Icons.Default.Tune
                 ) {
-                    // ViperFX style: ViPER bass, with its mode, frequency and gain shown only when on.
-                    // Mode 3 (Dynamic Bass) is handled by the Dynamic system switch below.
+                    // ViperFX style rows: tapping a title opens or closes that effect's settings (on or off),
+                    // and the switch on the row turns the effect on or off. ViPER bass and Dynamic system
+                    // are separate effects, so both can be on at the same time.
                     val bassOn = state.profileSettings.bassLevel > 0 && state.profileSettings.bassCurve != 3
-                    val dynamicOn = state.profileSettings.bassLevel > 0 && state.profileSettings.bassCurve == 3
+                    val dynamicOn = state.profileSettings.dynamicLevel > 0
+                    val bassMode = state.profileSettings.bassCurve.coerceIn(0, 2)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ViperSwitchRow(
+                        ViperExpandableRow(
                             title = stringResource(R.string.dolby_viper_bass),
                             checked = bassOn,
                             onCheckedChange = { enabled ->
@@ -145,21 +153,23 @@ private fun ModernAdvancedSettingsContent(
                                     viewModel.setBassLevel(0)
                                 }
                             },
+                            expanded = bassExpanded,
+                            onExpandedChange = { bassExpanded = it },
                             icon = Icons.Default.Speaker
                         )
 
-                        AnimatedVisibility(visible = bassOn) {
+                        AnimatedVisibility(visible = bassExpanded) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ViperChoiceRow(
                                     title = stringResource(R.string.dolby_viper_bass_mode),
-                                    currentValue = state.profileSettings.bassCurve,
+                                    currentValue = bassMode,
                                     entries = R.array.dolby_viper_bass_mode_entries,
                                     values = R.array.dolby_viper_bass_mode_values,
                                     onValueChange = { viewModel.setBassCurve(it) },
                                     dialogIcon = Icons.Default.VolumeUp
                                 )
                                 // Subwoofer uses a fixed crossover, so the frequency only applies to the first two.
-                                if (state.profileSettings.bassCurve <= 1) {
+                                if (bassMode <= 1) {
                                     ViperSliderRow(
                                         title = stringResource(R.string.dolby_viper_bass_frequency),
                                         value = state.profileSettings.bassCutoff,
@@ -170,35 +180,34 @@ private fun ModernAdvancedSettingsContent(
                                 }
                                 ViperSliderRow(
                                     title = stringResource(R.string.dolby_viper_bass_gain),
-                                    value = state.profileSettings.bassLevel,
-                                    valueText = { "$it%" },
+                                    value = if (bassOn) state.profileSettings.bassLevel else 0,
+                                    valueText = { if (bassOn) "$it%" else "Off" },
                                     onValueChange = { viewModel.setBassLevel(it) },
                                     valueRange = 1f..100f,
+                                    enabled = bassOn,
                                 )
                             }
                         }
 
-                        ViperSwitchRow(
+                        ViperExpandableRow(
                             title = stringResource(R.string.dolby_dynamic_system),
                             checked = dynamicOn,
                             onCheckedChange = { enabled ->
-                                if (enabled) {
-                                    viewModel.setBassCurve(3)
-                                    viewModel.setBassLevel(45)
-                                } else {
-                                    viewModel.setBassLevel(0)
-                                }
+                                viewModel.setDynamicLevel(if (enabled) 45 else 0)
                             },
+                            expanded = dynamicExpanded,
+                            onExpandedChange = { dynamicExpanded = it },
                             icon = Icons.Default.Tune
                         )
 
-                        AnimatedVisibility(visible = dynamicOn) {
+                        AnimatedVisibility(visible = dynamicExpanded) {
                             ViperSliderRow(
                                 title = stringResource(R.string.dolby_dynamic_bass_strength),
-                                value = state.profileSettings.bassLevel,
-                                valueText = { "$it%" },
-                                onValueChange = { viewModel.setBassLevel(it) },
+                                value = state.profileSettings.dynamicLevel,
+                                valueText = { if (dynamicOn) "$it%" else "Off" },
+                                onValueChange = { viewModel.setDynamicLevel(it) },
                                 valueRange = 1f..100f,
+                                enabled = dynamicOn,
                             )
                         }
                     }
@@ -236,9 +245,10 @@ private fun ModernAdvancedSettingsContent(
 
                     Spacer(modifier = Modifier.height(12.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ViperSwitchRow(
+                        val clarityOn = state.profileSettings.trebleLevel > 0
+                        ViperExpandableRow(
                             title = stringResource(R.string.dolby_viper_clarity),
-                            checked = state.profileSettings.trebleLevel > 0,
+                            checked = clarityOn,
                             onCheckedChange = { enabled ->
                                 if (enabled && state.profileSettings.trebleLevel == 0) {
                                     viewModel.setTrebleLevel(30)
@@ -246,10 +256,12 @@ private fun ModernAdvancedSettingsContent(
                                     viewModel.setTrebleLevel(0)
                                 }
                             },
+                            expanded = clarityExpanded,
+                            onExpandedChange = { clarityExpanded = it },
                             icon = Icons.Default.Hearing
                         )
 
-                        AnimatedVisibility(visible = state.profileSettings.trebleLevel > 0) {
+                        AnimatedVisibility(visible = clarityExpanded) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ViperChoiceRow(
                                     title = stringResource(R.string.dolby_clarity_mode),
@@ -262,9 +274,10 @@ private fun ModernAdvancedSettingsContent(
                                 ViperSliderRow(
                                     title = stringResource(R.string.dolby_viper_clarity_gain),
                                     value = state.profileSettings.trebleLevel,
-                                    valueText = { "$it%" },
+                                    valueText = { if (clarityOn) "$it%" else "Off" },
                                     onValueChange = { viewModel.setTrebleLevel(it) },
                                     valueRange = 1f..100f,
+                                    enabled = clarityOn,
                                 )
                             }
                         }

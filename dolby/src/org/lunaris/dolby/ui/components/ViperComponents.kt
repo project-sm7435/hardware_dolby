@@ -9,12 +9,15 @@ package org.lunaris.dolby.ui.components
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.*
@@ -22,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
@@ -99,6 +103,104 @@ fun ViperSwitchRow(
                         targetState = checked,
                         animationSpec = MaterialTheme.motionScheme.slowEffectsSpec(),
                         label = "viper_switch_icon"
+                    ) { isChecked ->
+                        Icon(
+                            imageVector = if (isChecked) Icons.Rounded.Check else Icons.Rounded.Close,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            )
+        }
+    }
+}
+
+/**
+ * Row for a ViperFX effect with two separate controls: tapping the title area opens or closes the
+ * effect's settings (whether the effect is on or off), and the switch on the right turns the effect
+ * on or off.
+ */
+@Composable
+fun ViperExpandableRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+) {
+    val haptic = rememberHapticFeedback()
+    val scope = rememberCoroutineScope()
+
+    val containerColor by animateColorAsState(
+        targetValue = if (checked) MaterialTheme.colorScheme.secondaryContainer
+        else MaterialTheme.colorScheme.surfaceContainerHigh,
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+        label = "viper_expandable_container"
+    )
+    val contentColor = if (checked) MaterialTheme.colorScheme.onSecondaryContainer
+    else MaterialTheme.colorScheme.onSurface
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        label = "viper_expandable_arrow"
+    )
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large),
+        color = containerColor
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(role = Role.Button) {
+                        scope.launch { haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.CLICK) }
+                        onExpandedChange(!expanded)
+                    }
+                    .padding(start = 16.dp, top = 20.dp, bottom = 20.dp, end = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = contentColor
+                )
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMediumEmphasized,
+                    color = contentColor,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = Icons.Filled.ExpandMore,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .rotate(arrowRotation),
+                    tint = contentColor
+                )
+            }
+            Switch(
+                checked = checked,
+                onCheckedChange = {
+                    scope.launch { haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.CLICK) }
+                    onCheckedChange(it)
+                },
+                modifier = Modifier.padding(end = 16.dp),
+                thumbContent = {
+                    Crossfade(
+                        targetState = checked,
+                        animationSpec = MaterialTheme.motionScheme.slowEffectsSpec(),
+                        label = "viper_expandable_switch_icon"
                     ) { isChecked ->
                         Icon(
                             imageVector = if (isChecked) Icons.Rounded.Check else Icons.Rounded.Close,
@@ -226,6 +328,7 @@ fun ViperSliderRow(
     valueRange: ClosedFloatingPointRange<Float>,
     modifier: Modifier = Modifier,
     steps: Int = 0,
+    enabled: Boolean = true,
 ) {
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
@@ -267,6 +370,7 @@ fun ViperSliderRow(
                 },
                 valueRange = valueRange,
                 steps = steps,
+                enabled = enabled,
                 modifier = Modifier.fillMaxWidth()
             )
         }

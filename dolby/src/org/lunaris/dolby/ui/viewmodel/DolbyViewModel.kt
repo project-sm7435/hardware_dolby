@@ -136,7 +136,8 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                     bassCurve = repository.getBassCurve(profile),
                     clarityMode = repository.getClarityMode(profile),
                     bassCutoff = repository.getBassCutoff(profile),
-                    speakerCorrection = repository.getSpeakerCorrection(profile)
+                    speakerCorrection = repository.getSpeakerCorrection(profile),
+                    dynamicLevel = repository.getDynamicLevel(profile)
                 )
                 
                 if (!isCleared) {
@@ -237,6 +238,18 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                 loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting speaker correction: ${e.message}")
+            }
+        }
+    }
+
+    fun setDynamicLevel(level: Int) {
+        submitEffectOp("setDynamicLevel") {
+            try {
+                val profile = repository.getCurrentProfile()
+                repository.setDynamicLevel(profile, level)
+                loadSettings()
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting dynamic system: ${e.message}")
             }
         }
     }
