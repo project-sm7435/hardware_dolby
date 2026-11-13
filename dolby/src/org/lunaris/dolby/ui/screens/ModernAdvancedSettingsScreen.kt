@@ -129,53 +129,77 @@ private fun ModernAdvancedSettingsContent(
                     title = stringResource(R.string.dolby_category_settings),
                     icon = Icons.Default.Tune
                 ) {
-                    Column {
-                        ModernSettingSwitch(
-                            title = stringResource(R.string.dolby_bass_enhancer),
-                            subtitle = stringResource(R.string.dolby_bass_enhancer_summary),
-                            checked = state.profileSettings.bassLevel > 0,
+                    // ViperFX style: ViPER bass, with its mode, frequency and gain shown only when on.
+                    // Mode 3 (Dynamic Bass) is handled by the Dynamic system switch below.
+                    val bassOn = state.profileSettings.bassLevel > 0 && state.profileSettings.bassCurve != 3
+                    val dynamicOn = state.profileSettings.bassLevel > 0 && state.profileSettings.bassCurve == 3
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ViperSwitchRow(
+                            title = stringResource(R.string.dolby_viper_bass),
+                            checked = bassOn,
                             onCheckedChange = { enabled ->
-                                if (enabled && state.profileSettings.bassLevel == 0) {
+                                if (enabled) {
+                                    if (state.profileSettings.bassCurve == 3) viewModel.setBassCurve(0)
                                     viewModel.setBassLevel(50)
-                                } else if (!enabled) {
+                                } else {
                                     viewModel.setBassLevel(0)
                                 }
                             },
-                            icon = Icons.Default.MusicNote
+                            icon = Icons.Default.Speaker
                         )
-                        
-                        AnimatedVisibility(visible = state.profileSettings.bassLevel > 0) {
-                            Column {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                ModernSettingSelector(
-                                    title = stringResource(R.string.dolby_bass_curve),
+
+                        AnimatedVisibility(visible = bassOn) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ViperChoiceRow(
+                                    title = stringResource(R.string.dolby_viper_bass_mode),
                                     currentValue = state.profileSettings.bassCurve,
-                                    entries = R.array.dolby_bass_curve_entries,
-                                    values = R.array.dolby_bass_curve_values,
+                                    entries = R.array.dolby_viper_bass_mode_entries,
+                                    values = R.array.dolby_viper_bass_mode_values,
                                     onValueChange = { viewModel.setBassCurve(it) },
-                                    icon = Icons.Default.Equalizer
+                                    dialogIcon = Icons.Default.VolumeUp
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                ModernSettingSlider(
-                                    title = stringResource(R.string.dolby_bass_level),
-                                    value = state.profileSettings.bassLevel,
-                                    onValueChange = { viewModel.setBassLevel(it.toInt()) },
-                                    valueRange = 0f..100f,
-                                    steps = 19,
-                                    valueLabel = { "$it%" }
-                                )
+                                // Subwoofer uses a fixed crossover, so the frequency only applies to the first two.
                                 if (state.profileSettings.bassCurve <= 1) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    ModernSettingSlider(
-                                        title = stringResource(R.string.dolby_bass_cutoff),
+                                    ViperSliderRow(
+                                        title = stringResource(R.string.dolby_viper_bass_frequency),
                                         value = state.profileSettings.bassCutoff,
-                                        onValueChange = { viewModel.setBassCutoff(it.toInt()) },
+                                        valueText = { "${it}Hz" },
+                                        onValueChange = { viewModel.setBassCutoff(it) },
                                         valueRange = 15f..150f,
-                                        steps = 26,
-                                        valueLabel = { "$it Hz" }
                                     )
                                 }
+                                ViperSliderRow(
+                                    title = stringResource(R.string.dolby_viper_bass_gain),
+                                    value = state.profileSettings.bassLevel,
+                                    valueText = { "$it%" },
+                                    onValueChange = { viewModel.setBassLevel(it) },
+                                    valueRange = 1f..100f,
+                                )
                             }
+                        }
+
+                        ViperSwitchRow(
+                            title = stringResource(R.string.dolby_dynamic_system),
+                            checked = dynamicOn,
+                            onCheckedChange = { enabled ->
+                                if (enabled) {
+                                    viewModel.setBassCurve(3)
+                                    viewModel.setBassLevel(45)
+                                } else {
+                                    viewModel.setBassLevel(0)
+                                }
+                            },
+                            icon = Icons.Default.Tune
+                        )
+
+                        AnimatedVisibility(visible = dynamicOn) {
+                            ViperSliderRow(
+                                title = stringResource(R.string.dolby_dynamic_bass_strength),
+                                value = state.profileSettings.bassLevel,
+                                valueText = { "$it%" },
+                                onValueChange = { viewModel.setBassLevel(it) },
+                                valueRange = 1f..100f,
+                            )
                         }
                     }
 
@@ -211,10 +235,9 @@ private fun ModernAdvancedSettingsContent(
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
-                    Column {
-                        ModernSettingSwitch(
-                            title = stringResource(R.string.dolby_treble_enhancer),
-                            subtitle = stringResource(R.string.dolby_treble_enhancer_summary),
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ViperSwitchRow(
+                            title = stringResource(R.string.dolby_viper_clarity),
                             checked = state.profileSettings.trebleLevel > 0,
                             onCheckedChange = { enabled ->
                                 if (enabled && state.profileSettings.trebleLevel == 0) {
@@ -223,28 +246,25 @@ private fun ModernAdvancedSettingsContent(
                                     viewModel.setTrebleLevel(0)
                                 }
                             },
-                            icon = Icons.Default.GraphicEq
+                            icon = Icons.Default.Hearing
                         )
 
                         AnimatedVisibility(visible = state.profileSettings.trebleLevel > 0) {
-                            Column {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                ModernSettingSelector(
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ViperChoiceRow(
                                     title = stringResource(R.string.dolby_clarity_mode),
                                     currentValue = state.profileSettings.clarityMode,
                                     entries = R.array.dolby_clarity_mode_entries,
                                     values = R.array.dolby_clarity_mode_values,
                                     onValueChange = { viewModel.setClarityMode(it) },
-                                    icon = Icons.Default.GraphicEq
+                                    dialogIcon = Icons.Default.GraphicEq
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                ModernSettingSlider(
-                                    title = stringResource(R.string.dolby_treble_level),
+                                ViperSliderRow(
+                                    title = stringResource(R.string.dolby_viper_clarity_gain),
                                     value = state.profileSettings.trebleLevel,
-                                    onValueChange = { viewModel.setTrebleLevel(it.toInt()) },
-                                    valueRange = 0f..100f,
-                                    steps = 19,
-                                    valueLabel = { "$it%" }
+                                    valueText = { "$it%" },
+                                    onValueChange = { viewModel.setTrebleLevel(it) },
+                                    valueRange = 1f..100f,
                                 )
                             }
                         }

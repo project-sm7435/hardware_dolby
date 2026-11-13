@@ -31,6 +31,10 @@ object DolbyConstants {
     // GEQ delta (0.1 dB per band) bass / treble really added, after the +-15 dB clamp
     const val PREF_BASS_APPLIED = "dolby_bass_applied"
     const val PREF_TREBLE_APPLIED = "dolby_treble_applied"
+
+    // Implementation UUID of the ViPER FX effect (libv4a_re.so) in audio_effects.xml. It must match
+    // the uuid of the <effect> line you added there.
+    const val VIPER_EFFECT_UUID = "90380da3-8536-4744-a6a3-5731970e640f"
     const val PREF_MID = "dolby_mid"
     const val PREF_MID_LEVEL = "dolby_mid_level"
     const val PREF_TREBLE = "dolby_treble"
