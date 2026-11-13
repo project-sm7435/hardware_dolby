@@ -64,7 +64,7 @@ class PresetExportManager(private val context: Context) {
             val gainObj = gainsArray.getJSONObject(i)
             bandGains.add(BandGain(
                 frequency = gainObj.getInt("frequency"),
-                gain = gainObj.getInt("gain")
+                gain = gainObj.getInt("gain").coerceIn(-150, 150)
             ))
         }
         
@@ -166,7 +166,10 @@ class PresetExportManager(private val context: Context) {
         withContext(Dispatchers.IO) {
             try {
                 val json = exportPresetToJson(preset)
-                val fileName = "${preset.name.replace(" ", "_")}_${preset.bandMode.value}band$FILE_EXTENSION"
+                // The name can come from an imported file or AutoEQ ("/", ".." ...): keep it a plain file name.
+                val safeName = preset.name.replace(Regex("[^A-Za-z0-9._-]+"), "_")
+                    .trim('_', '.').take(64).ifEmpty { "preset" }
+                val fileName = "${safeName}_${preset.bandMode.value}band$FILE_EXTENSION"
                 val cacheDir = File(context.cacheDir, "shared_presets")
                 cacheDir.mkdirs()
                 val file = File(cacheDir, fileName)

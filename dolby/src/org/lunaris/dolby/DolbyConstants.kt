@@ -30,7 +30,16 @@ object DolbyConstants {
     const val PREF_SPEAKER_APPLIED = "dolby_speaker_correction_applied"
     // GEQ delta (0.1 dB per band) bass / treble really added, after the +-15 dB clamp
     const val PREF_BASS_APPLIED = "dolby_bass_applied"
+    // Dynamic system is its own effect in ViPER, so it has its own level (0 = off) next to ViPER bass
+    const val PREF_DYNAMIC_LEVEL = "dolby_dynamic_level"
+    const val PREF_DYNAMIC_APPLIED = "dolby_dynamic_applied"
     const val PREF_TREBLE_APPLIED = "dolby_treble_applied"
+
+    // Implementation UUID of the ViPER FX effect (libv4a_re.so) in audio_effects.xml. It must match
+    // the uuid of the <effect> line you added there.
+    const val VIPER_EFFECT_UUID = "90380da3-8536-4744-a6a3-5731970e640f"
+    const val PREF_DSEE = "dolby_dsee"
+    const val DSEE_EFFECT_UUID = "0ca9dd34-7a41-11ee-b962-0242ac120002"
     const val PREF_MID = "dolby_mid"
     const val PREF_MID_LEVEL = "dolby_mid_level"
     const val PREF_TREBLE = "dolby_treble"

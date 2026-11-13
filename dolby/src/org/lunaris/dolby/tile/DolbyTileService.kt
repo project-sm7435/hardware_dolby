@@ -15,7 +15,7 @@ import org.lunaris.dolby.data.DolbyRepository
 
 class DolbyTileService : TileService() {
 
-    private val repositoryDelegate = lazy { DolbyRepository(applicationContext) }
+    private val repositoryDelegate = lazy { DolbyRepository.get(applicationContext) }
     private val repository by repositoryDelegate
 
     // Keeps the tile in step with the card in the app while the QS panel is open.
@@ -27,6 +27,7 @@ class DolbyTileService : TileService() {
         super.onStartListening()
         repository.registerEnabledListener(enabledListener)
         updateTile()
+        Thread { repository.ensureLiveState() }.start()
     }
 
     override fun onStopListening() {

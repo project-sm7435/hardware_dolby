@@ -13,12 +13,14 @@ import java.util.UUID
 class DolbyAudioEffect(priority: Int, audioSession: Int) : AudioEffect(
     EFFECT_TYPE_NULL, EFFECT_TYPE_DAP, priority, audioSession
 ) {
-
     var dsOn: Boolean
-        get() = getIntParam(EFFECT_PARAM_ENABLE) == 1
+        get() = getIntParam(EFFECT_PARAM_ENABLE) == 1 && getEnabled()
         set(value) {
             setIntParam(EFFECT_PARAM_ENABLE, if (value) 1 else 0)
-            enabled = value
+            val status = setEnabled(value)
+            if (status != SUCCESS) {
+                throw IllegalStateException("setEnabled($value) failed, status=$status")
+            }
         }
 
     var profile: Int

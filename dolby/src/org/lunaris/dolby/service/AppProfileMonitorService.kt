@@ -36,6 +36,7 @@ class AppProfileMonitorService : Service() {
     private var pendingSwitchRunnable: Runnable? = null
     private var hasOriginalProfile = false
     private var lastProfileChangeTime: Long = 0
+    private var lastEventQueryTime: Long = 0
 
     private val checkForegroundAppRunnable = object : Runnable {
         override fun run() {
@@ -49,7 +50,7 @@ class AppProfileMonitorService : Service() {
     override fun onCreate() {
         super.onCreate()
         appProfileManager = AppProfileManager(this)
-        dolbyRepository = DolbyRepository(this)
+        dolbyRepository = DolbyRepository.get(this)
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
 
@@ -125,6 +126,11 @@ class AppProfileMonitorService : Service() {
                 DolbyConstants.dlog(TAG, "No valid original profile to restore (hasOriginal=$hasOriginalProfile, profile=$originalProfile)")
             }
             
+            // Forget the old original profile, or the next start restores a stale one.
+            hasOriginalProfile = false
+            originalProfile = -1
+            lastEventQueryTime = 0L
+            lastPackageName.set(null)
             DolbyConstants.dlog(TAG, "Stopped monitoring foreground app")
         }
     }
@@ -229,7 +235,11 @@ class AppProfileMonitorService : Service() {
         val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val currentTime = System.currentTimeMillis()
         
-        val usageEvents = usageStatsManager.queryEvents(currentTime - 1000, currentTime)
+        // Query from the previous poll, not a fixed 1 s window: polling is every 2 s, so a fixed
+        // window missed every app switch that happened in the gap.
+        val from = if (lastEventQueryTime == 0L) currentTime - CHECK_INTERVAL * 2 else lastEventQueryTime
+        lastEventQueryTime = currentTime
+        val usageEvents = usageStatsManager.queryEvents(from, currentTime)
         val event = UsageEvents.Event()
         
         var lastPackage: String? = null

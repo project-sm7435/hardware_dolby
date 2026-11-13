@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.lunaris.dolby.R
 import org.lunaris.dolby.service.AppProfileMonitorService
+import org.lunaris.dolby.service.DolbyEffectService
 import org.lunaris.dolby.DolbyConstants
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -326,7 +327,10 @@ fun AppProfileSettingsCard(
                         isDeviceStateMemoryEnabled = enabled
                         prefs.edit()
                             .putBoolean(DolbyConstants.PREF_DEVICE_STATE_MEMORY, enabled)
-                            .apply()
+                            .commit()
+                        if (enabled) {
+                            DolbyEffectService.start(context)
+                        }
                     },
                     thumbContent = {
                         Crossfade(
