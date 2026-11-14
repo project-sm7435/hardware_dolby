@@ -275,7 +275,27 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
      * it never drops/rebinds the ViPER or DSEE handles, so it can run during playback.
      */
     @Synchronized
-    fun refreshOnPlayback() {
+    fun syncPlaybackSessions(activeSessionIds: Set<Int>) {
+        if (isReleased) return
+        try {
+            val enabled = getSavedDolbyEnabled()
+            if (!enabled) {
+                viper.syncActiveSessions(emptySet())
+                dsee.syncActiveSessions(emptySet())
+                return
+            }
+            val savedProfile = readSavedProfile() ?: 0
+            applyViper(savedProfile, forceRebind = false)
+            applyDsee(savedProfile, forceRebind = false)
+            viper.syncActiveSessions(activeSessionIds)
+            dsee.syncActiveSessions(activeSessionIds)
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "syncPlaybackSessions failed: ${e.message}")
+        }
+    }
+
+    @Synchronized
+    fun refreshOnPlayback(activeSessionIds: Set<Int> = emptySet()) {
         if (isReleased) return
         try {
             checkEffect()
@@ -283,15 +303,24 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             if (dolbyEffect.dsOn != enabled) {
                 dolbyEffect.dsOn = enabled
             }
-            if (!enabled) return
+            if (!enabled) {
+                viper.syncActiveSessions(emptySet())
+                dsee.syncActiveSessions(emptySet())
+                return
+            }
             val savedProfile = readSavedProfile() ?: 0
             if (dolbyEffect.profile != savedProfile) {
                 dolbyEffect.profile = savedProfile
             }
             restoreProfilePreset(savedProfile)
             applyProfileSettings(savedProfile)
+            dolbyEffect.dsOn = true
             applyViper(savedProfile, forceRebind = false)
             applyDsee(savedProfile, forceRebind = false)
+            if (activeSessionIds.isNotEmpty()) {
+                viper.syncActiveSessions(activeSessionIds)
+                dsee.syncActiveSessions(activeSessionIds)
+            }
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "refreshOnPlayback failed: ${e.message}")
         }

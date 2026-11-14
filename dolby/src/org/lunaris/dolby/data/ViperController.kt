@@ -11,10 +11,6 @@ import android.os.SystemClock
 import org.lunaris.dolby.DolbyConstants
 import org.lunaris.dolby.audio.ViperAudioEffect
 
-/**
- * Runs ViPERBass, ViPERClarity, DynamicSystem, and SpeakerCorrection in the real ViPER DSP engine
- * (libv4a_re.so) via ViperEffectModel instead of baking curves into Dolby's graphic equalizer.
- */
 class ViperController private constructor() {
 
     data class Settings(
@@ -34,6 +30,9 @@ class ViperController private constructor() {
     }
 
     private var effect: ViperAudioEffect? = null
+    private val sessionEffects = LinkedHashMap<Int, ViperAudioEffect>()
+    private var lastSettings: Settings? = null
+    private var lastMaster: Boolean = false
     private var nextTryAtMs = 0L
 
     @Synchronized
@@ -41,6 +40,9 @@ class ViperController private constructor() {
 
     @Synchronized
     fun apply(settings: Settings, master: Boolean, forceRebind: Boolean = false): Boolean {
+        lastSettings = settings
+        lastMaster = master
+
         if (!(master && settings.anyOn)) {
             ViperEffectModel.applyToDspEngine(effect, settings, masterEnabled = false)
             if (effect != null) {
@@ -50,37 +52,133 @@ class ViperController private constructor() {
                     DolbyConstants.dlog(TAG, "ViPER disable failed: ${ex.message}")
                 }
                 drop()
-                DolbyConstants.dlog(TAG, "ViPER effect released (all rows off)")
             }
+            releaseAllSessionEffects()
             return true
         }
 
         if (forceRebind && effect != null) {
             drop()
         }
+
+        var globalOk = false
         repeat(2) {
-            val wasCreated = effect == null || effect?.isReady() != true
-            val e = obtain() ?: return false
-            val ok = try {
-                if (wasCreated) {
-                    // Prime AudioFlinger's effect chain on fresh creation so libv4a_re.so processes
-                    // audio on the very first click without requiring an off/on toggle.
-                    e.setEnabled(true)
-                    ViperEffectModel.applyToDspEngine(e, settings, master)
-                    e.setEnabled(false)
-                    e.setEnabled(true)
+            if (!globalOk) {
+                val wasCreated = effect == null || effect?.isReady() != true
+                val e = obtain()
+                if (e != null) {
+                    val ok = try {
+                        pushToEffect(e, settings, master, prime = wasCreated)
+                    } catch (ex: Exception) {
+                        DolbyConstants.dlog(TAG, "ViPER push failed: ${ex.message}")
+                        false
+                    }
+                    if (ok) {
+                        globalOk = true
+                    } else {
+                        drop()
+                    }
                 }
-                val pushed = ViperEffectModel.applyToDspEngine(e, settings, master)
-                val enabledOk = e.enabled || e.setEnabled(true) == AudioEffect.SUCCESS
-                pushed && enabledOk
-            } catch (ex: Exception) {
-                DolbyConstants.dlog(TAG, "ViPER push failed: ${ex.message}")
+            }
+        }
+
+        val iter = sessionEffects.entries.iterator()
+        while (iter.hasNext()) {
+            val (_, se) = iter.next()
+            val ok = try {
+                if (!se.isReady()) {
+                    false
+                } else {
+                    if (forceRebind) {
+                        se.setEnabled(false)
+                        se.setEnabled(true)
+                    }
+                    pushToEffect(se, settings, master, prime = false)
+                }
+            } catch (_: Exception) {
                 false
             }
-            if (ok) return true
-            drop()
+            if (!ok) {
+                try {
+                    se.release()
+                } catch (_: Exception) {
+                }
+                iter.remove()
+            }
         }
-        return false
+
+        return globalOk || sessionEffects.isNotEmpty()
+    }
+
+    @Synchronized
+    fun syncActiveSessions(activeSessionIds: Set<Int>) {
+        val settings = lastSettings
+        val active = lastMaster && settings != null && settings.anyOn
+
+        val iter = sessionEffects.entries.iterator()
+        while (iter.hasNext()) {
+            val (sid, se) = iter.next()
+            if (sid !in activeSessionIds || !active) {
+                try {
+                    se.setEnabled(false)
+                    se.release()
+                } catch (_: Exception) {
+                }
+                iter.remove()
+            }
+        }
+
+        if (!active || settings == null) return
+
+        for (sid in activeSessionIds) {
+            if (sid <= 0) continue
+            val existing = sessionEffects[sid]
+            if (existing != null && existing.isReady()) continue
+            if (existing != null) {
+                try {
+                    existing.release()
+                } catch (_: Exception) {
+                }
+                sessionEffects.remove(sid)
+            }
+            try {
+                val se = ViperAudioEffect(EFFECT_PRIORITY, sid)
+                if (pushToEffect(se, settings, master = true, prime = true)) {
+                    sessionEffects[sid] = se
+                } else {
+                    se.release()
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun pushToEffect(
+        e: ViperAudioEffect,
+        settings: Settings,
+        master: Boolean,
+        prime: Boolean
+    ): Boolean {
+        if (prime) {
+            e.setEnabled(true)
+            ViperEffectModel.applyToDspEngine(e, settings, master)
+            e.setEnabled(false)
+            e.setEnabled(true)
+        }
+        val pushed = ViperEffectModel.applyToDspEngine(e, settings, master)
+        val enabledOk = e.enabled || e.setEnabled(true) == AudioEffect.SUCCESS
+        return pushed && enabledOk
+    }
+
+    private fun releaseAllSessionEffects() {
+        for ((_, se) in sessionEffects) {
+            try {
+                se.setEnabled(false)
+                se.release()
+            } catch (_: Exception) {
+            }
+        }
+        sessionEffects.clear()
     }
 
     private fun obtain(): ViperAudioEffect? {
@@ -91,13 +189,9 @@ class ViperController private constructor() {
         val now = SystemClock.elapsedRealtime()
         if (now < nextTryAtMs) return null
         return try {
-            ViperAudioEffect(EFFECT_PRIORITY, 0).also {
-                effect = it
-                DolbyConstants.dlog(TAG, "ViPER effect created")
-            }
+            ViperAudioEffect(EFFECT_PRIORITY, 0).also { effect = it }
         } catch (e: Exception) {
             nextTryAtMs = now + RETRY_DELAY_MS
-            DolbyConstants.dlog(TAG, "ViPER effect not available: ${e.message}")
             null
         }
     }
@@ -105,8 +199,7 @@ class ViperController private constructor() {
     private fun drop() {
         try {
             effect?.release()
-        } catch (e: Exception) {
-            DolbyConstants.dlog(TAG, "Error releasing ViPER effect: ${e.message}")
+        } catch (_: Exception) {
         }
         effect = null
     }

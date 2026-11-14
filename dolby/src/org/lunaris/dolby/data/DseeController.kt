@@ -9,13 +9,12 @@ import android.content.Context
 import android.os.SystemClock
 import org.lunaris.dolby.audio.DseeAudioEffect
 
-/**
- * Controls the vendor Sony DSEE (Digital Sound Enhancement Engine) AudioEffect (libdsee.so).
- * Instantiated on demand when enabled and cleanly released when switched off.
- */
 class DseeController private constructor() {
 
     private var effect: DseeAudioEffect? = null
+    private val sessionEffects = LinkedHashMap<Int, DseeAudioEffect>()
+    private var lastEnabled: Boolean = false
+    private var lastMaster: Boolean = false
     private var nextTryAtMs = 0L
 
     @Synchronized
@@ -23,6 +22,8 @@ class DseeController private constructor() {
 
     @Synchronized
     fun apply(enabled: Boolean, master: Boolean, forceRebind: Boolean = false): Boolean {
+        lastEnabled = enabled
+        lastMaster = master
         val active = master && enabled
         if (!active) {
             if (effect != null) {
@@ -32,30 +33,122 @@ class DseeController private constructor() {
                 }
                 drop()
             }
+            releaseAllSessionEffects()
             return true
         }
 
         if (forceRebind && effect != null) {
             drop()
         }
+
+        var globalOk = false
         repeat(2) {
-            val wasCreated = effect == null || effect?.isReady() != true
-            val e = obtain() ?: return false
+            if (!globalOk) {
+                val wasCreated = effect == null || effect?.isReady() != true
+                val e = obtain()
+                if (e != null) {
+                    val ok = try {
+                        val first = e.setDseeEnabled(true)
+                        if (wasCreated && first) {
+                            e.setDseeEnabled(false)
+                            e.setDseeEnabled(true)
+                        } else {
+                            first
+                        }
+                    } catch (_: Exception) {
+                        false
+                    }
+                    if (ok) {
+                        globalOk = true
+                    } else {
+                        drop()
+                    }
+                }
+            }
+        }
+
+        val iter = sessionEffects.entries.iterator()
+        while (iter.hasNext()) {
+            val (_, se) = iter.next()
             val ok = try {
-                val first = e.setDseeEnabled(true)
-                if (wasCreated && first) {
-                    e.setDseeEnabled(false)
-                    e.setDseeEnabled(true)
+                if (!se.isReady()) {
+                    false
                 } else {
-                    first
+                    if (forceRebind) {
+                        se.setDseeEnabled(false)
+                    }
+                    se.setDseeEnabled(true)
                 }
             } catch (_: Exception) {
                 false
             }
-            if (ok) return true
-            drop()
+            if (!ok) {
+                try {
+                    se.release()
+                } catch (_: Exception) {
+                }
+                iter.remove()
+            }
         }
-        return false
+
+        return globalOk || sessionEffects.isNotEmpty()
+    }
+
+    @Synchronized
+    fun syncActiveSessions(activeSessionIds: Set<Int>) {
+        val active = lastMaster && lastEnabled
+
+        val iter = sessionEffects.entries.iterator()
+        while (iter.hasNext()) {
+            val (sid, se) = iter.next()
+            if (sid !in activeSessionIds || !active) {
+                try {
+                    se.setDseeEnabled(false)
+                    se.release()
+                } catch (_: Exception) {
+                }
+                iter.remove()
+            }
+        }
+
+        if (!active) return
+
+        for (sid in activeSessionIds) {
+            if (sid <= 0) continue
+            val existing = sessionEffects[sid]
+            if (existing != null && existing.isReady()) continue
+            if (existing != null) {
+                try {
+                    existing.release()
+                } catch (_: Exception) {
+                }
+                sessionEffects.remove(sid)
+            }
+            try {
+                val se = DseeAudioEffect(EFFECT_PRIORITY, sid)
+                val ok = se.setDseeEnabled(true) && run {
+                    se.setDseeEnabled(false)
+                    se.setDseeEnabled(true)
+                }
+                if (ok) {
+                    sessionEffects[sid] = se
+                } else {
+                    se.release()
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun releaseAllSessionEffects() {
+        for ((_, se) in sessionEffects) {
+            try {
+                se.setDseeEnabled(false)
+                se.release()
+            } catch (_: Exception) {
+            }
+        }
+        sessionEffects.clear()
     }
 
     private fun obtain(): DseeAudioEffect? {
