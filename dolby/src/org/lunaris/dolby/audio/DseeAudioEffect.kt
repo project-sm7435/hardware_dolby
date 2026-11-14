@@ -6,6 +6,9 @@
 package org.lunaris.dolby.audio
 
 import android.media.audiofx.AudioEffect
+import android.util.Log
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import org.lunaris.dolby.DolbyConstants
 import java.util.UUID
 
@@ -21,10 +24,17 @@ class DseeAudioEffect(priority: Int, audioSession: Int) : AudioEffect(
 ) {
 
     fun setDseeEnabled(enable: Boolean): Boolean {
-        val status = setEnabled(enable)
-        if (status != SUCCESS) {
-            DolbyConstants.dlog(TAG, "DSEE setEnabled($enable) failed, status=$status")
+        // Sony DSEE HAL implementations expect both EFFECT_CMD_ENABLE and parameter 0 = 1/0
+        val paramStatus = try {
+            val param = ByteBuffer.allocate(4).order(ByteOrder.nativeOrder()).putInt(0).array()
+            val value = ByteBuffer.allocate(4).order(ByteOrder.nativeOrder()).putInt(if (enable) 1 else 0).array()
+            setParameter(param, value)
+        } catch (t: Throwable) {
+            Log.w(TAG, "DSEE setParameter(0, ${if (enable) 1 else 0}) threw: ${t.message}")
+            ERROR
         }
+        val status = setEnabled(enable)
+        Log.i(TAG, "DSEE setDseeEnabled($enable): paramStatus=$paramStatus enableStatus=$status enabled=${enabled}")
         return status == SUCCESS
     }
 

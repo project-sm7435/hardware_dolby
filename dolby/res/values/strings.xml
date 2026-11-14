@@ -43,8 +43,14 @@
     <string name="dolby_speaker_correction_strength">Strength</string>
     <string name="dolby_speaker_correction_summary">Optimizes small speaker frequency response for clearer, fuller output</string>
     <string name="dolby_viper_bass_summary">Boosts deep sub-bass frequencies with selectable bass modes and cutoff</string>
+    <string name="dolby_viper_bass_summary_natural">Natural bass: smooth low-end warmth without overpowering mids</string>
+    <string name="dolby_viper_bass_summary_pure">Pure bass+: phase-aligned deep sub-bass extension with tight punch</string>
+    <string name="dolby_viper_bass_summary_subwoofer">Subwoofer: heavy theater-style sub-bass rumble tuned to your cutoff frequency</string>
     <string name="dolby_dynamic_system_summary">Enhances dynamic bass punch and low-end harmonic fullness</string>
     <string name="dolby_viper_clarity_summary">Restores high-frequency detail and vocal crispness</string>
+    <string name="dolby_viper_clarity_summary_natural">Natural: gentle high-frequency harmonic sharpening for clean detail</string>
+    <string name="dolby_viper_clarity_summary_ozone">OZone+: bright, airy treble lift with expanded upper-harmonic sparkle</string>
+    <string name="dolby_viper_clarity_summary_xhifi">XHiFi: restores compressed high-end transients and studio-grade crispness</string>
     <string name="dolby_dsee">DSEE HX</string>
     <string name="dolby_dsee_summary">Restores high-range audio detail lost during digital compression</string>
     <string name="dolby_viper_bass">ViPER bass</string>

@@ -171,7 +171,13 @@ private fun ModernAdvancedSettingsContent(
 
                         AnimatedVisibility(visible = bassExpanded) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ViperInfoRow(text = stringResource(R.string.dolby_viper_bass_summary))
+                                val bassModeSummaryRes = when (bassMode) {
+                                    0 -> R.string.dolby_viper_bass_summary_natural
+                                    1 -> R.string.dolby_viper_bass_summary_pure
+                                    2 -> R.string.dolby_viper_bass_summary_subwoofer
+                                    else -> R.string.dolby_viper_bass_summary
+                                }
+                                ViperInfoRow(text = stringResource(bassModeSummaryRes))
                                 ViperChoiceRow(
                                     title = stringResource(R.string.dolby_viper_bass_mode),
                                     currentValue = bassMode,
@@ -283,7 +289,13 @@ private fun ModernAdvancedSettingsContent(
 
                         AnimatedVisibility(visible = clarityExpanded) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ViperInfoRow(text = stringResource(R.string.dolby_viper_clarity_summary))
+                                val clarityModeSummaryRes = when (state.profileSettings.clarityMode) {
+                                    0 -> R.string.dolby_viper_clarity_summary_natural
+                                    1 -> R.string.dolby_viper_clarity_summary_ozone
+                                    2 -> R.string.dolby_viper_clarity_summary_xhifi
+                                    else -> R.string.dolby_viper_clarity_summary
+                                }
+                                ViperInfoRow(text = stringResource(clarityModeSummaryRes))
                                 ViperChoiceRow(
                                     title = stringResource(R.string.dolby_clarity_mode),
                                     currentValue = state.profileSettings.clarityMode,

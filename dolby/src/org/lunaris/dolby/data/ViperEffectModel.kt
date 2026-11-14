@@ -151,11 +151,18 @@ internal object ViperEffectModel {
 
         data class DspCmd(val id: Int, val v1: Int, val v2: Int = 0)
 
+        // Note: Prebuilt vendor libv4a_re.so hardcodes 44/80/380Hz inside Subwoofer mode (mode 2) and ignores
+        // PARAM_BASS_FREQUENCY unless mode is 0 (Natural) or 1 (Pure Bass+). When Subwoofer mode is chosen,
+        // dispatch mode 1 (Pure Bass+) + boosted gain to vendor libv4a_re.so so the Bass frequency (Hz) slider
+        // immediately shifts the sub-bass cutoff frequency in real time!
+        val vendorBassMode = if (bassMode == BASS_SUBWOOFER) BASS_PURE else bassMode
+        val vendorBassGain = if (bassMode == BASS_SUBWOOFER) (bassFactorScaled * 1.35).roundToInt() else bassFactorScaled
+
         // Full parameter set matching ViPER::DispatchCommand in vendor libv4a_re.so & viper_dsp_engine.cpp
         val commands = listOf(
-            DspCmd(PARAM_BASS_MODE, bassMode),
+            DspCmd(PARAM_BASS_MODE, vendorBassMode),
             DspCmd(PARAM_BASS_FREQUENCY, bassFreq),
-            DspCmd(PARAM_BASS_GAIN, bassFactorScaled),
+            DspCmd(PARAM_BASS_GAIN, vendorBassGain),
             DspCmd(PARAM_BASS_ENABLE, if (bassActive) 1 else 0),
             DspCmd(PARAM_CLARITY_MODE, clarityMode),
             DspCmd(PARAM_CLARITY_GAIN, clarityGainScaled),

@@ -7,7 +7,7 @@ package org.lunaris.dolby.data
 
 import android.content.Context
 import android.os.SystemClock
-import org.lunaris.dolby.DolbyConstants
+import android.util.Log
 import org.lunaris.dolby.audio.DseeAudioEffect
 
 /**
@@ -25,28 +25,35 @@ class DseeController private constructor() {
     @Synchronized
     fun apply(enabled: Boolean, master: Boolean): Boolean {
         val active = master && enabled
+        Log.i(TAG, "DSEE apply: enabled=$enabled master=$master active=$active")
         if (!active) {
             if (effect != null) {
                 try {
                     effect?.setDseeEnabled(false)
                 } catch (ex: Exception) {
-                    DolbyConstants.dlog(TAG, "DSEE disable failed: ${ex.message}")
+                    Log.w(TAG, "DSEE disable failed: ${ex.message}")
                 }
                 drop()
-                DolbyConstants.dlog(TAG, "DSEE effect released")
+                Log.i(TAG, "DSEE effect released")
             }
             return true
         }
 
-        repeat(2) {
-            val e = obtain() ?: return false
+        repeat(2) { attempt ->
+            val e = obtain() ?: run {
+                Log.w(TAG, "DSEE obtain() returned null on attempt $attempt")
+                return false
+            }
             val ok = try {
                 e.setDseeEnabled(true)
             } catch (ex: Exception) {
-                DolbyConstants.dlog(TAG, "DSEE enable failed: ${ex.message}")
+                Log.e(TAG, "DSEE enable failed on attempt $attempt: ${ex.message}", ex)
                 false
             }
-            if (ok) return true
+            if (ok) {
+                Log.i(TAG, "DSEE effect active on session 0 (id=${e.id})")
+                return true
+            }
             drop()
         }
         return false
@@ -59,11 +66,11 @@ class DseeController private constructor() {
         return try {
             DseeAudioEffect(EFFECT_PRIORITY, 0).also {
                 effect = it
-                DolbyConstants.dlog(TAG, "DSEE effect created")
+                Log.i(TAG, "DSEE effect created (id=${it.id}, descriptor=${it.descriptor?.name})")
             }
         } catch (e: Exception) {
             nextTryAtMs = now + RETRY_DELAY_MS
-            DolbyConstants.dlog(TAG, "DSEE effect not available: ${e.message}")
+            Log.e(TAG, "DSEE effect creation failed (check audio_effects.xml / SELinux): ${e.message}", e)
             null
         }
     }
@@ -72,7 +79,7 @@ class DseeController private constructor() {
         try {
             effect?.release()
         } catch (e: Exception) {
-            DolbyConstants.dlog(TAG, "Error releasing DSEE effect: ${e.message}")
+            Log.w(TAG, "Error releasing DSEE effect: ${e.message}")
         }
         effect = null
     }
@@ -80,7 +87,7 @@ class DseeController private constructor() {
     companion object {
         private const val TAG = "DseeController"
         private const val EFFECT_PRIORITY = 100
-        private const val RETRY_DELAY_MS = 10_000L
+        private const val RETRY_DELAY_MS = 3_000L
 
         @Volatile
         private var instance: DseeController? = null
