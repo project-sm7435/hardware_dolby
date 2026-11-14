@@ -23,7 +23,13 @@ import kotlinx.coroutines.flow.asStateFlow
 class DolbyRepository(private val context: Context) : AutoCloseable {
 
     private val audioManager = context.getSystemService(AudioManager::class.java)
-    private var dolbyEffect = createDolbyEffect()
+
+    private val dolbyEffect: DolbyAudioEffect get() = SharedDolbyEffect.get { createDolbyEffect() }
+
+    private fun recreateDolbyEffect() {
+        SharedDolbyEffect.drop()
+        SharedDolbyEffect.get { createDolbyEffect() }
+    }
     
     private val defaultPrefs = context.getSharedPreferences("dolby_prefs", Context.MODE_PRIVATE)
     private val presetsPrefs = context.getSharedPreferences(DolbyConstants.PREF_FILE_PRESETS, Context.MODE_PRIVATE)
@@ -60,12 +66,16 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         try {
             if (!dolbyEffect.hasControl()) {
                 DolbyConstants.dlog(TAG, "Lost audio effect control, recreating")
-                dolbyEffect.release()
-                dolbyEffect = createDolbyEffect()
+                recreateDolbyEffect()
                 restoreSavedProfileIfNeeded()
             }
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error checking effect: ${e.message}")
+            try {
+                recreateDolbyEffect()
+            } catch (e2: Exception) {
+                DolbyConstants.dlog(TAG, "Could not recreate effect: ${e2.message}")
+            }
         }
     }
 
@@ -160,11 +170,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             dolbyEffect.dsOn = enabled
             if (dolbyEffect.dsOn != enabled) {
                 // Early boot: audioserver/DAP HAL may have restarted after initial handle creation; recreate handle.
-                try {
-                    dolbyEffect.release()
-                } catch (_: Exception) {
-                }
-                dolbyEffect = createDolbyEffect()
+                recreateDolbyEffect()
                 dolbyEffect.dsOn = enabled
             }
             val savedProfile = readSavedProfile() ?: 0
@@ -179,12 +185,13 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             applyDsee(savedProfile, forceRebind = enabled)
             val live = dolbyEffect.dsOn
             DolbyConstants.dlog(TAG, "applySavedState: saved=$enabled live=$live profile=$savedProfile")
+            android.util.Log.i(TAG, "applySavedState: saved=$enabled live=$live profile=$savedProfile")
             live == enabled
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "applySavedState failed: ${e.message}")
+            android.util.Log.w(TAG, "applySavedState failed: ${e.message}")
             try {
-                dolbyEffect.release()
-                dolbyEffect = createDolbyEffect()
+                recreateDolbyEffect()
             } catch (_: Exception) {
             }
             false
@@ -230,8 +237,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting Dolby enabled: ${e.message}")
             try {
-                dolbyEffect.release()
-                dolbyEffect = createDolbyEffect()
+                recreateDolbyEffect()
                 dolbyEffect.dsOn = enabled
                 if (enabled) {
                     restoreSavedProfileIfNeeded()
@@ -240,9 +246,40 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
                 DolbyConstants.dlog(TAG, "Retry setting Dolby enabled failed: ${e2.message}")
             }
         }
+        // The switch must really have reached the effect. If not, take a fresh handle and set it
+        // again, so one tap is enough (the screen and the tile show the saved switch).
+        try {
+            if (dolbyEffect.dsOn != enabled) {
+                DolbyConstants.dlog(TAG, "Dolby switch did not stick, retrying with a new handle")
+                android.util.Log.i(TAG, "Dolby switch did not stick (want $enabled), retrying with a new handle")
+                recreateDolbyEffect()
+                dolbyEffect.dsOn = enabled
+                if (enabled) {
+                    restoreSavedProfileIfNeeded()
+                }
+            }
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Verifying Dolby switch failed: ${e.message}")
+        }
         val activeProfile = readSavedProfile() ?: 0
         applyViper(activeProfile, forceRebind = enabled)
         applyDsee(activeProfile, forceRebind = enabled)
+    }
+
+    /**
+     * If the saved switch says on but the live effect is off (for example after a reboot or an
+     * audioserver restart), applies the saved state again so the screen never lies about it.
+     */
+    fun ensureLiveState() {
+        if (isReleased) return
+        try {
+            if (getDolbyEnabled() != getSavedDolbyEnabled()) {
+                DolbyConstants.dlog(TAG, "Live Dolby state differs from the saved switch, re-applying")
+                applySavedState()
+            }
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "ensureLiveState failed: ${e.message}")
+        }
     }
 
     fun setDolbyEnabledFromUser(enabled: Boolean) {
@@ -1341,11 +1378,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         if (!isReleased) {
             DolbyConstants.dlog(TAG, "Releasing repository resources")
             isReleased = true
-            try {
-                dolbyEffect.release()
-            } catch (e: Exception) {
-                DolbyConstants.dlog(TAG, "Error releasing effect: ${e.message}")
-            }
+            // The effect is shared with every other repository, so it stays alive.
         }
     }
     
@@ -1386,5 +1419,23 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         private val TEN_BAND_INDICES = listOf(0, 2, 4, 6, 8, 10, 12, 14, 16, 18)
         
         private val FIFTEEN_BAND_INDICES = listOf(0, 1, 2, 3, 4, 5, 6, 8, 11, 12, 14, 15, 17, 18, 19)
+    }
+}
+
+/** The single Dolby effect handle of this process, shared by every [DolbyRepository]. */
+private object SharedDolbyEffect {
+    private var effect: DolbyAudioEffect? = null
+
+    @Synchronized
+    fun get(create: () -> DolbyAudioEffect): DolbyAudioEffect =
+        effect ?: create().also { effect = it }
+
+    @Synchronized
+    fun drop() {
+        try {
+            effect?.release()
+        } catch (_: Exception) {
+        }
+        effect = null
     }
 }

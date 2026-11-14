@@ -27,6 +27,7 @@ class DolbyTileService : TileService() {
         super.onStartListening()
         repository.registerEnabledListener(enabledListener)
         updateTile()
+        Thread { repository.ensureLiveState() }.start()
     }
 
     override fun onStopListening() {

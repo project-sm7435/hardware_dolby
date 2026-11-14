@@ -112,6 +112,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         val genAtStart = stateMutationGen
         loadJob = viewModelScope.launch(Dispatchers.IO) {
             try {
+                repository.ensureLiveState()
                 val enabled = repository.getSavedDolbyEnabled()
                 val profile = repository.getCurrentProfile()
                 val bandMode = repository.getBandMode()
@@ -189,6 +190,8 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         submitEffectOp("setProfile") {
             try {
                 repository.setCurrentProfile(profile)
+                kotlinx.coroutines.delay(400)
+                repository.applyViper(profile)
                 loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting profile: ${e.message}")

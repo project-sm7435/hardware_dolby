@@ -33,7 +33,10 @@ class DolbyEffectService : Service() {
     private val isDeviceStateMemoryEnabled: Boolean
         get() = dolbyPrefs.getBoolean(DolbyConstants.PREF_DEVICE_STATE_MEMORY, false)
     private val handler = Handler()
-    private lateinit var repository: DolbyRepository
+    private var repositoryOrNull: DolbyRepository? = null
+
+    private val repository: DolbyRepository
+        get() = repositoryOrNull ?: DolbyRepository(this).also { repositoryOrNull = it }
     private lateinit var deviceStateManager: DeviceStateManager
     private var previousActiveDevice: AudioDeviceInfo? = null
     private var retryAttempt = 0
@@ -90,7 +93,11 @@ class DolbyEffectService : Service() {
         override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>?) {
             val isActive = configs?.any { it.isActive } == true
             if (isActive && !wasPlaybackActive) {
-                repository.applySavedState()
+                try {
+                    repository.applySavedState()
+                } catch (e: Exception) {
+                    Log.w(TAG, "applySavedState on playback failed", e)
+                }
             }
             wasPlaybackActive = isActive
         }
@@ -98,25 +105,30 @@ class DolbyEffectService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        repository = DolbyRepository(this)
         deviceStateManager = DeviceStateManager(this)
-        val currentDevice = getCurrentOutputDevice()
-        if (currentDevice != null) {
-            previousActiveDevice = currentDevice
-            if (isDeviceStateMemoryEnabled) {
-                val key = deviceStateManager.deviceKey(currentDevice)
-                val restored = deviceStateManager.restoreSnapshot(key, repository)
-                if (!restored) {
-                    applyStateWithRetry()
+        try {
+            val currentDevice = getCurrentOutputDevice()
+            if (currentDevice != null) {
+                previousActiveDevice = currentDevice
+                if (isDeviceStateMemoryEnabled) {
+                    val key = deviceStateManager.deviceKey(currentDevice)
+                    val restored = deviceStateManager.restoreSnapshot(key, repository)
+                    if (!restored) {
+                        applyStateWithRetry()
+                    } else {
+                        // audioserver/DAP HAL may still be starting: check again shortly.
+                        handler.postDelayed(retryRunnable, 2_000L)
+                    }
                 } else {
-                    // Schedule a follow-up check in case audioserver/DAP HAL finished booting after onCreate
-                    handler.postDelayed(retryRunnable, 2_000L)
+                    applyStateWithRetry()
                 }
             } else {
                 applyStateWithRetry()
             }
-        } else {
-            applyStateWithRetry()
+        } catch (e: Exception) {
+            Log.w(TAG, "Initial Dolby setup failed, will retry", e)
+            retryAttempt = 0
+            handler.postDelayed(retryRunnable, RETRY_DELAYS_MS[0])
         }
 
         audioManager.registerAudioDeviceCallback(audioDeviceCallback, handler)
@@ -125,6 +137,16 @@ class DolbyEffectService : Service() {
     }
 
     private fun handleDeviceChange() {
+        try {
+            handleDeviceChangeInner()
+        } catch (e: Exception) {
+            Log.w(TAG, "Device change handling failed, will retry", e)
+            retryAttempt = 0
+            handler.postDelayed(retryRunnable, RETRY_DELAYS_MS[0])
+        }
+    }
+
+    private fun handleDeviceChangeInner() {
         val newDevice = getCurrentOutputDevice()
         val oldDevice = previousActiveDevice
 
@@ -198,15 +220,22 @@ class DolbyEffectService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (isDeviceStateMemoryEnabled) {
+        val repo = repositoryOrNull
+        if (repo != null && isDeviceStateMemoryEnabled) {
             previousActiveDevice?.let { device ->
                 val key = deviceStateManager.deviceKey(device)
-                deviceStateManager.saveSnapshot(key, repository)
+                deviceStateManager.saveSnapshot(key, repo)
             }
         }
         audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
         audioManager.unregisterAudioPlaybackCallback(playbackCallback)
         handler.removeCallbacksAndMessages(null)
+        try {
+            repo?.close()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error closing repository", e)
+        }
+        repositoryOrNull = null
         Log.d(TAG, "Dolby effect service destroyed")
     }
 
@@ -214,7 +243,7 @@ class DolbyEffectService : Service() {
 
     companion object {
         private const val TAG = "DolbyEffectService"
-        private val RETRY_DELAYS_MS = longArrayOf(1_000, 2_000, 4_000, 8_000, 15_000, 30_000)
+        private val RETRY_DELAYS_MS = longArrayOf(1_000, 2_000, 4_000, 8_000, 15_000, 30_000, 60_000, 120_000)
 
         private val ATTRIBUTES_MEDIA = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)
