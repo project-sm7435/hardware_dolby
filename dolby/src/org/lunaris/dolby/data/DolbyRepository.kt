@@ -270,6 +270,33 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
      * If the saved switch says on but the live effect is off (for example after a reboot or an
      * audioserver restart), applies the saved state again so the screen never lies about it.
      */
+    /**
+     * Light re-push of the saved state when a new track/stream starts. Unlike applySavedState()
+     * it never drops/rebinds the ViPER or DSEE handles, so it can run during playback.
+     */
+    @Synchronized
+    fun refreshOnPlayback() {
+        if (isReleased) return
+        try {
+            checkEffect()
+            val enabled = getSavedDolbyEnabled()
+            if (dolbyEffect.dsOn != enabled) {
+                dolbyEffect.dsOn = enabled
+            }
+            if (!enabled) return
+            val savedProfile = readSavedProfile() ?: 0
+            if (dolbyEffect.profile != savedProfile) {
+                dolbyEffect.profile = savedProfile
+            }
+            restoreProfilePreset(savedProfile)
+            applyProfileSettings(savedProfile)
+            applyViper(savedProfile, forceRebind = false)
+            applyDsee(savedProfile, forceRebind = false)
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "refreshOnPlayback failed: ${e.message}")
+        }
+    }
+
     fun ensureLiveState() {
         if (isReleased) return
         try {

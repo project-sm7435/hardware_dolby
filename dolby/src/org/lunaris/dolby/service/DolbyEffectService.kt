@@ -89,15 +89,28 @@ class DolbyEffectService : Service() {
     }
 
     private var wasPlaybackActive = false
+    private val playbackRefreshRunnable = Runnable {
+        try {
+            repository.refreshOnPlayback()
+        } catch (e: Exception) {
+            Log.w(TAG, "refreshOnPlayback failed", e)
+        }
+    }
     private val playbackCallback = object : AudioManager.AudioPlaybackCallback() {
         override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>?) {
             val isActive = configs?.any { it.isActive } == true
-            if (isActive && !wasPlaybackActive) {
-                try {
-                    repository.ensureLiveState()
-                } catch (e: Exception) {
-                    Log.w(TAG, "ensureLiveState on playback failed", e)
+            if (isActive) {
+                if (!wasPlaybackActive) {
+                    try {
+                        repository.ensureLiveState()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "ensureLiveState on playback failed", e)
+                    }
                 }
+                // New track/stream: re-push saved effects once the new stream has settled.
+                // Debounced so rapid config changes collapse into one light refresh.
+                handler.removeCallbacks(playbackRefreshRunnable)
+                handler.postDelayed(playbackRefreshRunnable, PLAYBACK_REFRESH_DELAY_MS)
             }
             wasPlaybackActive = isActive
         }
@@ -243,6 +256,7 @@ class DolbyEffectService : Service() {
 
     companion object {
         private const val TAG = "DolbyEffectService"
+        private const val PLAYBACK_REFRESH_DELAY_MS = 400L
         private val RETRY_DELAYS_MS = longArrayOf(1_000, 2_000, 4_000, 8_000, 15_000, 30_000, 60_000, 120_000)
 
         private val ATTRIBUTES_MEDIA = AudioAttributes.Builder()
