@@ -303,11 +303,14 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     fun getCurrentProfile(): Int {
         return try {
             checkEffect()
-            restoreSavedProfileIfNeeded()
+            val saved = readSavedProfile()
+            if (saved != null && dolbyEffect.profile != saved) {
+                dolbyEffect.profile = saved
+            }
             dolbyEffect.profile
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error getting current profile: ${e.message}")
-            0
+            readSavedProfile() ?: 0
         }
     }
 
@@ -316,18 +319,26 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         if (isReleased) return
         
         try {
+            defaultPrefs.edit().putString(DolbyConstants.PREF_PROFILE, profile.toString()).commit()
             checkEffect()
             val enabled = getSavedDolbyEnabled()
-            if (dolbyEffect.dsOn != enabled) {
-                dolbyEffect.dsOn = enabled
-            }
             dolbyEffect.profile = profile
-            defaultPrefs.edit().putString(DolbyConstants.PREF_PROFILE, profile.toString()).apply()
-            if (!verifyProfileSaved(profile)) {
-                DolbyConstants.dlog(TAG, "WARNING: Profile may not have been saved correctly!")
+            if (dolbyEffect.profile != profile) {
+                recreateDolbyEffect()
+                dolbyEffect.profile = profile
             }
             restoreProfilePreset(profile)
             applyProfileSettings(profile)
+            // Re-assert dsOn after profile & parameters are written so Xiaomi/Qualcomm libhwdap.so
+            // commits the selected profile's DSP coefficients immediately on the first click.
+            dolbyEffect.dsOn = enabled
+            if (dolbyEffect.dsOn != enabled) {
+                recreateDolbyEffect()
+                dolbyEffect.profile = profile
+                restoreProfilePreset(profile)
+                applyProfileSettings(profile)
+                dolbyEffect.dsOn = enabled
+            }
             _currentProfile.value = profile
             applyViper(profile, forceRebind = true)
             applyDsee(profile, forceRebind = true)
@@ -939,6 +950,9 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             checkEffect()
             dolbyEffect.setDapParameter(DsParam.IEQ_PRESET, preset, profile)
             getProfilePrefs(profile).edit().putString(DolbyConstants.PREF_IEQ, preset.toString()).apply()
+            if (getSavedDolbyEnabled() && dolbyEffect.profile == profile) {
+                dolbyEffect.dsOn = true
+            }
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting IEQ preset: ${e.message}")
         }

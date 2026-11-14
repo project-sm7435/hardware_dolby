@@ -39,9 +39,16 @@ class DseeController private constructor() {
             drop()
         }
         repeat(2) {
+            val wasCreated = effect == null || effect?.isReady() != true
             val e = obtain() ?: return false
             val ok = try {
-                e.setDseeEnabled(true)
+                val first = e.setDseeEnabled(true)
+                if (wasCreated && first) {
+                    e.setDseeEnabled(false)
+                    e.setDseeEnabled(true)
+                } else {
+                    first
+                }
             } catch (_: Exception) {
                 false
             }
@@ -52,7 +59,10 @@ class DseeController private constructor() {
     }
 
     private fun obtain(): DseeAudioEffect? {
-        effect?.let { return it }
+        effect?.let { existing ->
+            if (existing.isReady()) return existing
+            drop()
+        }
         val now = SystemClock.elapsedRealtime()
         if (now < nextTryAtMs) return null
         return try {
@@ -73,7 +83,7 @@ class DseeController private constructor() {
 
     companion object {
         private const val EFFECT_PRIORITY = 100
-        private const val RETRY_DELAY_MS = 10_000L
+        private const val RETRY_DELAY_MS = 2_000L
 
         @Volatile
         private var instance: DseeController? = null

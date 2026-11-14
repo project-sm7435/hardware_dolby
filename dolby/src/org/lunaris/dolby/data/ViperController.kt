@@ -62,16 +62,16 @@ class ViperController private constructor() {
             val wasCreated = effect == null || effect?.isReady() != true
             val e = obtain() ?: return false
             val ok = try {
-                // Enable the AudioFlinger session first when freshly bound so libv4a_re.so initializes
-                // its DSP engine before receiving parameters, then push commands and re-confirm active state.
                 if (wasCreated) {
+                    // Prime AudioFlinger's effect chain on fresh creation so libv4a_re.so processes
+                    // audio on the very first click without requiring an off/on toggle.
+                    e.setEnabled(true)
+                    ViperEffectModel.applyToDspEngine(e, settings, master)
+                    e.setEnabled(false)
                     e.setEnabled(true)
                 }
                 val pushed = ViperEffectModel.applyToDspEngine(e, settings, master)
                 val enabledOk = e.enabled || e.setEnabled(true) == AudioEffect.SUCCESS
-                if (wasCreated && pushed) {
-                    ViperEffectModel.applyToDspEngine(e, settings, master)
-                }
                 pushed && enabledOk
             } catch (ex: Exception) {
                 DolbyConstants.dlog(TAG, "ViPER push failed: ${ex.message}")

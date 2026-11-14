@@ -190,8 +190,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         submitEffectOp("setProfile") {
             try {
                 repository.setCurrentProfile(profile)
-                kotlinx.coroutines.delay(400)
-                repository.applyViper(profile)
                 loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting profile: ${e.message}")

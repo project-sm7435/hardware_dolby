@@ -22,7 +22,16 @@ class DseeAudioEffect(priority: Int, audioSession: Int) : AudioEffect(
     audioSession
 ) {
 
+    fun isReady(): Boolean = try {
+        hasControl()
+    } catch (_: Throwable) {
+        false
+    }
+
     fun setDseeEnabled(enable: Boolean): Boolean {
+        if (enable && !enabled) {
+            setEnabled(true)
+        }
         try {
             val param = ByteBuffer.allocate(4).order(ByteOrder.nativeOrder()).putInt(0).array()
             val value = ByteBuffer.allocate(4).order(ByteOrder.nativeOrder()).putInt(if (enable) 1 else 0).array()

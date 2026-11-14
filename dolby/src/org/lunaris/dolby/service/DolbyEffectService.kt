@@ -94,9 +94,9 @@ class DolbyEffectService : Service() {
             val isActive = configs?.any { it.isActive } == true
             if (isActive && !wasPlaybackActive) {
                 try {
-                    repository.applySavedState()
+                    repository.ensureLiveState()
                 } catch (e: Exception) {
-                    Log.w(TAG, "applySavedState on playback failed", e)
+                    Log.w(TAG, "ensureLiveState on playback failed", e)
                 }
             }
             wasPlaybackActive = isActive
