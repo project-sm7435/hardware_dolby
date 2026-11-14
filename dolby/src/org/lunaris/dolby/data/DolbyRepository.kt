@@ -645,9 +645,10 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             val newLevel = level.coerceIn(0, 100)
             if (previous == newLevel) return
             prefs.edit().putInt(DolbyConstants.PREF_SPEAKER_CORRECTION, newLevel).apply()
+
+            // Dispatch PARAM_SPEAKER_OPTIMIZATION (0x10043) to vendor libv4a_re.so + native JNI SpeakerCorrection
             if (viperActive()) {
                 applyViper(profile)
-            applyDsee(profile)
                 return
             }
 

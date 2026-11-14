@@ -62,7 +62,7 @@ internal object ViperEffectModel {
     const val PARAM_CLARITY_ENABLE   = 0x1002A
     const val PARAM_CLARITY_MODE     = 0x1002B
     const val PARAM_CLARITY_GAIN     = 0x1002C
-    const val PARAM_SPEAKER_ENABLE   = 0x1002D
+    const val PARAM_SPEAKER_ENABLE   = 0x10043 // PARAM_SPEAKER_OPTIMIZATION in ViPER.cpp
     const val PARAM_SPEAKER_STRENGTH = 0x1002E
 
     enum class EffectType(val displayName: String, val cppImplementation: String) {
@@ -130,6 +130,8 @@ internal object ViperEffectModel {
         val clarityGainScaled = ((settings.clarityGain / 100.0) * MAX_CLARITY_GAIN * 100.0).roundToInt()
 
         val dynamicStrength = settings.dynamicStrength.coerceIn(0, 100)
+        // Map 0..100% slider to ViPER DynamicBass gain range: 100..2100 (1.0f..21.0f -> qPeak 0..1600)
+        val dynamicBassGainScaled = 100 + (dynamicStrength * 20)
         val speakerStrength = settings.speakerStrength.coerceIn(0, 100)
 
         _pipelineState.value = DspPipelineState(
@@ -147,32 +149,40 @@ internal object ViperEffectModel {
             nativeLibraryLoaded = isNativeLoaded
         )
 
+        data class DspCmd(val id: Int, val v1: Int, val v2: Int = 0)
+
+        // Full parameter set matching ViPER::DispatchCommand in vendor libv4a_re.so & viper_dsp_engine.cpp
         val commands = listOf(
-            PARAM_BASS_MODE to bassMode,
-            PARAM_BASS_FREQUENCY to bassFreq,
-            PARAM_BASS_GAIN to bassFactorScaled,
-            PARAM_BASS_ENABLE to if (bassActive) 1 else 0,
-            PARAM_CLARITY_MODE to clarityMode,
-            PARAM_CLARITY_GAIN to clarityGainScaled,
-            PARAM_CLARITY_ENABLE to if (clarityActive) 1 else 0,
-            PARAM_DYNAMIC_STRENGTH to dynamicStrength,
-            PARAM_DYNAMIC_ENABLE to if (dynamicActive) 1 else 0,
-            PARAM_SPEAKER_STRENGTH to speakerStrength,
-            PARAM_SPEAKER_ENABLE to if (speakerActive) 1 else 0
+            DspCmd(PARAM_BASS_MODE, bassMode),
+            DspCmd(PARAM_BASS_FREQUENCY, bassFreq),
+            DspCmd(PARAM_BASS_GAIN, bassFactorScaled),
+            DspCmd(PARAM_BASS_ENABLE, if (bassActive) 1 else 0),
+            DspCmd(PARAM_CLARITY_MODE, clarityMode),
+            DspCmd(PARAM_CLARITY_GAIN, clarityGainScaled),
+            DspCmd(PARAM_CLARITY_ENABLE, if (clarityActive) 1 else 0),
+            // Dynamic System (Extreme Headphone v2 profile: X=140..6200 Hz, Y=40..12000 Hz, SideGain=100,100)
+            DspCmd(PARAM_DYNAMIC_X_COEFFS, 140, 6200),
+            DspCmd(PARAM_DYNAMIC_Y_COEFFS, 40, 12000),
+            DspCmd(PARAM_DYNAMIC_SIDEGAIN, 100, 100),
+            DspCmd(PARAM_DYNAMIC_STRENGTH, dynamicBassGainScaled),
+            DspCmd(PARAM_DYNAMIC_ENABLE, if (dynamicActive) 1 else 0),
+            DspCmd(PARAM_SPEAKER_STRENGTH, speakerStrength),
+            DspCmd(PARAM_SPEAKER_ENABLE, if (speakerActive) 1 else 0)
         )
 
         // 1. Dispatch directly to native C++ Effects + Utils via JNI (libdolby_viper_jni.so)
         if (isNativeLoaded) {
-            for ((cmd, value) in commands) {
-                nativeDispatchCommand(cmd, value, 0, 0, 0)
+            for (cmd in commands) {
+                nativeDispatchCommand(cmd.id, cmd.v1, cmd.v2, 0, 0)
             }
         }
 
         // 2. Dispatch to vendor AudioEffect instance (libv4a_re.so) attached to AudioFlinger output
         if (effect == null) return false
         var allOk = true
-        for ((cmd, value) in commands) {
-            if (!effect.send(cmd, value)) {
+        for (cmd in commands) {
+            val sent = effect.send(cmd.id, cmd.v1, cmd.v2)
+            if (!sent && cmd.id != PARAM_SPEAKER_STRENGTH) {
                 allOk = false
             }
         }

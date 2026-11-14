@@ -110,6 +110,7 @@ private fun ModernAdvancedSettingsContent(
     bottomPadding: Dp,
     modifier: Modifier = Modifier
 ) {
+    val latestProfileSettings by rememberUpdatedState(state.profileSettings)
     // Which ViperFX rows are open. Kept when rotating the screen; independent of the on/off switches.
     var bassExpanded by rememberSaveable { mutableStateOf(false) }
     var dynamicExpanded by rememberSaveable { mutableStateOf(false) }
@@ -152,7 +153,7 @@ private fun ModernAdvancedSettingsContent(
                             checked = bassOn,
                             onCheckedChange = { enabled ->
                                 if (enabled) {
-                                    if (state.profileSettings.bassCurve == 3) viewModel.setBassCurve(0)
+                                    if (latestProfileSettings.bassCurve == 3) viewModel.setBassCurve(0)
                                     viewModel.setBassLevel(50)
                                 } else {
                                     viewModel.setBassLevel(0)
@@ -257,9 +258,10 @@ private fun ModernAdvancedSettingsContent(
                             title = stringResource(R.string.dolby_viper_clarity),
                             checked = clarityOn,
                             onCheckedChange = { enabled ->
-                                if (enabled && state.profileSettings.trebleLevel == 0) {
-                                    viewModel.setTrebleLevel(30)
-                                } else if (!enabled) {
+                                if (enabled) {
+                                    val target = if (latestProfileSettings.trebleLevel > 0) latestProfileSettings.trebleLevel else 30
+                                    viewModel.setTrebleLevel(target)
+                                } else {
                                     viewModel.setTrebleLevel(0)
                                 }
                             },
@@ -303,9 +305,10 @@ private fun ModernAdvancedSettingsContent(
                             title = stringResource(R.string.dolby_speaker_correction),
                             checked = speakerOn,
                             onCheckedChange = { enabled ->
-                                if (enabled && state.profileSettings.speakerCorrection == 0) {
-                                    viewModel.setSpeakerCorrection(50)
-                                } else if (!enabled) {
+                                if (enabled) {
+                                    val target = if (latestProfileSettings.speakerCorrection > 0) latestProfileSettings.speakerCorrection else 50
+                                    viewModel.setSpeakerCorrection(target)
+                                } else {
                                     viewModel.setSpeakerCorrection(0)
                                 }
                             },

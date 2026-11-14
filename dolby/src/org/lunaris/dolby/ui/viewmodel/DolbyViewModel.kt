@@ -232,6 +232,12 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setSpeakerCorrection(level: Int) {
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(speakerCorrection = level.coerceIn(0, 100))
+            )
+        }
         submitEffectOp("setSpeakerCorrection") {
             try {
                 val profile = repository.getCurrentProfile()
@@ -297,6 +303,12 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setTrebleLevel(level: Int) {
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(trebleLevel = level.coerceIn(0, 100))
+            )
+        }
         submitEffectOp("setTrebleLevel") {
             try {
                 val profile = repository.getCurrentProfile()

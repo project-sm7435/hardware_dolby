@@ -41,7 +41,7 @@ enum ViperCommandId : uint32_t {
     PARAM_CLARITY_ENABLE   = 0x1002A,
     PARAM_CLARITY_MODE     = 0x1002B,
     PARAM_CLARITY_GAIN     = 0x1002C,
-    PARAM_SPEAKER_ENABLE   = 0x1002D,
+    PARAM_SPEAKER_ENABLE   = 0x10043,
     PARAM_SPEAKER_STRENGTH = 0x1002E,
 };
 
@@ -59,10 +59,6 @@ public:
         dynamicSystem_.SetSideGain(1.0f, 1.0f);
         dynamicSystem_.SetBassGain(1.0f);
 
-        dynamicBass_.SetFilterXPassFrequency(120, 80);
-        dynamicBass_.SetFilterYPassFrequency(40, samplingRate_ / 4);
-        dynamicBass_.SetSideGain(1.0f, 1.0f);
-        dynamicBass_.SetBassGain(1.0f);
     }
 
     void SetSamplingRate(uint32_t sr) {
@@ -71,7 +67,6 @@ public:
         viperBass_.SetSamplingRate(sr);
         viperClarity_.SetSamplingRate(sr);
         dynamicSystem_.SetSamplingRate(sr);
-        dynamicBass_.SetSamplingRate(sr);
         speakerCorrection_.SetSamplingRate(sr);
     }
 
@@ -79,7 +74,6 @@ public:
         viperBass_.Reset();
         viperClarity_.Reset();
         dynamicSystem_.Reset();
-        dynamicBass_.Reset();
         speakerCorrection_.Reset();
     }
 
@@ -124,40 +118,34 @@ public:
                 bool en = (v1 != 0);
                 if (en && !dynamicEnabled_) {
                     dynamicSystem_.Reset();
-                    dynamicBass_.Reset();
-                }
+                            }
                 dynamicEnabled_ = en;
                 dynamicSystem_.SetEnable(en);
                 break;
             }
             case PARAM_DYNAMIC_STRENGTH: {
-                // Slider 0..100 maps accurately to DynamicBass gain 1.0..11.0
-                // (qPeak = ((gain - 1.0) / 20.0) * 1600.0 -> Q = qPeak / 666.0 + 0.5)
-                float clamped = static_cast<float>(v1 < 0 ? 0 : (v1 > 100 ? 100 : v1));
-                float gain = 1.0f + (clamped / 10.0f);
+                // v1 is scaled by 100 (100..2100 -> 1.0f..21.0f gain in DynamicBass::SetBassGain)
+                float gain = static_cast<float>(v1) / 100.0f;
+                if (gain < 1.0f) gain = 1.0f;
                 dynamicSystem_.SetBassGain(gain);
-                dynamicBass_.SetBassGain(gain);
                 break;
             }
             case PARAM_DYNAMIC_X_COEFFS: {
                 uint32_t low = static_cast<uint32_t>(v1);
                 uint32_t high = static_cast<uint32_t>(v2);
                 dynamicSystem_.SetXCoeffs(low, high);
-                dynamicBass_.SetFilterXPassFrequency(low, high);
                 break;
             }
             case PARAM_DYNAMIC_Y_COEFFS: {
                 uint32_t low = static_cast<uint32_t>(v1);
                 uint32_t high = static_cast<uint32_t>(v2);
                 dynamicSystem_.SetYCoeffs(low, high);
-                dynamicBass_.SetFilterYPassFrequency(low, high);
                 break;
             }
             case PARAM_DYNAMIC_SIDEGAIN: {
                 float gx = static_cast<float>(v1) / 100.0f;
                 float gy = static_cast<float>(v2) / 100.0f;
                 dynamicSystem_.SetSideGain(gx, gy);
-                dynamicBass_.SetSideGain(gx, gy);
                 break;
             }
             case PARAM_SPEAKER_ENABLE: {
@@ -218,7 +206,6 @@ private:
     ViPERBass viperBass_;
     ViPERClarity viperClarity_;
     DynamicSystem dynamicSystem_;
-    DynamicBass dynamicBass_;
     SpeakerCorrection speakerCorrection_;
     bool dynamicEnabled_;
     bool speakerCorrectionEnabled_;
