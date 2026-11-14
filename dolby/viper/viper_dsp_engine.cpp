@@ -20,7 +20,8 @@
 #include "effects/ViPERBass.h"
 #include "effects/ViPERClarity.h"
 #include "effects/DynamicSystem.h"
-#include "utils/Biquad.h"
+#include "effects/SpeakerCorrection.h"
+#include "utils/DynamicBass.h"
 
 #define LOG_TAG "ViPER_DSP_Engine"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -46,8 +47,22 @@ enum ViperCommandId : uint32_t {
 
 class ViperDspEngine {
 public:
-    ViperDspEngine() : samplingRate_(48000), speakerCorrectionEnabled_(false), speakerStrength_(0.0f) {
+    ViperDspEngine()
+        : samplingRate_(48000),
+          dynamicEnabled_(false),
+          speakerCorrectionEnabled_(false),
+          speakerStrength_(0.0f) {
         SetSamplingRate(48000);
+        // Configure DynamicSystem / DynamicBass defaults for ViPER4Android Dynamic System
+        dynamicSystem_.SetXCoeffs(120, 80);
+        dynamicSystem_.SetYCoeffs(40, samplingRate_ / 4);
+        dynamicSystem_.SetSideGain(1.0f, 1.0f);
+        dynamicSystem_.SetBassGain(1.0f);
+
+        dynamicBass_.SetFilterXPassFrequency(120, 80);
+        dynamicBass_.SetFilterYPassFrequency(40, samplingRate_ / 4);
+        dynamicBass_.SetSideGain(1.0f, 1.0f);
+        dynamicBass_.SetBassGain(1.0f);
     }
 
     void SetSamplingRate(uint32_t sr) {
@@ -56,14 +71,16 @@ public:
         viperBass_.SetSamplingRate(sr);
         viperClarity_.SetSamplingRate(sr);
         dynamicSystem_.SetSamplingRate(sr);
-        UpdateSpeakerCorrectionFilters();
+        dynamicBass_.SetSamplingRate(sr);
+        speakerCorrection_.SetSamplingRate(sr);
     }
 
     void Reset() {
         viperBass_.Reset();
         viperClarity_.Reset();
         dynamicSystem_.Reset();
-        UpdateSpeakerCorrectionFilters();
+        dynamicBass_.Reset();
+        speakerCorrection_.Reset();
     }
 
     void DispatchCommand(uint32_t param, int32_t v1, int32_t v2, int32_t v3, int32_t v4) {
@@ -103,32 +120,60 @@ public:
                 viperClarity_.SetClarity(gain);
                 break;
             }
-            case PARAM_DYNAMIC_ENABLE:
-                dynamicSystem_.SetEnable(v1 != 0);
-                break;
-            case PARAM_DYNAMIC_STRENGTH: {
-                // Slider 0..100 maps to DynamicBass gain 1.0..11.0
-                float gain = 1.0f + (static_cast<float>(v1) / 10.0f);
-                dynamicSystem_.SetBassGain(gain);
+            case PARAM_DYNAMIC_ENABLE: {
+                bool en = (v1 != 0);
+                if (en && !dynamicEnabled_) {
+                    dynamicSystem_.Reset();
+                    dynamicBass_.Reset();
+                }
+                dynamicEnabled_ = en;
+                dynamicSystem_.SetEnable(en);
                 break;
             }
-            case PARAM_DYNAMIC_X_COEFFS:
-                dynamicSystem_.SetXCoeffs(static_cast<uint32_t>(v1), static_cast<uint32_t>(v2));
+            case PARAM_DYNAMIC_STRENGTH: {
+                // Slider 0..100 maps accurately to DynamicBass gain 1.0..11.0
+                // (qPeak = ((gain - 1.0) / 20.0) * 1600.0 -> Q = qPeak / 666.0 + 0.5)
+                float clamped = static_cast<float>(v1 < 0 ? 0 : (v1 > 100 ? 100 : v1));
+                float gain = 1.0f + (clamped / 10.0f);
+                dynamicSystem_.SetBassGain(gain);
+                dynamicBass_.SetBassGain(gain);
                 break;
-            case PARAM_DYNAMIC_Y_COEFFS:
-                dynamicSystem_.SetYCoeffs(static_cast<uint32_t>(v1), static_cast<uint32_t>(v2));
+            }
+            case PARAM_DYNAMIC_X_COEFFS: {
+                uint32_t low = static_cast<uint32_t>(v1);
+                uint32_t high = static_cast<uint32_t>(v2);
+                dynamicSystem_.SetXCoeffs(low, high);
+                dynamicBass_.SetFilterXPassFrequency(low, high);
                 break;
-            case PARAM_DYNAMIC_SIDEGAIN:
-                dynamicSystem_.SetSideGain(static_cast<float>(v1) / 100.0f, static_cast<float>(v2) / 100.0f);
+            }
+            case PARAM_DYNAMIC_Y_COEFFS: {
+                uint32_t low = static_cast<uint32_t>(v1);
+                uint32_t high = static_cast<uint32_t>(v2);
+                dynamicSystem_.SetYCoeffs(low, high);
+                dynamicBass_.SetFilterYPassFrequency(low, high);
                 break;
-            case PARAM_SPEAKER_ENABLE:
-                speakerCorrectionEnabled_ = (v1 != 0);
-                if (speakerCorrectionEnabled_) UpdateSpeakerCorrectionFilters();
+            }
+            case PARAM_DYNAMIC_SIDEGAIN: {
+                float gx = static_cast<float>(v1) / 100.0f;
+                float gy = static_cast<float>(v2) / 100.0f;
+                dynamicSystem_.SetSideGain(gx, gy);
+                dynamicBass_.SetSideGain(gx, gy);
                 break;
-            case PARAM_SPEAKER_STRENGTH:
-                speakerStrength_ = static_cast<float>(v1) / 100.0f;
-                UpdateSpeakerCorrectionFilters();
+            }
+            case PARAM_SPEAKER_ENABLE: {
+                bool en = (v1 != 0);
+                speakerCorrectionEnabled_ = en;
+                speakerCorrection_.SetEnable(en);
                 break;
+            }
+            case PARAM_SPEAKER_STRENGTH: {
+                float clamped = static_cast<float>(v1 < 0 ? 0 : (v1 > 100 ? 100 : v1));
+                speakerStrength_ = clamped / 100.0f;
+                bool active = (speakerStrength_ > 0.001f);
+                speakerCorrectionEnabled_ = active;
+                speakerCorrection_.SetEnable(active);
+                break;
+            }
             default:
                 break;
         }
@@ -138,49 +183,47 @@ public:
     void ProcessStereoFloat(float* samples, uint32_t frames) {
         if (!samples || frames == 0) return;
 
+        // 1. ViPERBass (effects/ViPERBass.cpp + utils/Biquad, Polyphase, Subwoofer, WaveBuffer)
         viperBass_.Process(samples, frames);
+
+        // 2. DynamicSystem (effects/DynamicSystem.cpp -> delegates directly to utils/DynamicBass.cpp)
         dynamicSystem_.Process(samples, frames);
+
+        // 3. ViPERClarity (effects/ViPERClarity.cpp + utils/NoiseSharpening, HighShelf, HiFi)
         viperClarity_.Process(samples, frames);
 
+        // 4. SpeakerCorrection (effects/SpeakerCorrection.cpp + utils/MultiBiquad & Biquad)
+        // Blends dry signal with SpeakerCorrection::Process output according to speakerStrength_ (0.0..1.0)
         if (speakerCorrectionEnabled_ && speakerStrength_ > 0.001f) {
-            for (uint32_t i = 0; i < frames * 2; i += 2) {
-                double l = spkHp_[0].ProcessSample(samples[i]);
-                l = spkLp_[0].ProcessSample(l);
-                double lBp = spkBp_[0].ProcessSample(l);
-                double lOut = 0.5 * l * (1.0 + lBp);
+            const uint32_t totalSamples = frames * 2;
+            if (dryScratch_.size() < totalSamples) {
+                dryScratch_.resize(totalSamples);
+            }
+            std::memcpy(dryScratch_.data(), samples, totalSamples * sizeof(float));
 
-                double r = spkHp_[1].ProcessSample(samples[i + 1]);
-                r = spkLp_[1].ProcessSample(r);
-                double rBp = spkBp_[1].ProcessSample(r);
-                double rOut = 0.5 * r * (1.0 + rBp);
+            speakerCorrection_.Process(samples, frames);
 
-                samples[i] = static_cast<float>(samples[i] * (1.0 - speakerStrength_) + lOut * speakerStrength_);
-                samples[i + 1] = static_cast<float>(samples[i + 1] * (1.0 - speakerStrength_) + rOut * speakerStrength_);
+            const float wet = speakerStrength_;
+            const float dry = 1.0f - wet;
+            if (wet < 0.999f) {
+                for (uint32_t i = 0; i < totalSamples; ++i) {
+                    samples[i] = dryScratch_[i] * dry + samples[i] * wet;
+                }
             }
         }
     }
 
 private:
-    void UpdateSpeakerCorrectionFilters() {
-        for (int ch = 0; ch < 2; ++ch) {
-            spkHp_[ch].Reset();
-            spkHp_[ch].SetHighPassParameter(80.0f, samplingRate_, 0.0, 1.0f, 0.0);
-            spkLp_[ch].Reset();
-            spkLp_[ch].SetLowPassParameter(13500.0f, samplingRate_, 1.0f);
-            spkBp_[ch].Reset();
-            spkBp_[ch].SetBandPassParameter(420.0f, samplingRate_, 3.88f);
-        }
-    }
-
     uint32_t samplingRate_;
     ViPERBass viperBass_;
     ViPERClarity viperClarity_;
     DynamicSystem dynamicSystem_;
+    DynamicBass dynamicBass_;
+    SpeakerCorrection speakerCorrection_;
+    bool dynamicEnabled_;
     bool speakerCorrectionEnabled_;
     float speakerStrength_;
-    Biquad spkHp_[2];
-    Biquad spkLp_[2];
-    Biquad spkBp_[2];
+    std::vector<float> dryScratch_;
 };
 
 // ============================================================================
@@ -237,7 +280,7 @@ Java_org_lunaris_dolby_data_ViperEffectModel_nativeRelease(JNIEnv*, jobject) {
 } // extern "C"
 
 // ============================================================================
-// 2. Android AudioEffect HAL Library (libv4a_re.so) for System Audio Output
+// 2. Android AudioEffect HAL Library Interface
 // ============================================================================
 namespace {
 

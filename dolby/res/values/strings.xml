@@ -40,6 +40,7 @@
     <string name="dolby_bass_curve_dynamic">Dynamic Bass</string>
     <string name="dolby_bass_cutoff">Bass cutoff</string>
     <string name="dolby_speaker_correction">Speaker correction</string>
+    <string name="dolby_dsee">DSEE HX</string>
     <string name="dolby_speaker_correction_strength">Strength</string>
     <string name="dolby_speaker_correction_summary">Corrects the speaker sound; turning it off restores your equalizer</string>
     <string name="dolby_viper_bass">ViPER bass</string>

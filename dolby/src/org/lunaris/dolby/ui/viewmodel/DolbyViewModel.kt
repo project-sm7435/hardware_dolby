@@ -137,7 +137,8 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                     clarityMode = repository.getClarityMode(profile),
                     bassCutoff = repository.getBassCutoff(profile),
                     speakerCorrection = repository.getSpeakerCorrection(profile),
-                    dynamicLevel = repository.getDynamicLevel(profile)
+                    dynamicLevel = repository.getDynamicLevel(profile),
+                    dseeEnabled = repository.getDseeEnabled(profile)
                 )
                 
                 if (!isCleared) {
@@ -238,6 +239,19 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                 loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting speaker correction: ${e.message}")
+            }
+        }
+    }
+
+
+    fun setDseeEnabled(enabled: Boolean) {
+        submitEffectOp("setDseeEnabled") {
+            try {
+                val profile = repository.getCurrentProfile()
+                repository.setDseeEnabled(profile, enabled)
+                loadSettings()
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting DSEE: ${e.message}")
             }
         }
     }

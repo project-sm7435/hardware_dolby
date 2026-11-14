@@ -331,6 +331,21 @@ private fun ModernAdvancedSettingsContent(
                 }
             }
 
+
+            item {
+                ModernSettingsCard(
+                    title = stringResource(R.string.dolby_dsee),
+                    icon = Icons.Default.HighQuality
+                ) {
+                    ViperSwitchRow(
+                        title = stringResource(R.string.dolby_dsee),
+                        checked = state.profileSettings.dseeEnabled,
+                        onCheckedChange = { viewModel.setDseeEnabled(it) },
+                        icon = Icons.Default.HighQuality
+                    )
+                }
+            }
+
             item {
                 ModernSettingsCard(
                     title = "Volume Leveler",

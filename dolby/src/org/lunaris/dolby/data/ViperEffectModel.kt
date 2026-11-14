@@ -68,8 +68,8 @@ internal object ViperEffectModel {
     enum class EffectType(val displayName: String, val cppImplementation: String) {
         VIPER_BASS("ViPER Bass", "dolby/viper/effects/ViPERBass.cpp"),
         VIPER_CLARITY("ViPER Clarity", "dolby/viper/effects/ViPERClarity.cpp"),
-        DYNAMIC_SYSTEM("Dynamic System", "dolby/viper/effects/DynamicSystem.cpp"),
-        SPEAKER_CORRECTION("Speaker Correction", "dolby/viper/utils/Biquad.cpp")
+        DYNAMIC_SYSTEM("Dynamic System", "dolby/viper/effects/DynamicSystem.cpp + utils/DynamicBass.cpp"),
+        SPEAKER_CORRECTION("Speaker Correction", "dolby/viper/effects/SpeakerCorrection.cpp")
     }
 
     data class DspPipelineState(
@@ -319,7 +319,9 @@ internal object ViperEffectModel {
             }
             BASS_DYNAMIC -> {
                 val mix = level / 100.0
-                val q = 0.5 + 0.12 * (DYNAMIC_BASS_MAX_GAIN - 1.0) * mix
+                val bassGain = 1.0 + (DYNAMIC_BASS_MAX_GAIN - 1.0) * mix
+                val x = (((bassGain - 1.0) / 20.0) * 1600.0).coerceAtMost(1600.0)
+                val q = 0.5 + x / 666.0
                 val lp = lowPass(55.0, q)
                 DoubleArray(freqs.size) {
                     toDb((Cx(1.0, 0.0) + lp.at(freqs[it].toDouble()) * (2.0 * mix)).abs())
