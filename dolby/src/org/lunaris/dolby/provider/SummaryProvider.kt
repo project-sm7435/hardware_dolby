@@ -56,22 +56,22 @@ class SummaryProvider : ContentProvider() {
 
     private fun getDolbySummary(): String {
         val context = context ?: return ""
-        val repository = DolbyRepository(context)
-        
-        if (!repository.getDolbyEnabled()) {
-            return context.getString(R.string.dolby_off)
-        }
-        
-        val profile = repository.getCurrentProfile()
-        val profiles = context.resources.getStringArray(R.array.dolby_profile_entries)
-        val profileValues = context.resources.getStringArray(R.array.dolby_profile_values)
-        
-        return try {
-            val index = profileValues.indexOf(profile.toString())
-            val profileName = if (index != -1) profiles[index] else context.getString(R.string.dolby_unknown)
-            context.getString(R.string.dolby_on_with_profile, profileName)
-        } catch (e: Exception) {
-            context.getString(R.string.dolby_on)
+        return DolbyRepository(context).use { repository ->
+            if (!repository.getSavedDolbyEnabled() && !repository.getDolbyEnabled()) {
+                return@use context.getString(R.string.dolby_off)
+            }
+
+            val profile = repository.getCurrentProfile()
+            val profiles = context.resources.getStringArray(R.array.dolby_profile_entries)
+            val profileValues = context.resources.getStringArray(R.array.dolby_profile_values)
+
+            try {
+                val index = profileValues.indexOf(profile.toString())
+                val profileName = if (index != -1) profiles[index] else context.getString(R.string.dolby_unknown)
+                context.getString(R.string.dolby_on_with_profile, profileName)
+            } catch (e: Exception) {
+                context.getString(R.string.dolby_on)
+            }
         }
     }
 }

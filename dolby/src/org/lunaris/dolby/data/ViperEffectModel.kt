@@ -158,21 +158,26 @@ internal object ViperEffectModel {
         val vendorBassMode = if (bassMode == BASS_SUBWOOFER) BASS_PURE else bassMode
         val vendorBassGain = if (bassMode == BASS_SUBWOOFER) (bassFactorScaled * 1.35).roundToInt() else bassFactorScaled
 
-        // Full parameter set matching ViPER::DispatchCommand in vendor libv4a_re.so & viper_dsp_engine.cpp
+        // Full parameter set matching ViPER::DispatchCommand in vendor libv4a_re.so & viper_dsp_engine.cpp.
+        // Send mode/gain/coefficients first, enable each block, then re-send gain/strength so vendor
+        // libv4a_re.so initializes filter states on the very first activation without needing a 2nd toggle.
         val commands = listOf(
             DspCmd(PARAM_BASS_MODE, vendorBassMode),
             DspCmd(PARAM_BASS_FREQUENCY, bassFreq),
             DspCmd(PARAM_BASS_GAIN, vendorBassGain),
             DspCmd(PARAM_BASS_ENABLE, if (bassActive) 1 else 0),
+            DspCmd(PARAM_BASS_GAIN, vendorBassGain),
             DspCmd(PARAM_CLARITY_MODE, clarityMode),
             DspCmd(PARAM_CLARITY_GAIN, clarityGainScaled),
             DspCmd(PARAM_CLARITY_ENABLE, if (clarityActive) 1 else 0),
+            DspCmd(PARAM_CLARITY_GAIN, clarityGainScaled),
             // Dynamic System (Extreme Headphone v2 profile: X=140..6200 Hz, Y=40..12000 Hz, SideGain=100,100)
             DspCmd(PARAM_DYNAMIC_X_COEFFS, 140, 6200),
             DspCmd(PARAM_DYNAMIC_Y_COEFFS, 40, 12000),
             DspCmd(PARAM_DYNAMIC_SIDEGAIN, 100, 100),
             DspCmd(PARAM_DYNAMIC_STRENGTH, dynamicBassGainScaled),
             DspCmd(PARAM_DYNAMIC_ENABLE, if (dynamicActive) 1 else 0),
+            DspCmd(PARAM_DYNAMIC_STRENGTH, dynamicBassGainScaled),
             DspCmd(PARAM_SPEAKER_STRENGTH, speakerStrength),
             DspCmd(PARAM_SPEAKER_ENABLE, if (speakerActive) 1 else 0)
         )

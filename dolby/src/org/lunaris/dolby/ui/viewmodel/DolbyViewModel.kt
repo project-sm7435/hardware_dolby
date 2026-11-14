@@ -439,7 +439,14 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setIeqPreset(preset: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
+        stateMutationGen++
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(ieqPreset = preset)
+            )
+        }
+        submitEffectOp("setIeqPreset") {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setIeqPreset(profile, preset)
@@ -451,7 +458,14 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setHeadphoneVirtualizer(enabled: Boolean) {
-        viewModelScope.launch(Dispatchers.IO) {
+        stateMutationGen++
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(headphoneVirtualizerEnabled = enabled)
+            )
+        }
+        submitEffectOp("setHeadphoneVirtualizer") {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setHeadphoneVirtualizerEnabled(profile, enabled)
@@ -463,7 +477,14 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setSpeakerVirtualizer(enabled: Boolean) {
-        viewModelScope.launch(Dispatchers.IO) {
+        stateMutationGen++
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(speakerVirtualizerEnabled = enabled)
+            )
+        }
+        submitEffectOp("setSpeakerVirtualizer") {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setSpeakerVirtualizerEnabled(profile, enabled)
@@ -475,7 +496,14 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setStereoWidening(amount: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
+        stateMutationGen++
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(stereoWideningAmount = amount)
+            )
+        }
+        submitEffectOp("setStereoWidening") {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setStereoWideningAmount(profile, amount)
@@ -487,7 +515,14 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setDialogueEnhancer(enabled: Boolean) {
-        viewModelScope.launch(Dispatchers.IO) {
+        stateMutationGen++
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(dialogueEnhancerEnabled = enabled)
+            )
+        }
+        submitEffectOp("setDialogueEnhancer") {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setDialogueEnhancerEnabled(profile, enabled)
@@ -499,7 +534,14 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setDialogueEnhancerAmount(amount: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
+        stateMutationGen++
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(dialogueEnhancerAmount = amount)
+            )
+        }
+        submitEffectOp("setDialogueEnhancerAmount") {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setDialogueEnhancerAmount(profile, amount)
@@ -511,7 +553,8 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun resetAllProfiles() {
-        viewModelScope.launch(Dispatchers.IO) {
+        stateMutationGen++
+        submitEffectOp("resetAllProfiles") {
             try {
                 repository.resetAllProfiles()
                 loadSettings()

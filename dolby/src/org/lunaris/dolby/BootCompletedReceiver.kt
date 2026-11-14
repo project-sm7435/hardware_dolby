@@ -10,11 +10,12 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
+import android.service.quicksettings.TileService
 import android.util.Log
-import org.lunaris.dolby.data.DolbyRepository
 import org.lunaris.dolby.service.AppProfileMonitorService
 import org.lunaris.dolby.service.DolbyEffectService
 import org.lunaris.dolby.service.DolbyNotificationListener
+import org.lunaris.dolby.tile.DolbyTileService
 
 class BootCompletedReceiver : BroadcastReceiver() {
 
@@ -25,12 +26,16 @@ class BootCompletedReceiver : BroadcastReceiver() {
             Intent.ACTION_BOOT_COMPLETED -> {
                 try {
                     DolbyEffectService.start(context)
-                    
+                    TileService.requestListeningState(
+                        context,
+                        ComponentName(context, DolbyTileService::class.java)
+                    )
+
                     val prefs = context.getSharedPreferences("dolby_prefs", Context.MODE_PRIVATE)
                     if (prefs.getBoolean("app_profile_monitoring_enabled", false)) {
                         AppProfileMonitorService.startMonitoring(context)
                     }
-                    
+
                     if (isNotificationListenerEnabled(context)) {
                         requestNotificationListenerRebind(context)
                     }

@@ -19,6 +19,12 @@ class ViperAudioEffect(priority: Int, audioSession: Int) : AudioEffect(
     EFFECT_TYPE_NULL, UUID.fromString(DolbyConstants.VIPER_EFFECT_UUID), priority, audioSession
 ) {
 
+    fun isReady(): Boolean = try {
+        hasControl()
+    } catch (_: Throwable) {
+        false
+    }
+
     /** Sends one command. Returns false when the effect refused it (for example it lost control). */
     fun send(param: Int, v1: Int = 0, v2: Int = 0, v3: Int = 0, v4: Int = 0): Boolean {
         val paramBytes = ByteArray(4)

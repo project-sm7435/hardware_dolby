@@ -152,21 +152,41 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     fun getSavedDolbyEnabled(): Boolean =
         defaultPrefs.getBoolean(DolbyConstants.PREF_ENABLE, false)
 
+    @Synchronized
     fun applySavedState(): Boolean {
         return try {
             checkEffect()
             val enabled = getSavedDolbyEnabled()
             dolbyEffect.dsOn = enabled
-            if (enabled) {
-                restoreSavedProfileIfNeeded()
+            if (dolbyEffect.dsOn != enabled) {
+                // Early boot: audioserver/DAP HAL may have restarted after initial handle creation; recreate handle.
+                try {
+                    dolbyEffect.release()
+                } catch (_: Exception) {
+                }
+                dolbyEffect = createDolbyEffect()
+                dolbyEffect.dsOn = enabled
             }
-            applyViper()
-            applyDsee()
+            val savedProfile = readSavedProfile() ?: 0
+            if (enabled) {
+                if (dolbyEffect.profile != savedProfile) {
+                    dolbyEffect.profile = savedProfile
+                }
+                restoreProfilePreset(savedProfile)
+                applyProfileSettings(savedProfile)
+            }
+            applyViper(savedProfile, forceRebind = enabled)
+            applyDsee(savedProfile, forceRebind = enabled)
             val live = dolbyEffect.dsOn
-            DolbyConstants.dlog(TAG, "applySavedState: saved=$enabled live=$live")
+            DolbyConstants.dlog(TAG, "applySavedState: saved=$enabled live=$live profile=$savedProfile")
             live == enabled
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "applySavedState failed: ${e.message}")
+            try {
+                dolbyEffect.release()
+                dolbyEffect = createDolbyEffect()
+            } catch (_: Exception) {
+            }
             false
         }
     }
@@ -1157,8 +1177,8 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             checkEffect()
             dolbyEffect.resetProfileSpecificSettings(profile)
             context.deleteSharedPreferences("profile_$profile")
-            applyViper()
-            applyDsee()
+            applyViper(profile, forceRebind = true)
+            applyDsee(profile, forceRebind = true)
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error resetting profile: ${e.message}")
         }

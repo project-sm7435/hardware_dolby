@@ -59,10 +59,20 @@ class ViperController private constructor() {
             drop()
         }
         repeat(2) {
+            val wasCreated = effect == null || effect?.isReady() != true
             val e = obtain() ?: return false
             val ok = try {
-                ViperEffectModel.applyToDspEngine(e, settings, master) &&
-                    e.setEnabled(true) == AudioEffect.SUCCESS
+                // Enable the AudioFlinger session first when freshly bound so libv4a_re.so initializes
+                // its DSP engine before receiving parameters, then push commands and re-confirm active state.
+                if (wasCreated) {
+                    e.setEnabled(true)
+                }
+                val pushed = ViperEffectModel.applyToDspEngine(e, settings, master)
+                val enabledOk = e.enabled || e.setEnabled(true) == AudioEffect.SUCCESS
+                if (wasCreated && pushed) {
+                    ViperEffectModel.applyToDspEngine(e, settings, master)
+                }
+                pushed && enabledOk
             } catch (ex: Exception) {
                 DolbyConstants.dlog(TAG, "ViPER push failed: ${ex.message}")
                 false
@@ -74,7 +84,10 @@ class ViperController private constructor() {
     }
 
     private fun obtain(): ViperAudioEffect? {
-        effect?.let { return it }
+        effect?.let { existing ->
+            if (existing.isReady()) return existing
+            drop()
+        }
         val now = SystemClock.elapsedRealtime()
         if (now < nextTryAtMs) return null
         return try {
@@ -101,7 +114,7 @@ class ViperController private constructor() {
     companion object {
         private const val TAG = "ViperController"
         private const val EFFECT_PRIORITY = 100
-        private const val RETRY_DELAY_MS = 10_000L
+        private const val RETRY_DELAY_MS = 2_000L
 
         @Volatile
         private var instance: ViperController? = null

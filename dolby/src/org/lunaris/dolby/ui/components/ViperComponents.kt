@@ -181,11 +181,11 @@ fun ViperExpandableRow(
                 )
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMediumEmphasized,
+                    style = MaterialTheme.typography.titleSmallEmphasized,
                     color = contentColor,
                     maxLines = 1,
                     softWrap = false,
-                    overflow = TextOverflow.Ellipsis,
+                    overflow = TextOverflow.Clip,
                     modifier = Modifier.weight(1f)
                 )
                 Icon(

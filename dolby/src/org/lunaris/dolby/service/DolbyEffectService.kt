@@ -16,7 +16,10 @@ import android.media.AudioPlaybackConfiguration
 import android.os.Handler
 import android.content.SharedPreferences
 import android.os.IBinder
+import android.content.ComponentName
+import android.service.quicksettings.TileService
 import android.util.Log
+import org.lunaris.dolby.tile.DolbyTileService
 import org.lunaris.dolby.DolbyConstants
 import org.lunaris.dolby.data.DeviceStateManager
 import org.lunaris.dolby.data.DolbyRepository
@@ -51,6 +54,13 @@ class DolbyEffectService : Service() {
         Log.i(TAG, "applySavedState ok=$ok attempt=$retryAttempt")
         if (ok) {
             retryAttempt = 0
+            try {
+                TileService.requestListeningState(
+                    this,
+                    ComponentName(this, DolbyTileService::class.java)
+                )
+            } catch (_: Exception) {
+            }
         } else if (retryAttempt < RETRY_DELAYS_MS.size) {
             handler.postDelayed(retryRunnable, RETRY_DELAYS_MS[retryAttempt++])
         }
@@ -75,12 +85,14 @@ class DolbyEffectService : Service() {
         }
     }
 
+    private var wasPlaybackActive = false
     private val playbackCallback = object : AudioManager.AudioPlaybackCallback() {
         override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>?) {
             val isActive = configs?.any { it.isActive } == true
-            if (isActive) {
+            if (isActive && !wasPlaybackActive) {
                 repository.applySavedState()
             }
+            wasPlaybackActive = isActive
         }
     }
 
@@ -94,7 +106,12 @@ class DolbyEffectService : Service() {
             if (isDeviceStateMemoryEnabled) {
                 val key = deviceStateManager.deviceKey(currentDevice)
                 val restored = deviceStateManager.restoreSnapshot(key, repository)
-                if (!restored) applyStateWithRetry()
+                if (!restored) {
+                    applyStateWithRetry()
+                } else {
+                    // Schedule a follow-up check in case audioserver/DAP HAL finished booting after onCreate
+                    handler.postDelayed(retryRunnable, 2_000L)
+                }
             } else {
                 applyStateWithRetry()
             }
