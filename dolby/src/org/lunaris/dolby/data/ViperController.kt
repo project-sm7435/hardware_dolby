@@ -42,7 +42,7 @@ class ViperController private constructor() {
     @Synchronized
     fun apply(settings: Settings, master: Boolean): Boolean {
         if (!(master && settings.anyOn)) {
-            ViperEffectModel.applyToDspEngine(effect, settings, master = false)
+            ViperEffectModel.applyToDspEngine(effect, settings, masterEnabled = false)
             if (effect != null) {
                 try {
                     effect?.setEnabled(false)
