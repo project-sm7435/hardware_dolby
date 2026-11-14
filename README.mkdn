@@ -1,6 +1,10 @@
 AOSPA Dolby
 ==============
 
+Dolby audio effects and Codec2 decoders.
+
+To enable Dolby AC-3, E-AC-3, E-AC-3 JOC, and AC-4 decoding, make sure your device supports Codec2 and add the following line to your vendor media codecs configuration:
+
 Getting Started
 ---------------
 For dolby media codecs to work add this line in your media codecs config (should be in vendor partition) :-
@@ -43,9 +47,15 @@ The only change done above is changing := symbol to += so that manifest can't be
 
 At the end an example commit to properly implement it in your device tree could be :-
 
-[**1**] https://github.com/Spanish-or-Vanish/android_device_xiaomi_sm8350-common/commit/8ece9a976087ed03f1adb447d0ac2a3f5f1a0d3c
+[**1**] https://github.com/project-sm7435/device_xiaomi_garnet/commit/f5cd4b6603101b8d66d104823689ee86ea19da98
 
-[**2**] https://github.com/Spanish-or-Vanish/android_device_xiaomi_sm8350-common/commit/2bdd047bfb5f23bd02e6d4db601a97c27e1506f9
+For the Sony Digital Sound Enhancement Engine
+
+[**2**] https://github.com/project-sm7435/device_xiaomi_garnet/commit/c7f4eb42c63edf465acf5f21fdeadaddfa592930
+
+For the ViPER4Android effect
+
+[**3**] https://github.com/project-sm7435/device_xiaomi_garnet/commit/5261a944cf57261e18d956d2a036d2b38872f24d
  
 #### Tip pick anyone for Reference:
           https://dumps.tadiphone.dev/dumps/xiaomi/vili/-/blob/missi_phone_global-user-14-UKQ1.231207.002-V816.0.5.0.UKDMIXM-release-keys/aosp-device-tree/proprietary-files.txt#L2072
