@@ -159,7 +159,13 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setDolbyEnabled(enabled: Boolean) {
-        viewModelScope.launch(Dispatchers.IO) {
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                settings = current.settings.copy(enabled = enabled)
+            )
+        }
+        submitEffectOp("setDolbyEnabled") {
             try {
                 repository.setDolbyEnabledFromUser(enabled)
                 loadSettings()
@@ -170,7 +176,13 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setProfile(profile: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                settings = current.settings.copy(currentProfile = profile)
+            )
+        }
+        submitEffectOp("setProfile") {
             try {
                 repository.setCurrentProfile(profile)
                 loadSettings()

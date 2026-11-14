@@ -81,6 +81,8 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
         restoreProfilePreset(savedProfile)
         applyProfileSettings(savedProfile)
+        applyViper(savedProfile)
+        applyDsee(savedProfile)
     }
 
     private fun applyProfileSettings(profile: Int) {
@@ -194,25 +196,33 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
     }
 
+    @Synchronized
     fun setDolbyEnabled(enabled: Boolean) {
         if (isReleased) return
 
         defaultPrefs.edit().putBoolean(DolbyConstants.PREF_ENABLE, enabled).apply()
-        applyViper()
-            applyDsee()
         try {
             checkEffect()
             dolbyEffect.dsOn = enabled
+            if (enabled) {
+                restoreSavedProfileIfNeeded()
+            }
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting Dolby enabled: ${e.message}")
             try {
                 dolbyEffect.release()
                 dolbyEffect = createDolbyEffect()
                 dolbyEffect.dsOn = enabled
+                if (enabled) {
+                    restoreSavedProfileIfNeeded()
+                }
             } catch (e2: Exception) {
                 DolbyConstants.dlog(TAG, "Retry setting Dolby enabled failed: ${e2.message}")
             }
         }
+        val activeProfile = readSavedProfile() ?: 0
+        applyViper(activeProfile)
+        applyDsee(activeProfile)
     }
 
     fun setDolbyEnabledFromUser(enabled: Boolean) {
@@ -244,17 +254,23 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
     }
 
+    @Synchronized
     fun setCurrentProfile(profile: Int) {
         if (isReleased) return
         
         try {
             checkEffect()
+            val enabled = getSavedDolbyEnabled()
+            if (dolbyEffect.dsOn != enabled) {
+                dolbyEffect.dsOn = enabled
+            }
             dolbyEffect.profile = profile
             defaultPrefs.edit().putString(DolbyConstants.PREF_PROFILE, profile.toString()).apply()
             if (!verifyProfileSaved(profile)) {
                 DolbyConstants.dlog(TAG, "WARNING: Profile may not have been saved correctly!")
             }
             restoreProfilePreset(profile)
+            applyProfileSettings(profile)
             _currentProfile.value = profile
             applyViper(profile)
             applyDsee(profile)

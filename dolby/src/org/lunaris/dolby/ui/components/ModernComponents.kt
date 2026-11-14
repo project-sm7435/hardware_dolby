@@ -132,6 +132,7 @@ fun DolbyMainCard(
 ) {
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
+    val latestEnabled by rememberUpdatedState(enabled)
     
     val containerColor by animateColorAsState(
         if (enabled) MaterialTheme.colorScheme.primaryContainer
@@ -154,10 +155,11 @@ fun DolbyMainCard(
                     value = enabled,
                     role = Role.Switch,
                     onValueChange = {
+                        val next = !latestEnabled
                         scope.launch {
                             haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.CLICK)
                         }
-                        onEnabledChange(it)
+                        onEnabledChange(next)
                     },
                 )
                 .padding(24.dp),

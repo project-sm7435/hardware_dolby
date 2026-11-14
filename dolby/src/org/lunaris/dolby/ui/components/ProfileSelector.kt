@@ -53,13 +53,12 @@ fun ProfileSelector(
     val options = profiles.mapIndexedNotNull { index, name ->
         values.getOrNull(index)?.toIntOrNull()?.let { it to name }
     }
+    val latestCurrentProfile by rememberUpdatedState(currentProfile)
     val selectProfile: (Int) -> Unit = { value ->
-        if (value != currentProfile) {
-            scope.launch {
-                haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.CLICK)
-            }
-            onProfileChange(value)
+        scope.launch {
+            haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.CLICK)
         }
+        onProfileChange(value)
     }
 
     ModernSettingsCard(
