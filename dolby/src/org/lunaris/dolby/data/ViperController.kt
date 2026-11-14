@@ -40,7 +40,7 @@ class ViperController private constructor() {
     fun isAvailable(): Boolean = obtain() != null
 
     @Synchronized
-    fun apply(settings: Settings, master: Boolean): Boolean {
+    fun apply(settings: Settings, master: Boolean, forceRebind: Boolean = false): Boolean {
         if (!(master && settings.anyOn)) {
             ViperEffectModel.applyToDspEngine(effect, settings, masterEnabled = false)
             if (effect != null) {
@@ -54,18 +54,9 @@ class ViperController private constructor() {
             }
             return true
         }
-        val needsVendorViper = settings.bassOn || settings.clarityOn || settings.dynamicOn
-        if (!needsVendorViper) {
-            // Only SpeakerCorrection is active: update native JNI + Dolby GEQ without needing vendor libv4a_re
-            ViperEffectModel.applyToDspEngine(effect, settings, master)
-            if (effect != null) {
-                try {
-                    effect?.setEnabled(false)
-                } catch (_: Exception) {
-                }
-                drop()
-            }
-            return true
+
+        if (forceRebind && effect != null) {
+            drop()
         }
         repeat(2) {
             val e = obtain() ?: return false

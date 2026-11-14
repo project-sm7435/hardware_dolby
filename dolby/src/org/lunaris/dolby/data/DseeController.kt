@@ -22,7 +22,7 @@ class DseeController private constructor() {
     fun isAvailable(): Boolean = obtain() != null
 
     @Synchronized
-    fun apply(enabled: Boolean, master: Boolean): Boolean {
+    fun apply(enabled: Boolean, master: Boolean, forceRebind: Boolean = false): Boolean {
         val active = master && enabled
         if (!active) {
             if (effect != null) {
@@ -35,6 +35,9 @@ class DseeController private constructor() {
             return true
         }
 
+        if (forceRebind && effect != null) {
+            drop()
+        }
         repeat(2) {
             val e = obtain() ?: return false
             val ok = try {

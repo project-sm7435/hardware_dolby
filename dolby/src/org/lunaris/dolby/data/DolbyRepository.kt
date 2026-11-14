@@ -31,7 +31,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     private val _isOnSpeaker = MutableStateFlow(checkIsOnSpeaker())
     val isOnSpeaker: StateFlow<Boolean> = _isOnSpeaker.asStateFlow()
     
-    private val _currentProfile = MutableStateFlow(0)
+    private val _currentProfile = MutableStateFlow(defaultPrefs.getString(DolbyConstants.PREF_PROFILE, null)?.toIntOrNull() ?: 0)
     val currentProfile: StateFlow<Int> = _currentProfile.asStateFlow()
 
     val stereoWideningSupported = context.resources.getBoolean(R.bool.dolby_stereo_widening_supported)
@@ -221,8 +221,8 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             }
         }
         val activeProfile = readSavedProfile() ?: 0
-        applyViper(activeProfile)
-        applyDsee(activeProfile)
+        applyViper(activeProfile, forceRebind = enabled)
+        applyDsee(activeProfile, forceRebind = enabled)
     }
 
     fun setDolbyEnabledFromUser(enabled: Boolean) {
@@ -272,8 +272,8 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             restoreProfilePreset(profile)
             applyProfileSettings(profile)
             _currentProfile.value = profile
-            applyViper(profile)
-            applyDsee(profile)
+            applyViper(profile, forceRebind = true)
+            applyDsee(profile, forceRebind = true)
             DolbyConstants.dlog(TAG, "Profile set to: $profile")
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting current profile: ${e.message}")
@@ -383,7 +383,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
 
     /** Sends the saved bass, clarity and dynamic bass settings of [profile] to ViPER. */
     @Synchronized
-    fun applyViper(profile: Int = readSavedProfile() ?: 0) {
+    fun applyViper(profile: Int = readSavedProfile() ?: 0, forceRebind: Boolean = false) {
         if (!viperActive()) return
         try {
             checkEffect()
@@ -422,6 +422,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
                     speakerStrength = speakerLevel,
                 ),
                 getSavedDolbyEnabled(),
+                forceRebind,
             )
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error applying ViPER settings: ${e.message}")
@@ -429,10 +430,11 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     }
 
 
-    fun applyDsee(profile: Int = readSavedProfile() ?: 0) {
+    @Synchronized
+    fun applyDsee(profile: Int = readSavedProfile() ?: 0, forceRebind: Boolean = false) {
         try {
             val enabled = getDseeEnabled(profile)
-            dsee.apply(enabled, getSavedDolbyEnabled())
+            dsee.apply(enabled, getSavedDolbyEnabled(), forceRebind)
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error applying DSEE settings: ${e.message}")
         }

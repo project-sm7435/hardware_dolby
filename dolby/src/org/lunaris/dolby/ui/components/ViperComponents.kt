@@ -31,6 +31,7 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.lunaris.dolby.utils.HapticFeedbackHelper
@@ -52,6 +53,7 @@ fun ViperSwitchRow(
 ) {
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
+    val latestChecked by rememberUpdatedState(checked)
 
     val containerColor by animateColorAsState(
         targetValue = if (checked) MaterialTheme.colorScheme.secondaryContainer
@@ -75,8 +77,9 @@ fun ViperSwitchRow(
                     value = checked,
                     role = Role.Switch,
                     onValueChange = {
+                        val next = !latestChecked
                         scope.launch { haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.CLICK) }
-                        onCheckedChange(it)
+                        onCheckedChange(next)
                     },
                 )
                 .padding(horizontal = 16.dp, vertical = 20.dp),
@@ -133,6 +136,8 @@ fun ViperExpandableRow(
 ) {
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
+    val latestChecked by rememberUpdatedState(checked)
+    val latestExpanded by rememberUpdatedState(expanded)
 
     val containerColor by animateColorAsState(
         targetValue = if (checked) MaterialTheme.colorScheme.secondaryContainer
@@ -162,29 +167,32 @@ fun ViperExpandableRow(
                     .weight(1f)
                     .clickable(role = Role.Button) {
                         scope.launch { haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.CLICK) }
-                        onExpandedChange(!expanded)
+                        onExpandedChange(!latestExpanded)
                     }
-                    .padding(start = 16.dp, top = 20.dp, bottom = 20.dp, end = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(start = 14.dp, top = 18.dp, bottom = 18.dp, end = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(22.dp),
                     tint = contentColor
                 )
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMediumEmphasized,
                     color = contentColor,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
                 Icon(
                     imageVector = Icons.Filled.ExpandMore,
                     contentDescription = null,
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(22.dp)
                         .rotate(arrowRotation),
                     tint = contentColor
                 )
@@ -192,8 +200,9 @@ fun ViperExpandableRow(
             Switch(
                 checked = checked,
                 onCheckedChange = {
+                    val next = !latestChecked
                     scope.launch { haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.CLICK) }
-                    onCheckedChange(it)
+                    onCheckedChange(next)
                 },
                 modifier = Modifier.padding(end = 16.dp),
                 thumbContent = {

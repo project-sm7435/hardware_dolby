@@ -111,6 +111,7 @@ private fun ModernAdvancedSettingsContent(
     modifier: Modifier = Modifier
 ) {
     val latestProfileSettings by rememberUpdatedState(state.profileSettings)
+    val latestSettings by rememberUpdatedState(state.settings)
     // Which ViperFX rows are open. Kept when rotating the screen; independent of the on/off switches.
     var bassExpanded by rememberSaveable { mutableStateOf(false) }
     var dynamicExpanded by rememberSaveable { mutableStateOf(false) }
@@ -242,9 +243,10 @@ private fun ModernAdvancedSettingsContent(
                             title = stringResource(R.string.dolby_mid_enhancer),
                             checked = midOn,
                             onCheckedChange = { enabled ->
-                                if (enabled && state.profileSettings.midLevel == 0) {
-                                    viewModel.setMidLevel(40)
-                                } else if (!enabled) {
+                                if (enabled) {
+                                    val target = if (latestProfileSettings.midLevel > 0) latestProfileSettings.midLevel else 40
+                                    viewModel.setMidLevel(target)
+                                } else {
                                     viewModel.setMidLevel(0)
                                 }
                             },

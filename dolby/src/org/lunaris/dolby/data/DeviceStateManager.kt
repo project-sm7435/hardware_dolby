@@ -75,6 +75,8 @@ class DeviceStateManager(private val context: Context) {
         editor.putInt(KEY_CLARITY_MODE, repository.getClarityMode(profile))
         editor.putInt(KEY_BASS_CUTOFF, repository.getBassCutoff(profile))
         editor.putInt(KEY_SPEAKER_CORRECTION, repository.getSpeakerCorrection(profile))
+        editor.putInt("dynamic_level", repository.getDynamicLevel(profile))
+        editor.putBoolean("dsee_enabled", repository.getDseeEnabled(profile))
 
         editor.putBoolean(KEY_TREBLE_ENABLED, repository.getTrebleEnhancerEnabled(profile))
         editor.putInt(KEY_TREBLE_LEVEL, repository.getTrebleLevel(profile))
@@ -134,6 +136,8 @@ class DeviceStateManager(private val context: Context) {
             repository.setClarityMode(profile, prefs.getInt(KEY_CLARITY_MODE, 0))
             repository.setBassCutoff(profile, prefs.getInt(KEY_BASS_CUTOFF, 60))
             repository.setSpeakerCorrection(profile, prefs.getInt(KEY_SPEAKER_CORRECTION, 0))
+            repository.setDynamicLevel(profile, prefs.getInt("dynamic_level", 0))
+            repository.setDseeEnabled(profile, prefs.getBoolean("dsee_enabled", false))
             repository.setBassLevel(profile, prefs.getInt(KEY_BASS_LEVEL, 0))
 
             repository.setTrebleEnhancerEnabled(profile, prefs.getBoolean(KEY_TREBLE_ENABLED, false))
