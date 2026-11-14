@@ -1,10 +1,72 @@
 //
 // Copyright (C) 2017-2021 The LineageOS Project
 //           (C) 2023-24 Paranoid Android
-//           (C) 2024-2025 Lunaris AOSP
+//           (C) 2024-2026 Lunaris AOSP
 //
 // SPDX-License-Identifier: Apache-2.0
 //
+
+cc_library_shared {
+    name: "libdolby_viper_jni",
+    system_ext_specific: true,
+    compile_multilib: "64",
+
+    srcs: [
+        "viper/viper_dsp_engine.cpp",
+        "viper/effects/*.cpp",
+        "viper/utils/*.cpp",
+    ],
+
+    local_include_dirs: [
+        "viper",
+        "viper/effects",
+        "viper/utils",
+    ],
+
+    header_libs: [
+        "libhardware_headers",
+        "libsystem_headers",
+    ],
+
+    shared_libs: [
+        "liblog",
+    ],
+
+    cflags: [
+        "-O3",
+        "-ffast-math",
+        "-fno-math-errno",
+        "-fno-trapping-math",
+        "-fvectorize",
+        "-fslp-vectorize",
+        "-fvisibility=hidden",
+        "-Wall",
+        "-Wextra",
+        "-Wno-unused-parameter",
+    ],
+
+    cppflags: [
+        "-std=c++17",
+        "-fno-exceptions",
+        "-fno-rtti",
+    ],
+
+    arch: {
+        arm64: {
+            cflags: [
+                "-march=armv8.2-a+dotprod+fp16",
+            ],
+        },
+    },
+
+    lto: {
+        thin: true,
+    },
+
+    strip: {
+        all: true,
+    },
+}
 
 android_app {
     name: "XiaomiDolby",
@@ -34,12 +96,23 @@ android_app {
         "kotlinx-coroutines-core",
     ],
 
+    jni_libs: [
+        "libdolby_viper_jni",
+    ],
+
     required: [
         "preinstalled-packages-platform-dolby.xml",
         "privapp-permissions-dolby.xml",
     ],
 
     optimize: {
+        enabled: true,
+        shrink: true,
+        optimize: true,
+        obfuscate: false,
+    },
+
+    dex_preopt: {
         enabled: true,
     },
 }

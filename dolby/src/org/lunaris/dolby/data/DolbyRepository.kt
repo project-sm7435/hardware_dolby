@@ -378,6 +378,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             // storing it, so it never counts as ViPER bass.
             val dynamicLevel = getDynamicLevel(profile)
             val dynamic = curve == ViperEffectModel.BASS_DYNAMIC
+            val speakerLevel = prefs.getInt(DolbyConstants.PREF_SPEAKER_CORRECTION, 0)
             viper.apply(
                 ViperController.Settings(
                     bassOn = bassLevel > 0 && !dynamic,
@@ -389,6 +390,8 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
                     clarityGain = trebleLevel,
                     dynamicOn = dynamicLevel > 0,
                     dynamicStrength = dynamicLevel,
+                    speakerCorrectionOn = speakerLevel > 0,
+                    speakerStrength = speakerLevel,
                 ),
                 getSavedDolbyEnabled(),
             )
@@ -611,6 +614,10 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             val newLevel = level.coerceIn(0, 100)
             if (previous == newLevel) return
             prefs.edit().putInt(DolbyConstants.PREF_SPEAKER_CORRECTION, newLevel).apply()
+            if (viperActive()) {
+                applyViper(profile)
+                return
+            }
 
             checkEffect()
             val currentGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile)
