@@ -117,6 +117,7 @@ private fun ModernAdvancedSettingsContent(
     var clarityExpanded by rememberSaveable { mutableStateOf(false) }
     var midExpanded by rememberSaveable { mutableStateOf(false) }
     var speakerExpanded by rememberSaveable { mutableStateOf(false) }
+    var dseeExpanded by rememberSaveable { mutableStateOf(false) }
     var levelerExpanded by rememberSaveable { mutableStateOf(false) }
     var virtualizerExpanded by rememberSaveable { mutableStateOf(false) }
     var dialogueExpanded by rememberSaveable { mutableStateOf(false) }
@@ -153,8 +154,12 @@ private fun ModernAdvancedSettingsContent(
                             checked = bassOn,
                             onCheckedChange = { enabled ->
                                 if (enabled) {
-                                    if (latestProfileSettings.bassCurve == 3) viewModel.setBassCurve(0)
-                                    viewModel.setBassLevel(50)
+                                    val target = if (latestProfileSettings.bassLevel > 0 && latestProfileSettings.bassCurve != 3) {
+                                        latestProfileSettings.bassLevel
+                                    } else {
+                                        50
+                                    }
+                                    viewModel.enableViperBass(target)
                                 } else {
                                     viewModel.setBassLevel(0)
                                 }
@@ -166,6 +171,7 @@ private fun ModernAdvancedSettingsContent(
 
                         AnimatedVisibility(visible = bassExpanded) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ViperInfoRow(text = stringResource(R.string.dolby_viper_bass_summary))
                                 ViperChoiceRow(
                                     title = stringResource(R.string.dolby_viper_bass_mode),
                                     currentValue = bassMode,
@@ -174,16 +180,13 @@ private fun ModernAdvancedSettingsContent(
                                     onValueChange = { viewModel.setBassCurve(it) },
                                     dialogIcon = Icons.Default.VolumeUp
                                 )
-                                // Subwoofer uses a fixed crossover, so the frequency only applies to the first two.
-                                if (bassMode <= 1) {
-                                    ViperSliderRow(
-                                        title = stringResource(R.string.dolby_viper_bass_frequency),
-                                        value = state.profileSettings.bassCutoff,
-                                        valueText = { "${it}Hz" },
-                                        onValueChange = { viewModel.setBassCutoff(it) },
-                                        valueRange = 15f..150f,
-                                    )
-                                }
+                                ViperSliderRow(
+                                    title = stringResource(R.string.dolby_viper_bass_frequency),
+                                    value = state.profileSettings.bassCutoff,
+                                    valueText = { "${it}Hz" },
+                                    onValueChange = { viewModel.setBassCutoff(it) },
+                                    valueRange = 15f..150f,
+                                )
                                 ViperSliderRow(
                                     title = stringResource(R.string.dolby_viper_bass_gain),
                                     value = if (bassOn) state.profileSettings.bassLevel else 0,
@@ -199,7 +202,12 @@ private fun ModernAdvancedSettingsContent(
                             title = stringResource(R.string.dolby_dynamic_system),
                             checked = dynamicOn,
                             onCheckedChange = { enabled ->
-                                viewModel.setDynamicLevel(if (enabled) 45 else 0)
+                                if (enabled) {
+                                    val target = if (latestProfileSettings.dynamicLevel > 0) latestProfileSettings.dynamicLevel else 45
+                                    viewModel.setDynamicLevel(target)
+                                } else {
+                                    viewModel.setDynamicLevel(0)
+                                }
                             },
                             expanded = dynamicExpanded,
                             onExpandedChange = { dynamicExpanded = it },
@@ -207,14 +215,17 @@ private fun ModernAdvancedSettingsContent(
                         )
 
                         AnimatedVisibility(visible = dynamicExpanded) {
-                            ViperSliderRow(
-                                title = stringResource(R.string.dolby_dynamic_bass_strength),
-                                value = state.profileSettings.dynamicLevel,
-                                valueText = { if (dynamicOn) "$it%" else "Off" },
-                                onValueChange = { viewModel.setDynamicLevel(it) },
-                                valueRange = 1f..100f,
-                                enabled = dynamicOn,
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ViperInfoRow(text = stringResource(R.string.dolby_dynamic_system_summary))
+                                ViperSliderRow(
+                                    title = stringResource(R.string.dolby_dynamic_bass_strength),
+                                    value = state.profileSettings.dynamicLevel,
+                                    valueText = { if (dynamicOn) "$it%" else "Off" },
+                                    onValueChange = { viewModel.setDynamicLevel(it) },
+                                    valueRange = 1f..100f,
+                                    enabled = dynamicOn,
+                                )
+                            }
                         }
                     }
 
@@ -272,6 +283,7 @@ private fun ModernAdvancedSettingsContent(
 
                         AnimatedVisibility(visible = clarityExpanded) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ViperInfoRow(text = stringResource(R.string.dolby_viper_clarity_summary))
                                 ViperChoiceRow(
                                     title = stringResource(R.string.dolby_clarity_mode),
                                     currentValue = state.profileSettings.clarityMode,
@@ -291,14 +303,7 @@ private fun ModernAdvancedSettingsContent(
                             }
                         }
                     }
-                }
-            }
-            
-            item {
-                ModernSettingsCard(
-                    title = stringResource(R.string.dolby_speaker_correction),
-                    icon = Icons.Default.Speaker
-                ) {
+                    Spacer(modifier = Modifier.height(12.dp))
                     val speakerOn = state.profileSettings.speakerCorrection > 0
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         ViperExpandableRow(
@@ -331,21 +336,22 @@ private fun ModernAdvancedSettingsContent(
                             }
                         }
                     }
-                }
-            }
 
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ViperExpandableRow(
+                            title = stringResource(R.string.dolby_dsee),
+                            checked = state.profileSettings.dseeEnabled,
+                            onCheckedChange = { viewModel.setDseeEnabled(it) },
+                            expanded = dseeExpanded,
+                            onExpandedChange = { dseeExpanded = it },
+                            icon = Icons.Default.HighQuality
+                        )
 
-            item {
-                ModernSettingsCard(
-                    title = stringResource(R.string.dolby_dsee),
-                    icon = Icons.Default.HighQuality
-                ) {
-                    ViperSwitchRow(
-                        title = stringResource(R.string.dolby_dsee),
-                        checked = state.profileSettings.dseeEnabled,
-                        onCheckedChange = { viewModel.setDseeEnabled(it) },
-                        icon = Icons.Default.HighQuality
-                    )
+                        AnimatedVisibility(visible = dseeExpanded) {
+                            ViperInfoRow(text = stringResource(R.string.dolby_dsee_summary))
+                        }
+                    }
                 }
             }
 

@@ -370,6 +370,14 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     fun applyViper(profile: Int = readSavedProfile() ?: 0) {
         if (!viperActive()) return
         try {
+            checkEffect()
+            val enabled = getSavedDolbyEnabled()
+            if (dolbyEffect.dsOn != enabled) {
+                dolbyEffect.dsOn = enabled
+            }
+            if (dolbyEffect.profile != profile) {
+                dolbyEffect.profile = profile
+            }
             clearGeqEffect(profile, DolbyConstants.PREF_BASS_APPLIED)
             clearGeqEffect(profile, DolbyConstants.PREF_TREBLE_APPLIED)
             clearGeqEffect(profile, DolbyConstants.PREF_DYNAMIC_APPLIED)
@@ -520,7 +528,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             prefs.edit().putInt(DolbyConstants.PREF_BASS_CUTOFF, newCutoff).apply()
 
             // Subwoofer and Dynamic Bass use fixed filters, so only the first two curves change.
-            if (level <= 0 || curve > 1) return
+            if (level <= 0) return
             checkEffect()
             val currentGains = dolbyEffect.getDapParameter(DsParam.GEQ_BAND_GAINS, profile)
             val modifiedGains = currentGains.copyOf()

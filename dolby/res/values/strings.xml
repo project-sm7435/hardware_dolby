@@ -39,10 +39,14 @@
     <string name="dolby_bass_curve_punch">Subwoofer</string>
     <string name="dolby_bass_curve_dynamic">Dynamic Bass</string>
     <string name="dolby_bass_cutoff">Bass cutoff</string>
-    <string name="dolby_speaker_correction">Speaker correction</string>
-    <string name="dolby_dsee">DSEE HX</string>
+    <string name="dolby_speaker_correction">Speaker optimization</string>
     <string name="dolby_speaker_correction_strength">Strength</string>
-    <string name="dolby_speaker_correction_summary">Corrects the speaker sound; turning it off restores your equalizer</string>
+    <string name="dolby_speaker_correction_summary">Optimizes small speaker frequency response for clearer, fuller output</string>
+    <string name="dolby_viper_bass_summary">Boosts deep sub-bass frequencies with selectable bass modes and cutoff</string>
+    <string name="dolby_dynamic_system_summary">Enhances dynamic bass punch and low-end harmonic fullness</string>
+    <string name="dolby_viper_clarity_summary">Restores high-frequency detail and vocal crispness</string>
+    <string name="dolby_dsee">DSEE HX</string>
+    <string name="dolby_dsee_summary">Restores high-range audio detail lost during digital compression</string>
     <string name="dolby_viper_bass">ViPER bass</string>
     <string name="dolby_viper_bass_mode">Bass mode</string>
     <string name="dolby_viper_bass_frequency">Bass frequency</string>

@@ -173,6 +173,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 repository.setCurrentProfile(profile)
+                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting profile: ${e.message}")
             }
@@ -191,7 +192,39 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun enableViperBass(level: Int) {
+        val clamped = level.coerceIn(1, 100)
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            val fixedCurve = if (current.profileSettings.bassCurve == 3) 0 else current.profileSettings.bassCurve
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(
+                    bassCurve = fixedCurve,
+                    bassLevel = clamped
+                )
+            )
+        }
+        submitEffectOp("setBassLevel") {
+            try {
+                val profile = repository.getCurrentProfile()
+                if (repository.getBassCurve(profile) == 3) {
+                    repository.setBassCurve(profile, 0)
+                }
+                repository.setBassLevel(profile, clamped)
+                loadSettings()
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error enabling ViPER bass: ${e.message}")
+            }
+        }
+    }
+
     fun setBassLevel(level: Int) {
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(bassLevel = level.coerceIn(0, 100))
+            )
+        }
         submitEffectOp("setBassLevel") {
             try {
                 val profile = repository.getCurrentProfile()
@@ -208,6 +241,12 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setBassCurve(curve: Int) {
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(bassCurve = curve)
+            )
+        }
         submitEffectOp("setBassCurve") {
             try {
                 val profile = repository.getCurrentProfile()
@@ -220,6 +259,12 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setBassCutoff(hz: Int) {
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(bassCutoff = hz.coerceIn(15, 150))
+            )
+        }
         submitEffectOp("setBassCutoff") {
             try {
                 val profile = repository.getCurrentProfile()
@@ -263,6 +308,12 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setDynamicLevel(level: Int) {
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(dynamicLevel = level.coerceIn(0, 100))
+            )
+        }
         submitEffectOp("setDynamicLevel") {
             try {
                 val profile = repository.getCurrentProfile()

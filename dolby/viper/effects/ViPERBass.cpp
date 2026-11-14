@@ -76,6 +76,7 @@ void ViPERBass::Reset() {
     this->polyphase.Reset();
     this->waveBuffer.Reset();
     this->waveBuffer.PushZeros(this->polyphase.GetLatency());
+    this->subwoofer.SetSpeaker(this->samplingRate, this->speaker);
     this->subwoofer.SetBassGain(this->samplingRate, this->bassFactor * 2.5f);
     this->biquad[0].SetLowPassParameter((float) this->speaker, this->samplingRate, 0.53);
     this->biquad[1].SetLowPassParameter((float) this->speaker, this->samplingRate, 0.53);
@@ -86,7 +87,8 @@ void ViPERBass::Reset() {
 void ViPERBass::SetBassFactor(float bassFactor) {
     if (this->bassFactor != bassFactor) {
         this->bassFactor = bassFactor;
-        this->subwoofer.SetBassGain(this->samplingRate, this->bassFactor * 2.5f);
+        this->subwoofer.SetSpeaker(this->samplingRate, this->speaker);
+    this->subwoofer.SetBassGain(this->samplingRate, this->bassFactor * 2.5f);
     }
 }
 
@@ -111,7 +113,8 @@ void ViPERBass::SetSamplingRate(uint32_t samplingRate) {
         this->polyphase.SetSamplingRate(this->samplingRate);
         this->biquad[0].SetLowPassParameter((float) this->speaker, this->samplingRate, 0.53);
         this->biquad[1].SetLowPassParameter((float) this->speaker, this->samplingRate, 0.53);
-        this->subwoofer.SetBassGain(this->samplingRate, this->bassFactor * 2.5f);
+        this->subwoofer.SetSpeaker(this->samplingRate, this->speaker);
+    this->subwoofer.SetBassGain(this->samplingRate, this->bassFactor * 2.5f);
     }
 }
 
@@ -120,5 +123,6 @@ void ViPERBass::SetSpeaker(uint32_t speaker) {
         this->speaker = speaker;
         this->biquad[0].SetLowPassParameter((float) this->speaker, this->samplingRate, 0.53);
         this->biquad[1].SetLowPassParameter((float) this->speaker, this->samplingRate, 0.53);
+        this->subwoofer.SetSpeaker(this->samplingRate, this->speaker);
     }
 }
