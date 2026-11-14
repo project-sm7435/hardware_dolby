@@ -376,3 +376,23 @@ fun ViperSliderRow(
         }
     }
 }
+
+/** Short explanation shown inside an opened row. */
+@Composable
+fun ViperInfoRow(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+        )
+    }
+}
