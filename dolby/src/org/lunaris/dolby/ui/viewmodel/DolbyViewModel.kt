@@ -142,8 +142,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                     clarityMode = repository.getClarityMode(profile),
                     bassCutoff = repository.getBassCutoff(profile),
                     speakerCorrection = repository.getSpeakerCorrection(profile),
-                    dynamicLevel = repository.getDynamicLevel(profile),
-                    dseeEnabled = repository.getDseeEnabled(profile)
+                    dynamicLevel = repository.getDynamicLevel(profile)
                 )
                 
                 // A cancelled load keeps running, so only the newest load may publish its result.
@@ -326,25 +325,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-
-    fun setDseeEnabled(enabled: Boolean) {
-        stateMutationGen++
-        val current = _uiState.value
-        if (current is DolbyUiState.Success) {
-            _uiState.value = current.copy(
-                profileSettings = current.profileSettings.copy(dseeEnabled = enabled)
-            )
-        }
-        submitEffectOp("setDseeEnabled") {
-            try {
-                val profile = repository.getCurrentProfile()
-                repository.setDseeEnabled(profile, enabled)
-                loadSettings()
-            } catch (e: Exception) {
-                DolbyConstants.dlog(TAG, "Error setting DSEE: ${e.message}")
-            }
-        }
-    }
 
     fun setDynamicLevel(level: Int) {
         stateMutationGen++

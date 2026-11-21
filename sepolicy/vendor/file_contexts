@@ -1,7 +1,8 @@
-# Dolby Files
-/data/vendor/dolby(/.*)?   u:object_r:vendor_dolby_data_file:s0
+# Shared Dolby data for AIDL DMS HAL
+/data/vendor/dolby(/.*)?                                                        u:object_r:vendor_dolby_file:s0
 
-# Dolby
-/(system/vendor|vendor)/bin/hw/vendor\.dolby\.media\.c2@1\.0-service                                            u:object_r:mediacodec_exec:s0
-/(vendor|system/vendor)/bin/hw/vendor\.dolby\.hardware\.dms@2\.0-service                                        u:object_r:hal_dms_default_exec:s0
+# AIDL Dolby DMS HAL service
+/(vendor|system/vendor)/bin/hw/vendor\.dolby\.dms\.service                      u:object_r:hal_aidl_dms_default_exec:s0
 
+# AIDL Dolby media codec service
+/(vendor|system/vendor)/bin/hw/vendor\.dolby\.media\.c2-default-service-dax     u:object_r:mediacodec_exec:s0

@@ -51,8 +51,6 @@
     <string name="dolby_viper_clarity_summary_natural">Tự nhiên: làm sắc nét hài âm tần số cao nhẹ nhàng để chi tiết sạch hơn</string>
     <string name="dolby_viper_clarity_summary_ozone">OZone+: nâng âm cao sáng, thoáng với độ lấp lánh hài âm cao được mở rộng</string>
     <string name="dolby_viper_clarity_summary_xhifi">XHiFi: khôi phục các chuyển tiếp tần số cao bị nén và độ rõ chuẩn phòng thu</string>
-    <string name="dolby_dsee">Sony DSEE HX</string>
-    <string name="dolby_dsee_summary">Sony Digital Sound Enhancement Engine: nâng cấp âm thanh nén lên chất lượng gần Hi-Res</string>
     <string name="dolby_viper_bass">Âm trầm ViPER</string>
     <string name="dolby_viper_bass_mode">Chế độ âm trầm</string>
     <string name="dolby_viper_bass_frequency">Tần số âm trầm</string>

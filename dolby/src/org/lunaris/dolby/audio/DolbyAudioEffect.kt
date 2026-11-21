@@ -6,27 +6,53 @@
 package org.lunaris.dolby.audio
 
 import android.media.audiofx.AudioEffect
+import android.util.Log
 import org.lunaris.dolby.DolbyConstants
 import org.lunaris.dolby.DolbyConstants.DsParam
 import java.util.UUID
 
 class DolbyAudioEffect(priority: Int, audioSession: Int) : AudioEffect(
-    EFFECT_TYPE_NULL, EFFECT_TYPE_DAP, priority, audioSession
+    EFFECT_TYPE_NULL, findDapEffectUuid(), priority, audioSession
 ) {
     var dsOn: Boolean
-        get() = getIntParam(EFFECT_PARAM_ENABLE) == 1 && getEnabled()
+        get() = try {
+            getIntParam(EFFECT_PARAM_ENABLE) == 1 && getEnabled()
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Error getting dsOn: ${e.message}")
+            false
+        }
         set(value) {
-            setIntParam(EFFECT_PARAM_ENABLE, if (value) 1 else 0)
-            val status = setEnabled(value)
-            if (status != SUCCESS) {
-                throw IllegalStateException("setEnabled($value) failed, status=$status")
+            // Never setEnabled(false): AudioFlinger sends STOP, the AIDL DAP
+            // drains and returns -ENODATA, EffectHalAidl treats that as
+            // DEAD_OBJECT and the instance cannot be enabled again.
+            try {
+                if (value && (!hasControl() || !enabled)) {
+                    checkStatus(setEnabled(true))
+                }
+                setBypass(!value)
+                setIntParam(EFFECT_PARAM_ENABLE, if (value) 1 else 0)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error setting dsOn: ${e.message}", e)
+                throw e
             }
         }
 
+    // Returns PROFILE_UNKNOWN (-1) when the effect can't be read, which the
+    // callers already treat as an unknown profile.
     var profile: Int
-        get() = getIntParam(EFFECT_PARAM_PROFILE)
+        get() = try {
+            getIntParam(EFFECT_PARAM_PROFILE)
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Error getting profile: ${e.message}")
+            PROFILE_UNKNOWN
+        }
         set(value) {
-            setIntParam(EFFECT_PARAM_PROFILE, value)
+            try {
+                setIntParam(EFFECT_PARAM_PROFILE, value)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error setting profile: ${e.message}", e)
+                throw e
+            }
         }
 
     private fun setIntParam(param: Int, value: Int) {
@@ -47,21 +73,50 @@ class DolbyAudioEffect(priority: Int, audioSession: Int) : AudioEffect(
         }
     }
 
+    fun setBypass(bypass: Boolean) {
+        DolbyConstants.dlog(TAG, "setBypass: $bypass")
+        try {
+            val buf = ByteArray(16)
+            int32ToByteArray(4, buf, 0)
+            int32ToByteArray(4, buf, 4)
+            int32ToByteArray(EFFECT_PARAM_SET_BYPASS, buf, 8)
+            int32ToByteArray(if (bypass) 1 else 0, buf, 12)
+            checkStatus(setParameter(EFFECT_PARAM_CPDP_VALUES, buf))
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "setBypass failed or unsupported: ${e.message}")
+        }
+    }
+
+    /** True while the effect is under our control and still answers to the HAL. */
+    fun isHealthy(): Boolean = try {
+        hasControl() && getIntParam(EFFECT_PARAM_ENABLE) >= 0
+    } catch (e: Exception) {
+        false
+    }
+
     fun resetProfileSpecificSettings(profile: Int = this.profile) {
         DolbyConstants.dlog(TAG, "resetProfileSpecificSettings: profile=$profile")
-        setIntParam(EFFECT_PARAM_RESET_PROFILE_SETTINGS, profile)
+        try {
+            setIntParam(EFFECT_PARAM_RESET_PROFILE_SETTINGS, profile)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error resetting profile settings: ${e.message}", e)
+        }
     }
 
     fun setDapParameter(param: DsParam, values: IntArray, profile: Int = this.profile) {
         DolbyConstants.dlog(TAG, "setDapParameter: profile=$profile param=$param")
-        val length = values.size
-        val buf = ByteArray((length + 4) * 4)
-        int32ToByteArray(EFFECT_PARAM_SET_PROFILE_PARAMETER, buf, 0)
-        int32ToByteArray(length + 1, buf, 4)
-        int32ToByteArray(profile, buf, 8)
-        int32ToByteArray(param.id, buf, 12)
-        int32ArrayToByteArray(values, buf, 16)
-        checkStatus(setParameter(EFFECT_PARAM_CPDP_VALUES, buf))
+        try {
+            val length = values.size
+            val buf = ByteArray((length + 4) * 4)
+            int32ToByteArray(EFFECT_PARAM_SET_PROFILE_PARAMETER, buf, 0)
+            int32ToByteArray(length + 1, buf, 4)
+            int32ToByteArray(profile, buf, 8)
+            int32ToByteArray(param.id, buf, 12)
+            int32ArrayToByteArray(values, buf, 16)
+            checkStatus(setParameter(EFFECT_PARAM_CPDP_VALUES, buf))
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting $param: ${e.message}", e)
+        }
     }
 
     fun setDapParameter(param: DsParam, enable: Boolean, profile: Int = this.profile) =
@@ -70,13 +125,19 @@ class DolbyAudioEffect(priority: Int, audioSession: Int) : AudioEffect(
     fun setDapParameter(param: DsParam, value: Int, profile: Int = this.profile) =
         setDapParameter(param, intArrayOf(value), profile)
 
+    // Returns zeros when the effect can't be read, so callers always get an array of the right size.
     fun getDapParameter(param: DsParam, profile: Int = this.profile): IntArray {
         DolbyConstants.dlog(TAG, "getDapParameter: profile=$profile param=$param")
-        val length = param.length
-        val buf = ByteArray((length + 2) * 4)
-        val p = (param.id shl 16) + (profile shl 8) + EFFECT_PARAM_GET_PROFILE_PARAMETER
-        checkStatus(getParameter(p, buf))
-        return byteArrayToInt32Array(buf, length)
+        return try {
+            val length = param.length
+            val buf = ByteArray((length + 2) * 4)
+            val p = (param.id shl 16) + (profile shl 8) + EFFECT_PARAM_GET_PROFILE_PARAMETER
+            checkStatus(getParameter(p, buf))
+            byteArrayToInt32Array(buf, length)
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Error getting $param: ${e.message}")
+            IntArray(param.length)
+        }
     }
 
     fun getDapParameterBool(param: DsParam, profile: Int = this.profile): Boolean =
@@ -87,14 +148,55 @@ class DolbyAudioEffect(priority: Int, audioSession: Int) : AudioEffect(
 
     companion object {
         private const val TAG = "DolbyAudioEffect"
-        private val EFFECT_TYPE_DAP = UUID.fromString("9d4921da-8225-4f29-aefa-39537a04bcaa")
+        const val PROFILE_UNKNOWN = -1
+
+        private val EFFECT_TYPE_DAP: UUID = UUID.fromString("9d4921da-8225-4f29-aefa-39537a04bcaa")
+        private val EFFECT_TYPE_DOLBY: UUID = UUID.fromString("fa81de0e-588b-11ed-9b6a-0242ac120002")
 
         private const val EFFECT_PARAM_ENABLE = 0
         private const val EFFECT_PARAM_CPDP_VALUES = 5
+        private const val EFFECT_PARAM_SET_BYPASS = 16
         private const val EFFECT_PARAM_PROFILE = 0xA000000
         private const val EFFECT_PARAM_SET_PROFILE_PARAMETER = 0x1000000
         private const val EFFECT_PARAM_GET_PROFILE_PARAMETER = 0x1000005
         private const val EFFECT_PARAM_RESET_PROFILE_SETTINGS = 0xC000000
+
+        /**
+         * Finds the UUID of the DAP effect. Prefers the well-known one, then looks through the
+         * effects registered in the system, and falls back to the well-known one if nothing matches.
+         */
+        private fun findDapEffectUuid(): UUID {
+            try {
+                val descriptors = AudioEffect.queryEffects() ?: emptyArray()
+
+                descriptors.firstOrNull { it.uuid == EFFECT_TYPE_DAP }?.let {
+                    return it.uuid
+                }
+
+                descriptors
+                    .firstOrNull {
+                        it.type == EFFECT_TYPE_DOLBY &&
+                            it.name.contains("dap", ignoreCase = true)
+                    }
+                    ?.let {
+                        Log.w(TAG, "DAP effect not found by UUID, using ${it.name} (${it.uuid})")
+                        return it.uuid
+                    }
+
+                descriptors
+                    .firstOrNull {
+                        it.name.contains("dap", ignoreCase = true) ||
+                            it.implementor.contains("Dolby", ignoreCase = true)
+                    }
+                    ?.let {
+                        Log.w(TAG, "DAP effect not found by UUID, using ${it.name} (${it.uuid})")
+                        return it.uuid
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error querying audio effects: ${e.message}", e)
+            }
+            return EFFECT_TYPE_DAP
+        }
 
         private fun int32ToByteArray(value: Int, dst: ByteArray, index: Int) {
             var idx = index
