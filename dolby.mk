@@ -19,7 +19,7 @@ DOLBY_PATH := hardware/dolby
 
 # Soong Namespace
 PRODUCT_SOONG_NAMESPACES += \
-   $(DOLBY_PATH)
+    $(DOLBY_PATH)
 
 # Enable codec support
 AUDIO_FEATURE_ENABLED_DS2_DOLBY_DAP := true
@@ -27,22 +27,19 @@ AUDIO_FEATURE_ENABLED_DS2_DOLBY_DAP := true
 # SEPolicy
 BOARD_VENDOR_SEPOLICY_DIRS += $(DOLBY_PATH)/sepolicy/vendor
 
-# HIDL
+# AIDL VINTF
 DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE += $(DOLBY_PATH)/dolby_framework_matrix.xml
 
 PRODUCT_PACKAGES += \
-    vendor.dolby.hardware.dms@2.0-service.xml \
-    vendor.dolby.media.c2.xml
-    
+    dms-service.xml \
+    vendor.dolby.media.c2-default-service-dax.xml
+
 # Configs
 PRODUCT_COPY_FILES += \
     $(DOLBY_PATH)/configs/dax-default.xml:$(TARGET_COPY_OUT_VENDOR)/etc/dolby/dax-default.xml \
     $(DOLBY_PATH)/configs/media_codecs_dolby_audio.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_dolby_audio.xml
 
-# Dolby VNDK libs
-PRODUCT_PACKAGES += \
-    libstagefright_foundation-v33
-
+# Dolby Shim
 PRODUCT_PACKAGES += \
     libshim_dolby
 
@@ -50,29 +47,25 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     init.dolby.rc
 
-# Overlays    
+# Overlays
 PRODUCT_PACKAGES += \
     DolbyFrameworksResCommon
 
 # Dolby Spatial Audio
 PRODUCT_COPY_FILES += \
-    $(DOLBY_PATH)/configs/android.hardware.sensor.dynamic.head_tracker.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.dynamic.head_tracker.xml \
+    $(DOLBY_PATH)/configs/android.hardware.sensor.dynamic.head_tracker.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.dynamic.head_tracker.xml
 
 # Dolby Spatial Audio: optimize spatializer effect
 PRODUCT_PROPERTY_OVERRIDES += \
-       audio.spatializer.effect.util_clamp_min=300
+    audio.spatializer.effect.util_clamp_min=300
 
 # Dolby Spatial Audio: declare use of spatial audio
 PRODUCT_PROPERTY_OVERRIDES += \
-       ro.audio.spatializer_enabled=true \
-       ro.audio.headtracking_enabled=true \
-       ro.audio.spatializer_transaural_enabled_default=false \
-       persist.vendor.audio.spatializer.speaker_enabled=true \
-
-# Dolby Spatial Audio Proprietary blobs
-PRODUCT_PACKAGES += \
-    libspatializerparamstorage \
-    libswspatializer
+    ro.audio.spatializer_enabled=true \
+    ro.audio.stereo_spatialization_enabled=true \
+    ro.audio.headtracking_enabled=true \
+    ro.audio.spatializer_transaural_enabled_default=false \
+    persist.vendor.audio.spatializer.speaker_enabled=true
 
 # Media (C2)
 PRODUCT_PACKAGES += \
@@ -83,6 +76,11 @@ PRODUCT_PACKAGES += \
     libsfplugin_ccodec_utils.vendor \
     libcodec2_soft_common.vendor
 
+# AIDL Audio & Codec2 HAL Selection
+PRODUCT_VENDOR_PROPERTIES += \
+    vendor.audio.hal.aidl.enabled=true \
+    media.c2.hal.selection=aidl
+
 # Codec2 Props
 PRODUCT_VENDOR_PROPERTIES += \
     vendor.audio.c2.preferred=true \
@@ -92,7 +90,10 @@ PRODUCT_VENDOR_PROPERTIES += \
 
 # Dolby Props
 PRODUCT_VENDOR_PROPERTIES += \
-    ro.vendor.dolby.dax.version=DAX3_3.7.0.8_r1 \
+    ro.vendor.dolby.dax.version=DAX3_3.12.0.8_r1 \
+    ro.vendor.audio.dolby.dax.version=DAX3_3.12.0.8_r1 \
+    ro.vendor.dolby.dax.support=true \
+    ro.vendor.audio.dolby.dax.game.enable=true \
     vendor.audio.dolby.ds2.hardbypass=false \
     vendor.audio.dolby.ds2.enabled=false
 
@@ -108,35 +109,38 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     XiaomiDolby
 
-# Dolby Proprietary blobs
+# Dolby AIDL DMS Proprietary blobs
 PRODUCT_COPY_FILES += \
-    $(DOLBY_PATH)/proprietary/vendor/etc/init/vendor.dolby.hardware.dms@2.0-service.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/vendor.dolby.hardware.dms@2.0-service.rc
+    $(DOLBY_PATH)/proprietary/vendor/etc/init/dms-service.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/dms-service.rc
 
 PRODUCT_PACKAGES += \
     libdapparamstorage \
     libdlbdsservice \
     libdlbpreg \
-    vendor.dolby.hardware.dms@2.0-impl \
+    libdmshal \
+    liboem_specific \
+    vendor.dolby.dms-V1-ndk \
     vendor.dolby.hardware.dms@2.0 \
-    vendor.dolby.hardware.dms@2.0-service
+    vendor.dolby.dms.service
 
 # Codec2 (Dolby)
 PRODUCT_COPY_FILES += \
-    $(DOLBY_PATH)/proprietary/vendor/etc/init/vendor.dolby.media.c2@1.0-service.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/vendor.dolby.media.c2@1.0-service.rc
+    $(DOLBY_PATH)/proprietary/vendor/etc/init/vendor.dolby.media.c2-default-service-dax.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/vendor.dolby.media.c2-default-service-dax.rc
 
 PRODUCT_PACKAGES += \
     libcodec2_soft_ac4dec \
     libcodec2_soft_ddpdec \
     libcodec2_store_dolby \
     libdeccfg \
-    vendor.dolby.media.c2@1.0-service
+    vendor.dolby.media.c2-default-service-dax
 
-# Dolby SoundFX Blobs
+# Dolby AIDL SoundFX Blobs + ViPER4Android
 PRODUCT_PACKAGES += \
-    libdlbvol \
-    libhwdap \
-    libswgamedap \
-    libswspatializer_ext \
-    libswvqe \
-    libdsee \
+    libaudio_aidl_conversion_common_ndk \
+    libdlbvolaidl \
+    libhwdapaidl \
+    libswgamedapaidl \
+    libswspatializeraidl \
+    libswspatializeraidl_ext \
+    libspatializerparamstorage \
     libv4a_re

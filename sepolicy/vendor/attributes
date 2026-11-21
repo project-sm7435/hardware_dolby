@@ -1,1 +1,3 @@
-hal_attribute(dms)
+# AIDL Dolby DMS HAL
+attribute hal_aidl_dms_client;
+attribute hal_aidl_dms_server;

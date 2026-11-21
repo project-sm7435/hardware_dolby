@@ -118,7 +118,6 @@ private fun ModernAdvancedSettingsContent(
     var clarityExpanded by rememberSaveable { mutableStateOf(false) }
     var midExpanded by rememberSaveable { mutableStateOf(false) }
     var speakerExpanded by rememberSaveable { mutableStateOf(false) }
-    var dseeExpanded by rememberSaveable { mutableStateOf(false) }
     var levelerExpanded by rememberSaveable { mutableStateOf(false) }
     var virtualizerExpanded by rememberSaveable { mutableStateOf(false) }
     var dialogueExpanded by rememberSaveable { mutableStateOf(false) }
@@ -351,21 +350,6 @@ private fun ModernAdvancedSettingsContent(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ViperExpandableRow(
-                            title = stringResource(R.string.dolby_dsee),
-                            checked = state.profileSettings.dseeEnabled,
-                            onCheckedChange = { viewModel.setDseeEnabled(it) },
-                            expanded = dseeExpanded,
-                            onExpandedChange = { dseeExpanded = it },
-                            icon = Icons.Default.HighQuality
-                        )
-
-                        AnimatedVisibility(visible = dseeExpanded) {
-                            ViperInfoRow(text = stringResource(R.string.dolby_dsee_summary))
-                        }
-                    }
                 }
             }
 

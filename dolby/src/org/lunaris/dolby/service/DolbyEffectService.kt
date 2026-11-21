@@ -135,6 +135,7 @@ class DolbyEffectService : Service() {
     }
 
     private var wasPlaybackActive = false
+    private var hadActivePlayback = false
     private val trackedSessions = LinkedHashSet<Int>()
     private val trackedPiids = LinkedHashSet<Int>()
     private var isSessionReceiverRegistered = false
@@ -224,18 +225,19 @@ class DolbyEffectService : Service() {
             trackedPiids.addAll(activePiids)
 
             if (isActive) {
-                if (!wasPlaybackActive) {
-                    try {
-                        repository.ensureLiveState()
-                    } catch (e: Exception) {
-                        Log.w(TAG, "ensureLiveState on playback failed", e)
-                    }
+                val playbackStarted = isActive && !hadActivePlayback
+                hadActivePlayback = isActive
+                if (getCurrentOutputDevice()?.id != previousActiveDevice?.id) {
+                    handleDeviceChange()
+                } else if (playbackStarted) {
+                    repository.applySavedState()
                 }
                 if (newSessionStarted || newPlayerStarted || !wasPlaybackActive) {
                     repository.syncPlaybackSessions(activeSessions)
                     schedulePlaybackRefresh()
                 }
             } else if (wasPlaybackActive) {
+                hadActivePlayback = false
                 repository.syncPlaybackSessions(emptySet())
             }
             wasPlaybackActive = isActive

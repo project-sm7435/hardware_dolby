@@ -1,71 +1,138 @@
-AOSPA Dolby
-==============
+<div align="center">
 
-Dolby audio effects and Codec2 decoders.
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/DLB_Atms_UI_rgb_wht_@2x.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/DLB_Atms_UI_rgb_blk_@2x.png">
+    <img alt="Dolby Atmos" src="assets/DLB_Atms_UI_rgb_blk_@2x.png" width="280">
+  </picture>
 
-To enable Dolby AC-3, E-AC-3, E-AC-3 JOC, and AC-4 decoding, make sure your device supports Codec2 and add the following line to your vendor media codecs configuration:
+  <h1>Hardware Dolby • AIDL</h1>
 
-Getting Started
----------------
-For dolby media codecs to work add this line in your media codecs config (should be in vendor partition) :-
+  <p>
+    <strong>Expressive Material 3 Dolby Atmos EQ, Spatializer, Game DAP &amp; Codec2 Audio Decoders for Android</strong>
+  </p>
 
-```bash
-<Include href="media_codecs_dolby_audio.xml" />
+  <p>
+    <img src="https://img.shields.io/badge/HAL-AIDL-6750A4?style=for-the-badge&labelColor=1C1B1F" alt="HAL AIDL">
+    <img src="https://img.shields.io/badge/Codec2-AC3%20%7C%20EAC3%20%7C%20AC4-7D5260?style=for-the-badge&labelColor=1C1B1F" alt="Codec2">
+    <img src="https://img.shields.io/badge/UI-Material%203%20Expressive-386A20?style=for-the-badge&labelColor=1C1B1F" alt="Material 3">
+  </p>
+
+</div>
+
+---
+
+## ✨ Overview
+
+Bring **Dolby Atmos**, **Spatializer**, **Game DAP**, and **Codec2 hardware/software audio decoding** (`AC-3`, `E-AC-3`, `E-AC-3 JOC`, and `AC-4`) to your Android build—paired with an expressive **Material 3** user interface.
+
+| Module | Component | Library / Service |
+| :--- | :--- | :--- |
+| **Dolby DAP** | Hardware Audio Processing | `libhwdapaidl.so` |
+| **Volume Leveler** | Dynamic Volume Listener | `libdlbvolaidl.so` |
+| **Spatializer** | Immersive Spatial Audio | `libswspatializeraidl.so` |
+| **Game DAP** | Low-Latency Gaming Profile | `libswgamedapaidl.so` |
+| **Codec2 Decoders** | AC-3 / E-AC-3 / JOC / AC-4 | `media_codecs_dolby_audio.xml` |
+
+---
+
+## 🚀 Getting Started
+
+### 1. Register Dolby Media Codecs
+Ensure your device supports **Codec2** (`C2`), then include the Dolby codec definitions inside your vendor media codecs configuration (`media_codecs_c2.xml` or `media_codecs.xml`):
+
+```xml
+<Include href="media_codecs_dolby_audio.xml"/>
 ```
 
-To build, add the dolby effects in your device's audio effects config then inherit the dolby config by adding this in your device's makefile :-
+### 2. Inherit Dolby in Device Tree
+Add the Dolby product makefile to your device's `device.mk`:
 
-```bash
-$(call inherit-product, hardware/dolby/dolby.mk)
+```makefile
+\$(call inherit-product, hardware/dolby/dolby.mk)
 ```
 
-Now, moving hidl definitions in manifest to device trees is completely absurd so stop overriding manifest in your device trees an example for such would be :-
+### 3. Preserve VINTF Manifest & Compatibility Matrix
+Do **not** overwrite VINTF manifest or matrix variables in your `BoardConfig.mk`—append to them with `+=` so the AIDL HAL entries from `hardware/dolby` remain intact:
 
-Changing these in BoardConfig makefile of your device tree:-
+```makefile
+# ❌ Avoid overwriting with :=
+# DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE := ...
+# DEVICE_MANIFEST_FILE := ...
 
-```bash
-DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE :=
-```
-And
-
-```bash
-DEVICE_MANIFEST_FILE :=
-```
-
-To:-
-
-```bash
-DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE +=
-```
-And
-
-```bash
-DEVICE_MANIFEST_FILE +=
+# ✅ Append with += instead
+DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE += ...
+DEVICE_MANIFEST_FILE += ...
 ```
 
-The only change done above is changing := symbol to += so that manifest can't be overriden from device tree in BoardConfig makefile.
+---
 
-At the end an example commit to properly implement it in your device tree could be :-
+## 🎛️ Audio Effects Configuration
 
-[**1**] https://github.com/project-sm7435/device_xiaomi_garnet/commit/f5cd4b6603101b8d66d104823689ee86ea19da98
+Add the AIDL libraries, effects, and postprocess stream rules to your device's `audio_effects_config.xml`:
 
-For the Sony Digital Sound Enhancement Engine
+<details open>
+<summary><strong>1. Libraries (<code>&lt;libraries&gt;</code>)</strong></summary>
 
-[**2**] https://github.com/project-sm7435/device_xiaomi_garnet/commit/c7f4eb42c63edf465acf5f21fdeadaddfa592930
+```xml
+<!-- DOLBY START -->
+<library name="dap" path="libhwdapaidl.so"/>
+<library name="dvl" path="libdlbvolaidl.so"/>
+<!-- DOLBY SPATIALIZER -->
+<library name="spatializer" path="libswspatializeraidl.so"/>
+<!-- DOLBY GAME -->
+<library name="gamedap" path="libswgamedapaidl.so"/>
+<!-- DOLBY END -->
+```
+</details>
 
-For the ViPER4Android effect
+<details open>
+<summary><strong>2. Effects (<code>&lt;effects&gt;</code>)</strong></summary>
 
-[**3**] https://github.com/project-sm7435/device_xiaomi_garnet/commit/5261a944cf57261e18d956d2a036d2b38872f24d
- 
-#### Tip pick anyone for Reference:
-          https://dumps.tadiphone.dev/dumps/xiaomi/vili/-/blob/missi_phone_global-user-14-UKQ1.231207.002-V816.0.5.0.UKDMIXM-release-keys/aosp-device-tree/proprietary-files.txt#L2072
-          https://github.com/Spanish-or-Vanish/android_device_xiaomi_sm8350-common/commit/6a8f6aae347f9f864f17f2dfa5d541f83ab5b170
-          https://github.com/Spanish-or-Vanish/android_device_xiaomi_sm8350-common/commit/5c593cbd2c19d571b7e62ea4bd6b8c864a4e1d9e
+```xml
+<!-- DOLBY START -->
+<effect name="dap" library="dap" uuid="9d4921da-8225-4f29-aefa-39537a04bcaa"/>
+<effect name="dlb_music_listener" library="dvl" uuid="40f66c8b-5aa5-4345-8919-53ec431aaa98"/>
+<effect name="dlb_ring_listener" library="dvl" uuid="21d14087-558a-4f21-94a9-5002dce64bce"/>
+<effect name="dlb_alarm_listener" library="dvl" uuid="6aff229c-30c6-4cc8-9957-dbfe5c1bd7f6"/>
+<!-- DOLBY SPATIALIZER -->
+<effect name="spatializer" library="spatializer" uuid="ccd4cf09-a79d-46c2-9aae-06a1698d6c8f"/>
+<!-- DOLBY GAME -->
+<effect name="gamedap" library="gamedap" uuid="3783c334-d3a0-4d13-874f-0032e5fb80e2"/>
+<!-- DOLBY END -->
+```
+</details>
 
-# Credits:
- * [**HELLBOY017**](https://github.com/HELLBOY017)
- * [**adithya2306**](https://github.com/adithya2306)
- * [**johnmart19**](https://github.com/johnmart19)
- * [**userariii**](https://github.com/userariii)
- * [**saku-bruh**](https://github.com/saku-bruh)
- * [**ahnet-69 · he/him**](https://github.com/ahnet-69)
+<details open>
+<summary><strong>3. Postprocess Streams (<code>&lt;postprocess&gt;</code>)</strong></summary>
+
+```xml
+    <postprocess>
+        <stream type="music">
+            <!-- <apply effect="music_helper"/> -->
+            <apply effect="dlb_music_listener"/>
+        </stream>
+        <!-- <stream type="ring">
+            <apply effect="ring_helper"/>
+        </stream>
+        <stream type="alarm">
+            <apply effect="alarm_helper"/>
+        </stream>
+        <stream type="voice_call">
+            <apply effect="voice_helper"/>
+        </stream>
+        <stream type="notification">
+            <apply effect="notification_helper"/>
+        </stream> -->
+    </postprocess>
+```
+</details>
+
+> **Tip:** Notice the library/effect names match cleanly (`name="dap" library="dap"`). Mismatched names like `library="dap_hw"` without a matching `<library>` tag will cause `audioserver` to drop the effect.
+
+---
+
+## 🙌 Credits
+
+- **[Dolby Laboratories](https://www.dolby.com/en-in/)** — Dolby Atmos DSP & Codec2 libraries
+- **[Ghosuto/hardware_dolby](https://github.com/Ghosuto/hardware_dolby)** — LunarisDolby base & AIDL implementation

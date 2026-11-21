@@ -45,8 +45,7 @@ data class ProfileSettings(
     val clarityMode: Int = 0,
     val bassCutoff: Int = 60,
     val speakerCorrection: Int = 0,
-    val dynamicLevel: Int = 0,
-    val dseeEnabled: Boolean = false
+    val dynamicLevel: Int = 0
 )
 
 data class EqualizerPreset(
