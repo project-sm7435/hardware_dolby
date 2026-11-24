@@ -61,6 +61,63 @@ cc_library_shared {
     },
 }
 
+cc_library_shared {
+    name: "libv4a_re",
+    vendor: true,
+    relative_install_path: "soundfx",
+    compile_multilib: "64",
+
+    srcs: [
+        "viper/viper_dsp_engine.cpp",
+        "viper/effects/*.cpp",
+        "viper/utils/*.cpp",
+    ],
+
+    local_include_dirs: [
+        "viper",
+        "viper/effects",
+        "viper/utils",
+    ],
+
+    header_libs: [
+        "jni_headers",
+        "libhardware_headers",
+        "libsystem_headers",
+    ],
+
+    shared_libs: [
+        "liblog",
+        "libcutils",
+    ],
+
+    cflags: [
+        "-O3",
+        "-ffast-math",
+        "-fno-math-errno",
+        "-fno-trapping-math",
+        "-fvectorize",
+        "-fslp-vectorize",
+        "-fvisibility=hidden",
+        "-Wall",
+        "-Wextra",
+        "-Wno-unused-parameter",
+    ],
+
+    cppflags: [
+        "-std=c++17",
+        "-fno-exceptions",
+        "-fno-rtti",
+    ],
+
+    lto: {
+        thin: true,
+    },
+
+    strip: {
+        all: true,
+    },
+}
+
 android_app {
     name: "XiaomiDolby",
 

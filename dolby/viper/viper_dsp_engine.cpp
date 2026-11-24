@@ -10,6 +10,7 @@
 #include <android/log.h>
 #include <hardware/audio_effect.h>
 #include <system/audio.h>
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -17,6 +18,7 @@
 #include <vector>
 
 #include "constants.h"
+#include "effects/ColorfulMusic.h"
 #include "effects/ViPERBass.h"
 #include "effects/ViPERClarity.h"
 #include "effects/DynamicSystem.h"
@@ -29,20 +31,24 @@
 
 // Command IDs matching ViperController.kt & ViperEffectModel.kt
 enum ViperCommandId : uint32_t {
-    PARAM_DYNAMIC_ENABLE   = 0x10021,
-    PARAM_DYNAMIC_X_COEFFS = 0x10022,
-    PARAM_DYNAMIC_Y_COEFFS = 0x10023,
-    PARAM_DYNAMIC_SIDEGAIN = 0x10024,
-    PARAM_DYNAMIC_STRENGTH = 0x10025,
-    PARAM_BASS_ENABLE      = 0x10026,
-    PARAM_BASS_MODE        = 0x10027,
-    PARAM_BASS_FREQUENCY   = 0x10028,
-    PARAM_BASS_GAIN        = 0x10029,
-    PARAM_CLARITY_ENABLE   = 0x1002A,
-    PARAM_CLARITY_MODE     = 0x1002B,
-    PARAM_CLARITY_GAIN     = 0x1002C,
-    PARAM_SPEAKER_ENABLE   = 0x10043,
-    PARAM_SPEAKER_STRENGTH = 0x1002E,
+    PARAM_SURROUND_ENABLE    = 0x10011,
+    PARAM_SURROUND_WIDENING  = 0x10012,
+    PARAM_SURROUND_MID_IMAGE = 0x10013,
+    PARAM_SURROUND_DEPTH     = 0x10014,
+    PARAM_DYNAMIC_ENABLE     = 0x10021,
+    PARAM_DYNAMIC_X_COEFFS   = 0x10022,
+    PARAM_DYNAMIC_Y_COEFFS   = 0x10023,
+    PARAM_DYNAMIC_SIDEGAIN   = 0x10024,
+    PARAM_DYNAMIC_STRENGTH   = 0x10025,
+    PARAM_BASS_ENABLE        = 0x10026,
+    PARAM_BASS_MODE          = 0x10027,
+    PARAM_BASS_FREQUENCY     = 0x10028,
+    PARAM_BASS_GAIN          = 0x10029,
+    PARAM_CLARITY_ENABLE     = 0x1002A,
+    PARAM_CLARITY_MODE       = 0x1002B,
+    PARAM_CLARITY_GAIN       = 0x1002C,
+    PARAM_SPEAKER_ENABLE     = 0x10043,
+    PARAM_SPEAKER_STRENGTH   = 0x1002E,
 };
 
 class ViperDspEngine {
@@ -58,12 +64,13 @@ public:
         dynamicSystem_.SetYCoeffs(40, samplingRate_ / 4);
         dynamicSystem_.SetSideGain(1.0f, 1.0f);
         dynamicSystem_.SetBassGain(1.0f);
-
+        colorfulMusic_.SetMidImageValue(1.0f);
     }
 
     void SetSamplingRate(uint32_t sr) {
         if (sr == 0) sr = 48000;
         samplingRate_ = sr;
+        colorfulMusic_.SetSamplingRate(sr);
         viperBass_.SetSamplingRate(sr);
         viperClarity_.SetSamplingRate(sr);
         dynamicSystem_.SetSamplingRate(sr);
@@ -71,6 +78,7 @@ public:
     }
 
     void Reset() {
+        colorfulMusic_.Reset();
         viperBass_.Reset();
         viperClarity_.Reset();
         dynamicSystem_.Reset();
@@ -81,6 +89,24 @@ public:
         (void)v3;
         (void)v4;
         switch (param) {
+            case PARAM_SURROUND_ENABLE:
+                colorfulMusic_.SetEnable(v1 != 0);
+                break;
+            case PARAM_SURROUND_WIDENING: {
+                int32_t clamped = v1 < 0 ? 0 : (v1 > 500 ? 500 : v1);
+                colorfulMusic_.SetWidenValue(static_cast<float>(clamped) / 100.0f);
+                break;
+            }
+            case PARAM_SURROUND_MID_IMAGE: {
+                int32_t clamped = v1 < 0 ? 0 : (v1 > 200 ? 200 : v1);
+                colorfulMusic_.SetMidImageValue(static_cast<float>(clamped) / 100.0f);
+                break;
+            }
+            case PARAM_SURROUND_DEPTH: {
+                int32_t clamped = v1 < 0 ? 0 : (v1 > 1000 ? 1000 : v1);
+                colorfulMusic_.SetDepthValue(static_cast<short>(clamped));
+                break;
+            }
             case PARAM_BASS_ENABLE:
                 viperBass_.SetEnable(v1 != 0);
                 break;
@@ -167,20 +193,23 @@ public:
         }
     }
 
-    // Process stereo interleaved float PCM frames through Effects + Utils
+    // Process stereo interleaved float PCM frames through Effects + Utils (upstream ViPER.cpp order)
     void ProcessStereoFloat(float* samples, uint32_t frames) {
         if (!samples || frames == 0) return;
 
-        // 1. ViPERBass (effects/ViPERBass.cpp + utils/Biquad, Polyphase, Subwoofer, WaveBuffer)
-        viperBass_.Process(samples, frames);
+        // 1. ColorfulMusic (effects/ColorfulMusic.cpp + utils/DepthSurround, Stereo3DSurround, TimeConstDelay)
+        colorfulMusic_.Process(samples, frames);
 
         // 2. DynamicSystem (effects/DynamicSystem.cpp -> delegates directly to utils/DynamicBass.cpp)
         dynamicSystem_.Process(samples, frames);
 
-        // 3. ViPERClarity (effects/ViPERClarity.cpp + utils/NoiseSharpening, HighShelf, HiFi)
+        // 3. ViPERBass (effects/ViPERBass.cpp + utils/Biquad, Polyphase, Subwoofer, WaveBuffer)
+        viperBass_.Process(samples, frames);
+
+        // 4. ViPERClarity (effects/ViPERClarity.cpp + utils/NoiseSharpening, HighShelf, HiFi)
         viperClarity_.Process(samples, frames);
 
-        // 4. SpeakerCorrection (effects/SpeakerCorrection.cpp + utils/MultiBiquad & Biquad)
+        // 5. SpeakerCorrection (effects/SpeakerCorrection.cpp + utils/MultiBiquad & Biquad)
         // Blends dry signal with SpeakerCorrection::Process output according to speakerStrength_ (0.0..1.0)
         if (speakerCorrectionEnabled_ && speakerStrength_ > 0.001f) {
             const uint32_t totalSamples = frames * 2;
@@ -203,6 +232,7 @@ public:
 
 private:
     uint32_t samplingRate_;
+    ColorfulMusic colorfulMusic_;
     ViPERBass viperBass_;
     ViPERClarity viperClarity_;
     DynamicSystem dynamicSystem_;
@@ -293,6 +323,18 @@ const effect_descriptor_t gViperDescriptor = {
     "Lunaris AOSP / ViPER.WYF"
 };
 
+static uint32_t FormatBytesPerSample(uint32_t format) {
+    switch (format) {
+        case AUDIO_FORMAT_PCM_FLOAT:
+            return sizeof(float);
+        case AUDIO_FORMAT_PCM_32_BIT:
+        case AUDIO_FORMAT_PCM_8_24_BIT:
+            return sizeof(int32_t);
+        default:
+            return sizeof(int16_t);
+    }
+}
+
 int32_t ViperEffect_Process(effect_handle_t self, audio_buffer_t* inBuffer, audio_buffer_t* outBuffer) {
     auto* ctx = reinterpret_cast<ViperEffectContext*>(self);
     if (!ctx || !inBuffer || !outBuffer || !inBuffer->raw || !outBuffer->raw) {
@@ -302,30 +344,94 @@ int32_t ViperEffect_Process(effect_handle_t self, audio_buffer_t* inBuffer, audi
     std::lock_guard<std::mutex> lock(ctx->mutex);
 
     const uint32_t frames = inBuffer->frameCount;
-    const bool isFloat = ctx->config.inputCfg.format == AUDIO_FORMAT_PCM_FLOAT;
-    const uint32_t bytesPerSample = isFloat ? sizeof(float) : sizeof(int16_t);
-    uint32_t channels = static_cast<uint32_t>(__builtin_popcount(ctx->config.inputCfg.channels));
-    if (channels == 0) channels = 2;
-    const uint32_t samplesCount = frames * 2;
+    const uint32_t inFormat = ctx->config.inputCfg.format;
+    const uint32_t outFormat = ctx->config.outputCfg.format;
+    const uint32_t bytesPerSample = FormatBytesPerSample(inFormat);
+    const uint32_t outBytesPerSample = FormatBytesPerSample(outFormat);
+    uint32_t inChannels = static_cast<uint32_t>(__builtin_popcount(ctx->config.inputCfg.channels));
+    if (inChannels == 0) inChannels = 2;
+    uint32_t outChannels = static_cast<uint32_t>(__builtin_popcount(ctx->config.outputCfg.channels));
+    if (outChannels == 0) outChannels = inChannels;
+    const bool accumulate = (ctx->config.outputCfg.accessMode == EFFECT_BUFFER_ACCESS_ACCUMULATE);
 
-    // The DSP chain is stereo only. Mono, multichannel or disabled: pass the buffer through
-    // untouched, with the real sample size and channel count (the old code assumed 16-bit stereo
-    // and could read or write past the buffer).
-    if (!ctx->enabled || channels != 2) {
-        if (inBuffer->raw != outBuffer->raw) {
-            std::memcpy(outBuffer->raw, inBuffer->raw, frames * channels * bytesPerSample);
+    const bool canProcessStereo = ctx->enabled &&
+                                  inChannels == 2 &&
+                                  outChannels == 2 &&
+                                  inFormat == outFormat &&
+                                  (inFormat == AUDIO_FORMAT_PCM_FLOAT || inFormat == AUDIO_FORMAT_PCM_16_BIT);
+
+    if (!canProcessStereo) {
+        if (inChannels == outChannels && inFormat == outFormat) {
+            const uint32_t totalSamples = frames * inChannels;
+            if (accumulate) {
+                if (inFormat == AUDIO_FORMAT_PCM_FLOAT) {
+                    const float* inF = reinterpret_cast<const float*>(inBuffer->raw);
+                    float* outF = reinterpret_cast<float*>(outBuffer->raw);
+                    for (uint32_t i = 0; i < totalSamples; ++i) {
+                        outF[i] += inF[i];
+                    }
+                } else if (inFormat == AUDIO_FORMAT_PCM_32_BIT || inFormat == AUDIO_FORMAT_PCM_8_24_BIT) {
+                    const int32_t* in32 = reinterpret_cast<const int32_t*>(inBuffer->raw);
+                    int32_t* out32 = reinterpret_cast<int32_t*>(outBuffer->raw);
+                    for (uint32_t i = 0; i < totalSamples; ++i) {
+                        int64_t sum = static_cast<int64_t>(out32[i]) + static_cast<int64_t>(in32[i]);
+                        if (sum > INT32_MAX) sum = INT32_MAX;
+                        if (sum < INT32_MIN) sum = INT32_MIN;
+                        out32[i] = static_cast<int32_t>(sum);
+                    }
+                } else {
+                    const int16_t* in16 = reinterpret_cast<const int16_t*>(inBuffer->raw);
+                    int16_t* out16 = reinterpret_cast<int16_t*>(outBuffer->raw);
+                    for (uint32_t i = 0; i < totalSamples; ++i) {
+                        int32_t sum = static_cast<int32_t>(out16[i]) + static_cast<int32_t>(in16[i]);
+                        if (sum > INT16_MAX) sum = INT16_MAX;
+                        if (sum < INT16_MIN) sum = INT16_MIN;
+                        out16[i] = static_cast<int16_t>(sum);
+                    }
+                }
+            } else if (inBuffer->raw != outBuffer->raw) {
+                std::memcpy(outBuffer->raw, inBuffer->raw, totalSamples * bytesPerSample);
+            }
+        } else if (inFormat == outFormat && !accumulate) {
+            const uint32_t copyChannels = std::min(inChannels, outChannels);
+            const uint8_t* src = reinterpret_cast<const uint8_t*>(inBuffer->raw);
+            uint8_t* dst = reinterpret_cast<uint8_t*>(outBuffer->raw);
+            if (outChannels > copyChannels) {
+                std::memset(dst, 0, frames * outChannels * outBytesPerSample);
+            }
+            for (uint32_t f = 0; f < frames; ++f) {
+                std::memcpy(
+                    dst + f * outChannels * outBytesPerSample,
+                    src + f * inChannels * bytesPerSample,
+                    copyChannels * bytesPerSample
+                );
+            }
+        } else if (!accumulate) {
+            std::memset(outBuffer->raw, 0, frames * outChannels * outBytesPerSample);
         }
         outBuffer->frameCount = frames;
         return 0;
     }
 
-    if (isFloat) {
-        float* inF = reinterpret_cast<float*>(inBuffer->raw);
+    const uint32_t samplesCount = frames * 2;
+    if (inFormat == AUDIO_FORMAT_PCM_FLOAT) {
+        const float* inF = reinterpret_cast<const float*>(inBuffer->raw);
         float* outF = reinterpret_cast<float*>(outBuffer->raw);
-        if (inF != outF) {
-            std::memcpy(outF, inF, samplesCount * sizeof(float));
+        if (accumulate) {
+            if (ctx->floatScratch.size() < samplesCount) {
+                ctx->floatScratch.resize(samplesCount);
+            }
+            std::memcpy(ctx->floatScratch.data(), inF, samplesCount * sizeof(float));
+            ctx->engine->ProcessStereoFloat(ctx->floatScratch.data(), frames);
+            for (uint32_t i = 0; i < samplesCount; ++i) {
+                outF[i] += ctx->floatScratch[i];
+            }
+        } else {
+            if (inF != outF) {
+                std::memcpy(outF, inF, samplesCount * sizeof(float));
+            }
+            ctx->engine->ProcessStereoFloat(outF, frames);
         }
-        ctx->engine->ProcessStereoFloat(outF, frames);
     } else {
         if (ctx->floatScratch.size() < samplesCount) {
             ctx->floatScratch.resize(samplesCount);
@@ -338,6 +444,9 @@ int32_t ViperEffect_Process(effect_handle_t self, audio_buffer_t* inBuffer, audi
         ctx->engine->ProcessStereoFloat(ctx->floatScratch.data(), frames);
         for (uint32_t i = 0; i < samplesCount; ++i) {
             float v = ctx->floatScratch[i] * 32768.0f;
+            if (accumulate) {
+                v += static_cast<float>(out16[i]);
+            }
             if (v > 32767.0f) v = 32767.0f;
             if (v < -32768.0f) v = -32768.0f;
             out16[i] = static_cast<int16_t>(v);
@@ -364,8 +473,34 @@ int32_t ViperEffect_Command(effect_handle_t self, uint32_t cmdCode, uint32_t cmd
 
         case EFFECT_CMD_SET_CONFIG: {
             if (!pCmdData || cmdSize != sizeof(effect_config_t)) return -EINVAL;
-            std::memcpy(&ctx->config, pCmdData, sizeof(effect_config_t));
-            ctx->engine->SetSamplingRate(ctx->config.inputCfg.samplingRate);
+            const auto* newCfg = reinterpret_cast<const effect_config_t*>(pCmdData);
+            if (newCfg->inputCfg.mask & EFFECT_CONFIG_SMP_RATE) {
+                ctx->config.inputCfg.samplingRate = newCfg->inputCfg.samplingRate;
+            }
+            if (newCfg->inputCfg.mask & EFFECT_CONFIG_CHANNELS) {
+                ctx->config.inputCfg.channels = newCfg->inputCfg.channels;
+            }
+            if (newCfg->inputCfg.mask & EFFECT_CONFIG_FORMAT) {
+                ctx->config.inputCfg.format = newCfg->inputCfg.format;
+            }
+            if (newCfg->inputCfg.mask & EFFECT_CONFIG_ACC_MODE) {
+                ctx->config.inputCfg.accessMode = newCfg->inputCfg.accessMode;
+            }
+            if (newCfg->outputCfg.mask & EFFECT_CONFIG_SMP_RATE) {
+                ctx->config.outputCfg.samplingRate = newCfg->outputCfg.samplingRate;
+            }
+            if (newCfg->outputCfg.mask & EFFECT_CONFIG_CHANNELS) {
+                ctx->config.outputCfg.channels = newCfg->outputCfg.channels;
+            }
+            if (newCfg->outputCfg.mask & EFFECT_CONFIG_FORMAT) {
+                ctx->config.outputCfg.format = newCfg->outputCfg.format;
+            }
+            if (newCfg->outputCfg.mask & EFFECT_CONFIG_ACC_MODE) {
+                ctx->config.outputCfg.accessMode = newCfg->outputCfg.accessMode;
+            }
+            uint32_t sr = ctx->config.inputCfg.samplingRate;
+            if (sr == 0) sr = 48000;
+            ctx->engine->SetSamplingRate(sr);
             if (pReplyData && replySize && *replySize >= sizeof(int)) {
                 *reinterpret_cast<int*>(pReplyData) = 0;
             }
@@ -424,6 +559,12 @@ int32_t ViperEffect_Command(effect_handle_t self, uint32_t cmdCode, uint32_t cmd
         case EFFECT_CMD_SET_VOLUME:
         case EFFECT_CMD_SET_AUDIO_MODE:
         case EFFECT_CMD_SET_INPUT_DEVICE:
+            return 0;
+
+        case EFFECT_CMD_OFFLOAD:
+            if (pReplyData && replySize && *replySize >= sizeof(int)) {
+                *reinterpret_cast<int*>(pReplyData) = 0;
+            }
             return 0;
 
         default:

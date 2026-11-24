@@ -50,6 +50,10 @@ internal object ViperEffectModel {
     const val CLARITY_XHIFI = 2
 
     // Command IDs shared with ViperDspEngine (dolby/viper/viper_dsp_engine.cpp) and vendor libv4a_re.so
+    const val PARAM_SURROUND_ENABLE    = 0x10011
+    const val PARAM_SURROUND_WIDENING  = 0x10012
+    const val PARAM_SURROUND_MID_IMAGE = 0x10013
+    const val PARAM_SURROUND_DEPTH     = 0x10014
     const val PARAM_DYNAMIC_ENABLE   = 0x10021
     const val PARAM_DYNAMIC_X_COEFFS = 0x10022
     const val PARAM_DYNAMIC_Y_COEFFS = 0x10023
@@ -68,11 +72,13 @@ internal object ViperEffectModel {
     // Not every libv4a_re.so build knows these. A rejected one must not make the whole push fail,
     // otherwise the effect is dropped and recreated on every apply and bass/clarity never stick.
     private val OPTIONAL_COMMANDS = setOf(
+        PARAM_SURROUND_ENABLE, PARAM_SURROUND_WIDENING, PARAM_SURROUND_MID_IMAGE, PARAM_SURROUND_DEPTH,
         PARAM_SPEAKER_ENABLE, PARAM_SPEAKER_STRENGTH,
         PARAM_DYNAMIC_X_COEFFS, PARAM_DYNAMIC_Y_COEFFS, PARAM_DYNAMIC_SIDEGAIN,
     )
 
     enum class EffectType(val displayName: String, val cppImplementation: String) {
+        COLORFUL_MUSIC("3D Stereo", "dolby/viper/effects/ColorfulMusic.cpp"),
         VIPER_BASS("ViPER Bass", "dolby/viper/effects/ViPERBass.cpp"),
         VIPER_CLARITY("ViPER Clarity", "dolby/viper/effects/ViPERClarity.cpp"),
         DYNAMIC_SYSTEM("Dynamic System", "dolby/viper/effects/DynamicSystem.cpp + utils/DynamicBass.cpp"),
@@ -80,6 +86,9 @@ internal object ViperEffectModel {
     }
 
     data class DspPipelineState(
+        val surroundEnabled: Boolean = false,
+        val surroundWideningPercent: Int = 50,
+        val surroundDepthPercent: Int = 35,
         val bassEnabled: Boolean = false,
         val bassMode: Int = BASS_NATURAL,
         val bassFrequencyHz: Int = 60,
@@ -122,10 +131,19 @@ internal object ViperEffectModel {
         settings: ViperController.Settings,
         masterEnabled: Boolean
     ): Boolean {
+        val surroundActive = masterEnabled && settings.surroundOn
         val bassActive = masterEnabled && settings.bassOn
         val clarityActive = masterEnabled && settings.clarityOn
         val dynamicActive = masterEnabled && settings.dynamicOn
         val speakerActive = masterEnabled && settings.speakerCorrectionOn
+
+        val surroundWidening = settings.surroundWidening.coerceIn(0, 100)
+        // Map 0..100% -> 0..500 (0.0f..5.0f in Stereo3DSurround::SetStereoWiden)
+        val surroundWideningScaled = surroundWidening * 5
+        val surroundMidImageScaled = settings.surroundMidImage.coerceIn(0, 200)
+        val surroundDepth = settings.surroundDepth.coerceIn(0, 100)
+        // Map 0..100% -> 0..1000 (DepthSurround::SetStrength)
+        val surroundDepthScaled = surroundDepth * 10
 
         val bassMode = settings.bassMode.coerceIn(0, 2)
         val bassFreq = settings.bassFrequency.coerceIn(15, 150)
@@ -142,6 +160,9 @@ internal object ViperEffectModel {
         val speakerStrength = settings.speakerStrength.coerceIn(0, 100)
 
         _pipelineState.value = DspPipelineState(
+            surroundEnabled = surroundActive,
+            surroundWideningPercent = surroundWidening,
+            surroundDepthPercent = surroundDepth,
             bassEnabled = bassActive,
             bassMode = bassMode,
             bassFrequencyHz = bassFreq,
@@ -158,17 +179,17 @@ internal object ViperEffectModel {
 
         data class DspCmd(val id: Int, val v1: Int, val v2: Int = 0)
 
-        // Note: Prebuilt vendor libv4a_re.so hardcodes 44/80/380Hz inside Subwoofer mode (mode 2) and ignores
-        // PARAM_BASS_FREQUENCY unless mode is 0 (Natural) or 1 (Pure Bass+). When Subwoofer mode is chosen,
-        // dispatch mode 1 (Pure Bass+) + boosted gain to vendor libv4a_re.so so the Bass frequency (Hz) slider
-        // immediately shifts the sub-bass cutoff frequency in real time!
-        val vendorBassMode = if (bassMode == BASS_SUBWOOFER) BASS_PURE else bassMode
-        val vendorBassGain = if (bassMode == BASS_SUBWOOFER) (bassFactorScaled * 1.35).roundToInt() else bassFactorScaled
+        val vendorBassMode = bassMode
+        val vendorBassGain = bassFactorScaled
 
         // Full parameter set matching ViPER::DispatchCommand in vendor libv4a_re.so & viper_dsp_engine.cpp.
         // Send mode/gain/coefficients first, enable each block, then re-send gain/strength so vendor
         // libv4a_re.so initializes filter states on the very first activation without needing a 2nd toggle.
         val commands = listOf(
+            DspCmd(PARAM_SURROUND_WIDENING, surroundWideningScaled),
+            DspCmd(PARAM_SURROUND_MID_IMAGE, surroundMidImageScaled),
+            DspCmd(PARAM_SURROUND_DEPTH, surroundDepthScaled),
+            DspCmd(PARAM_SURROUND_ENABLE, if (surroundActive) 1 else 0),
             DspCmd(PARAM_BASS_MODE, vendorBassMode),
             DspCmd(PARAM_BASS_FREQUENCY, bassFreq),
             DspCmd(PARAM_BASS_GAIN, vendorBassGain),
@@ -357,14 +378,18 @@ internal object ViperEffectModel {
                 }
             }
             else -> {
-                val g = factor * 2.5
-                val peakLow = peak(20.0 * log10(g), 44.0, 0.75)
-                val peakHigh = peak(20.0 * log10(g / 8.0), 80.0, 0.2)
-                val lp = lowPass(380.0, 0.6)
+                val clampedCutoff = cutoffHz.coerceIn(15.0, 150.0)
+                val peakGainDb = (level / 100.0) * 12.0
+                val upperGainDb = peakGainDb * 0.35
+                val upperFreq = (clampedCutoff * 1.6).coerceAtMost(FS * 0.45)
+                val lpCutoff = (clampedCutoff * 2.2).coerceAtLeast(90.0)
+                val peakLow = peak(peakGainDb, clampedCutoff, 0.8)
+                val peakHigh = peak(upperGainDb, upperFreq, 0.6)
+                val lp = lowPass(lpCutoff, 0.707)
                 DoubleArray(freqs.size) {
                     val f = freqs[it].toDouble()
                     val chain = peakLow.at(f) * peakHigh.at(f)
-                    val out = Cx(0.5, 0.0) + lp.at(f) * (chain - Cx(1.0, 0.0)) * 0.6
+                    val out = Cx(1.0, 0.0) + lp.at(f) * (chain - Cx(1.0, 0.0)) * 0.6
                     toDb(out.abs())
                 }
             }

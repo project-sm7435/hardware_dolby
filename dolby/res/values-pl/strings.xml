@@ -51,8 +51,6 @@
     <string name="dolby_viper_clarity_summary_natural">Naturalny: delikatne harmoniczne wyostrzenie wysokich częstotliwości dla czystych detali</string>
     <string name="dolby_viper_clarity_summary_ozone">OZone+: jasne, przestrzenne podbicie wysokich tonów z rozszerzonym górnym połyskiem harmonicznym</string>
     <string name="dolby_viper_clarity_summary_xhifi">XHiFi: przywraca skompresowane przejściowe sygnały wysokich tonów i studyjną wyrazistość</string>
-    <string name="dolby_dsee">Sony DSEE HX</string>
-    <string name="dolby_dsee_summary">Sony Digital Sound Enhancement Engine: podnosi jakość skompresowanego dźwięku do poziomu zbliżonego do Hi-Res</string>
     <string name="dolby_viper_bass">Bas ViPER</string>
     <string name="dolby_viper_bass_mode">Tryb basu</string>
     <string name="dolby_viper_bass_frequency">Częstotliwość basu</string>
@@ -246,4 +244,10 @@
     <string name="dolby_autoeq_search">Szukaj</string>
     <string name="dolby_autoeq_active">Aktywny profil</string>
     <string name="dolby_autoeq_selected">Wybrany profil</string>
+
+    <!-- ViPER 3D Stereo -->
+    <string name="dolby_viper_surround">Stereo 3D</string>
+    <string name="dolby_viper_surround_summary">Poszerza scenę stereo i głębię przestrzenną na słuchawkach oraz głośnikach</string>
+    <string name="dolby_viper_surround_widening">Poszerzenie stereo</string>
+    <string name="dolby_viper_surround_depth">Głębia przestrzenna</string>
 </resources>

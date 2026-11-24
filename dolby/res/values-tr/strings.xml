@@ -51,8 +51,6 @@
     <string name="dolby_viper_clarity_summary_natural">Doğal: temiz detay için yumuşak yüksek frekans harmonik keskinleştirme</string>
     <string name="dolby_viper_clarity_summary_ozone">OZone+: genişletilmiş üst harmonik parıltıyla parlak ve ferah tiz artışı</string>
     <string name="dolby_viper_clarity_summary_xhifi">XHiFi: sıkıştırılmış yüksek frekans geçişlerini ve stüdyo kalitesinde netliği geri kazandırır</string>
-    <string name="dolby_dsee">Sony DSEE HX</string>
-    <string name="dolby_dsee_summary">Sony Digital Sound Enhancement Engine: sıkıştırılmış sesi Hi-Res\'e yakın kaliteye yükseltir</string>
     <string name="dolby_viper_bass">ViPER bas</string>
     <string name="dolby_viper_bass_mode">Bas modu</string>
     <string name="dolby_viper_bass_frequency">Bas frekansı</string>
@@ -246,4 +244,10 @@
     <string name="dolby_autoeq_search">Ara</string>
     <string name="dolby_autoeq_active">Etkin profil</string>
     <string name="dolby_autoeq_selected">Seçili profil</string>
+
+    <!-- ViPER 3D Stereo -->
+    <string name="dolby_viper_surround">3D Stereo</string>
+    <string name="dolby_viper_surround_summary">Kulaklık ve hoparlörlerde stereo ses sahnesi genişliğini ve uzamsal derinliği artırır</string>
+    <string name="dolby_viper_surround_widening">Stereo genişletme</string>
+    <string name="dolby_viper_surround_depth">Çevresel derinlik</string>
 </resources>

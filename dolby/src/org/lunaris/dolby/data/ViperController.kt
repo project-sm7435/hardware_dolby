@@ -25,16 +25,45 @@ class ViperController private constructor() {
         val dynamicStrength: Int,
         val speakerCorrectionOn: Boolean = false,
         val speakerStrength: Int = 0,
+        val surroundOn: Boolean = false,
+        val surroundWidening: Int = 50,
+        val surroundMidImage: Int = 100,
+        val surroundDepth: Int = 35,
     ) {
-        val anyOn: Boolean get() = bassOn || clarityOn || dynamicOn || speakerCorrectionOn
+        val anyOn: Boolean
+            get() = bassOn || clarityOn || dynamicOn || speakerCorrectionOn || surroundOn
     }
 
     private var effect: ViperAudioEffect? = null
     private val sessionEffects = LinkedHashMap<Int, ViperAudioEffect>()
     private var lastSettings: Settings? = null
     private var lastMaster: Boolean = false
+    @Volatile
+    private var restrictedPlayback: Boolean = false
     private var nextTryAtMs = 0L
     private var everCreated = false
+
+    @Synchronized
+    fun setRestrictedPlayback(restricted: Boolean) {
+        if (restrictedPlayback == restricted) return
+        restrictedPlayback = restricted
+        val settings = lastSettings
+        if (restricted) {
+            if (settings != null) {
+                ViperEffectModel.applyToDspEngine(effect, settings, masterEnabled = false)
+            }
+            if (effect != null) {
+                try {
+                    effect?.setEnabled(false)
+                } catch (_: Exception) {
+                }
+                drop()
+            }
+            releaseAllSessionEffects()
+        } else if (settings != null) {
+            apply(settings, lastMaster, forceRebind = false)
+        }
+    }
 
     /**
      * True when the ViPER effect exists on this ROM. Once it was created successfully a later
@@ -46,7 +75,7 @@ class ViperController private constructor() {
         if (everCreated) return true
         if (obtain() == null) return false
         // Only a probe: do not keep an idle effect around when nothing needs it.
-        if (!(lastMaster && lastSettings?.anyOn == true)) drop()
+        if (!(lastMaster && !restrictedPlayback && lastSettings?.anyOn == true)) drop()
         return true
     }
 
@@ -54,8 +83,10 @@ class ViperController private constructor() {
     fun apply(settings: Settings, master: Boolean, forceRebind: Boolean = false): Boolean {
         lastSettings = settings
         lastMaster = master
+        val effectiveMaster = master && !restrictedPlayback
 
-        if (!(master && settings.anyOn)) {
+        // Full teardown only when Dolby Master is OFF or restricted (Dolby Vision / Movie / Multichannel) playback.
+        if (!effectiveMaster) {
             ViperEffectModel.applyToDspEngine(effect, settings, masterEnabled = false)
             if (effect != null) {
                 try {
@@ -66,6 +97,39 @@ class ViperController private constructor() {
                 drop()
             }
             releaseAllSessionEffects()
+            return true
+        }
+
+        // DSP bypass when effectiveMaster is ON but all ViPER toggles are OFF (e.g. Dynamic profile):
+        // disable without dropping/releasing handles so AudioFlinger keeps them pinned across profile switches.
+        if (!settings.anyOn) {
+            ViperEffectModel.applyToDspEngine(effect, settings, masterEnabled = false)
+            if (effect != null && effect?.isReady() == true) {
+                try {
+                    effect?.setEnabled(false)
+                } catch (ex: Exception) {
+                    DolbyConstants.dlog(TAG, "ViPER bypass disable failed: ${ex.message}")
+                }
+            }
+            val iter = sessionEffects.entries.iterator()
+            while (iter.hasNext()) {
+                val (_, se) = iter.next()
+                try {
+                    if (se.isReady()) {
+                        ViperEffectModel.applyToDspEngine(se, settings, masterEnabled = false)
+                        se.setEnabled(false)
+                    } else {
+                        se.release()
+                        iter.remove()
+                    }
+                } catch (_: Exception) {
+                    try {
+                        se.release()
+                    } catch (_: Exception) {
+                    }
+                    iter.remove()
+                }
+            }
             return true
         }
 
@@ -80,7 +144,7 @@ class ViperController private constructor() {
                 val e = obtain()
                 if (e != null) {
                     val ok = try {
-                        pushToEffect(e, settings, master, prime = wasCreated)
+                        pushToEffect(e, settings, master = true, prime = wasCreated)
                     } catch (ex: Exception) {
                         DolbyConstants.dlog(TAG, "ViPER push failed: ${ex.message}")
                         false
@@ -105,7 +169,7 @@ class ViperController private constructor() {
                         se.setEnabled(false)
                         se.setEnabled(true)
                     }
-                    pushToEffect(se, settings, master, prime = false)
+                    pushToEffect(se, settings, master = true, prime = false)
                 }
             } catch (_: Exception) {
                 false
@@ -125,12 +189,19 @@ class ViperController private constructor() {
     @Synchronized
     fun syncActiveSessions(activeSessionIds: Set<Int>) {
         val settings = lastSettings
-        val active = lastMaster && settings != null && settings.anyOn
+        val effectiveMaster = lastMaster && !restrictedPlayback
+
+        if (!effectiveMaster || settings == null) {
+            releaseAllSessionEffects()
+            return
+        }
+
+        val active = settings.anyOn
 
         val iter = sessionEffects.entries.iterator()
         while (iter.hasNext()) {
             val (sid, se) = iter.next()
-            if (sid !in activeSessionIds || !active) {
+            if (sid !in activeSessionIds) {
                 try {
                     se.setEnabled(false)
                     se.release()
@@ -140,12 +211,25 @@ class ViperController private constructor() {
             }
         }
 
-        if (!active || settings == null) return
-
         for (sid in activeSessionIds) {
             if (sid <= 0) continue
             val existing = sessionEffects[sid]
-            if (existing != null && existing.isReady()) continue
+            if (existing != null && existing.isReady()) {
+                if (!active) {
+                    try {
+                        ViperEffectModel.applyToDspEngine(existing, settings, masterEnabled = false)
+                        existing.setEnabled(false)
+                    } catch (_: Exception) {
+                    }
+                    continue
+                }
+                val reEnabledOk = try {
+                    pushToEffect(existing, settings, master = true, prime = false)
+                } catch (_: Exception) {
+                    false
+                }
+                if (reEnabledOk) continue
+            }
             if (existing != null) {
                 try {
                     existing.release()
@@ -153,6 +237,7 @@ class ViperController private constructor() {
                 }
                 sessionEffects.remove(sid)
             }
+            if (!active) continue
             var se: ViperAudioEffect? = null
             try {
                 se = ViperAudioEffect(EFFECT_PRIORITY, sid)

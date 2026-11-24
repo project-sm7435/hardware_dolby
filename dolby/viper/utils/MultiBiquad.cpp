@@ -2,6 +2,10 @@
 #include <cmath>
 
 MultiBiquad::MultiBiquad() {
+    Reset();
+}
+
+void MultiBiquad::Reset() {
     this->a1 = 0.0;
     this->a2 = 0.0;
     this->b0 = 0.0;
@@ -142,11 +146,6 @@ MultiBiquad::RefreshFilter(FilterType type, float gainAmp, float frequency, uint
             break;
         }
     }
-
-    this->x1 = 0.0;
-    this->x2 = 0.0;
-    this->y1 = 0.0;
-    this->y2 = 0.0;
 
     this->a1 = -(a1 / a0);
     this->a2 = -(a2 / a0);

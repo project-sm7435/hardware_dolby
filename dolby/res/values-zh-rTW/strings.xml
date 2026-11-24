@@ -51,8 +51,6 @@
     <string name="dolby_viper_clarity_summary_natural">自然：柔和的高頻諧波強化，讓細節更乾淨</string>
     <string name="dolby_viper_clarity_summary_ozone">OZone+：明亮通透的高音提升，擴展高頻諧波的閃亮感</string>
     <string name="dolby_viper_clarity_summary_xhifi">XHiFi：還原被壓縮的高頻暫態與錄音室級清晰度</string>
-    <string name="dolby_dsee">Sony DSEE HX</string>
-    <string name="dolby_dsee_summary">Sony Digital Sound Enhancement Engine：將壓縮音訊升級至接近 Hi-Res 的品質</string>
     <string name="dolby_viper_bass">ViPER 低音</string>
     <string name="dolby_viper_bass_mode">低音模式</string>
     <string name="dolby_viper_bass_frequency">低音頻率</string>
@@ -246,4 +244,10 @@
     <string name="dolby_autoeq_search">搜尋</string>
     <string name="dolby_autoeq_active">使用中的設定檔</string>
     <string name="dolby_autoeq_selected">已選取的設定檔</string>
+
+    <!-- ViPER 3D Stereo -->
+    <string name="dolby_viper_surround">3D 立體聲</string>
+    <string name="dolby_viper_surround_summary">擴展耳機與揚聲器的立體聲場寬度與空間深度</string>
+    <string name="dolby_viper_surround_widening">立體聲加寬</string>
+    <string name="dolby_viper_surround_depth">環繞深度</string>
 </resources>

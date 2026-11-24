@@ -30,6 +30,8 @@ void SpeakerCorrection::Process(float *samples, uint32_t size) {
 }
 
 void SpeakerCorrection::Reset() {
+    this->highPass[0].Reset();
+    this->highPass[1].Reset();
     this->lowPass[0].Reset();
     this->lowPass[1].Reset();
     this->bandPass[0].Reset();

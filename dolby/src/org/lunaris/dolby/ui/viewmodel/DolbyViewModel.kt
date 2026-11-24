@@ -143,7 +143,9 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                     bassCutoff = repository.getBassCutoff(profile),
                     speakerCorrection = repository.getSpeakerCorrection(profile),
                     dynamicLevel = repository.getDynamicLevel(profile),
-                    dseeEnabled = repository.getDseeEnabled(profile)
+                    viperSurroundEnabled = repository.getViperSurroundEnabled(profile),
+                    viperSurroundWidening = repository.getViperSurroundWidening(profile),
+                    viperSurroundDepth = repository.getViperSurroundDepth(profile)
                 )
                 
                 // A cancelled load keeps running, so only the newest load may publish its result.
@@ -326,26 +328,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-
-    fun setDseeEnabled(enabled: Boolean) {
-        stateMutationGen++
-        val current = _uiState.value
-        if (current is DolbyUiState.Success) {
-            _uiState.value = current.copy(
-                profileSettings = current.profileSettings.copy(dseeEnabled = enabled)
-            )
-        }
-        submitEffectOp("setDseeEnabled") {
-            try {
-                val profile = repository.getCurrentProfile()
-                repository.setDseeEnabled(profile, enabled)
-                loadSettings()
-            } catch (e: Exception) {
-                DolbyConstants.dlog(TAG, "Error setting DSEE: ${e.message}")
-            }
-        }
-    }
-
     fun setDynamicLevel(level: Int) {
         stateMutationGen++
         val current = _uiState.value
@@ -521,6 +503,65 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                 loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting stereo widening: ${e.message}")
+            }
+        }
+    }
+
+    fun setViperSurroundEnabled(enabled: Boolean) {
+        stateMutationGen++
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(viperSurroundEnabled = enabled)
+            )
+        }
+        submitEffectOp("setViperSurroundEnabled") {
+            try {
+                val profile = repository.getCurrentProfile()
+                repository.setViperSurroundEnabled(profile, enabled)
+                loadSettings()
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting 3D surround: ${e.message}")
+            }
+        }
+    }
+
+    fun setViperSurroundWidening(widening: Int) {
+        stateMutationGen++
+        val clamped = widening.coerceIn(1, 100)
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(viperSurroundWidening = clamped)
+            )
+        }
+        submitEffectOp("setViperSurroundWidening") {
+            try {
+                val profile = repository.getCurrentProfile()
+                repository.setViperSurroundWidening(profile, clamped)
+                loadSettings()
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting 3D surround widening: ${e.message}")
+            }
+        }
+    }
+
+    fun setViperSurroundDepth(depth: Int) {
+        stateMutationGen++
+        val clamped = depth.coerceIn(0, 100)
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(viperSurroundDepth = clamped)
+            )
+        }
+        submitEffectOp("setViperSurroundDepth") {
+            try {
+                val profile = repository.getCurrentProfile()
+                repository.setViperSurroundDepth(profile, clamped)
+                loadSettings()
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting 3D surround depth: ${e.message}")
             }
         }
     }

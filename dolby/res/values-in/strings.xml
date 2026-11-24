@@ -51,8 +51,6 @@
     <string name="dolby_viper_clarity_summary_natural">Natural: penajaman harmonik frekuensi tinggi yang lembut untuk detail yang bersih</string>
     <string name="dolby_viper_clarity_summary_ozone">OZone+: peningkatan treble yang cerah dan lapang dengan kilau harmonik atas yang diperluas</string>
     <string name="dolby_viper_clarity_summary_xhifi">XHiFi: memulihkan transien frekuensi tinggi yang terkompresi dan kejernihan kelas studio</string>
-    <string name="dolby_dsee">Sony DSEE HX</string>
-    <string name="dolby_dsee_summary">Sony Digital Sound Enhancement Engine: meningkatkan audio terkompresi hingga mendekati kualitas Hi-Res</string>
     <string name="dolby_viper_bass">Bass ViPER</string>
     <string name="dolby_viper_bass_mode">Mode bass</string>
     <string name="dolby_viper_bass_frequency">Frekuensi bass</string>
@@ -246,4 +244,10 @@
     <string name="dolby_autoeq_search">Cari</string>
     <string name="dolby_autoeq_active">Profil aktif</string>
     <string name="dolby_autoeq_selected">Profil terpilih</string>
+
+    <!-- ViPER 3D Stereo -->
+    <string name="dolby_viper_surround">Stereo 3D</string>
+    <string name="dolby_viper_surround_summary">Memperluas lebar panggung suara stereo dan kedalaman spasial di headphone dan speaker</string>
+    <string name="dolby_viper_surround_widening">Pelebaran stereo</string>
+    <string name="dolby_viper_surround_depth">Kedalaman surround</string>
 </resources>

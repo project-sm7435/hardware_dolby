@@ -82,7 +82,9 @@ class DeviceStateManager(private val context: Context) {
         editor.putInt(KEY_BASS_CUTOFF, repository.getBassCutoff(profile))
         editor.putInt(KEY_SPEAKER_CORRECTION, repository.getSpeakerCorrection(profile))
         editor.putInt(KEY_DYNAMIC_LEVEL, repository.getDynamicLevel(profile))
-        editor.putBoolean(KEY_DSEE_ENABLED, repository.getDseeEnabled(profile))
+        editor.putBoolean(KEY_VIPER_SURROUND, repository.getViperSurroundEnabled(profile))
+        editor.putInt(KEY_VIPER_SURROUND_WIDENING, repository.getViperSurroundWidening(profile))
+        editor.putInt(KEY_VIPER_SURROUND_DEPTH, repository.getViperSurroundDepth(profile))
 
         val trebleLevel = repository.getTrebleLevel(profile)
         editor.putBoolean(KEY_TREBLE_ENABLED, trebleLevel > 0)
@@ -108,7 +110,11 @@ class DeviceStateManager(private val context: Context) {
             "Snapshot saved for device=$deviceKey profile=$profile bands=${gains.size} v=$SNAPSHOT_VERSION")
     }
 
-    fun restoreSnapshot(deviceKey: String, repository: DolbyRepository): Boolean {
+    fun restoreSnapshot(
+        deviceKey: String,
+        repository: DolbyRepository,
+        restoreEnabled: Boolean = true
+    ): Boolean {
         val prefs = getDevicePrefs(deviceKey)
 
         if (!prefs.contains(KEY_VERSION)) {
@@ -144,7 +150,9 @@ class DeviceStateManager(private val context: Context) {
             repository.setTrebleLevel(profile, prefs.getInt(KEY_TREBLE_LEVEL, 0))
             repository.setDynamicLevel(profile, prefs.getInt(KEY_DYNAMIC_LEVEL, 0))
             repository.setSpeakerCorrection(profile, prefs.getInt(KEY_SPEAKER_CORRECTION, 0))
-            repository.setDseeEnabled(profile, prefs.getBoolean(KEY_DSEE_ENABLED, false))
+            repository.setViperSurroundWidening(profile, prefs.getInt(KEY_VIPER_SURROUND_WIDENING, 50))
+            repository.setViperSurroundDepth(profile, prefs.getInt(KEY_VIPER_SURROUND_DEPTH, 35))
+            repository.setViperSurroundEnabled(profile, prefs.getBoolean(KEY_VIPER_SURROUND, false))
 
             val midLevel = prefs.getInt(KEY_MID_LEVEL, 0)
             val storedBandCount = prefs.getInt(KEY_EQ_BAND_COUNT, -1)
@@ -180,7 +188,9 @@ class DeviceStateManager(private val context: Context) {
                 repository.setStereoWideningAmount(profile, prefs.getInt(KEY_STEREO, 32))
             }
 
-            repository.setDolbyEnabled(enabled)
+            if (restoreEnabled) {
+                repository.setDolbyEnabled(enabled)
+            }
             repository.setCurrentProfile(profile)
             repository.notifyStateUpdated()
 
@@ -222,7 +232,7 @@ class DeviceStateManager(private val context: Context) {
     companion object {
         private const val TAG = "DeviceStateManager"
 
-        // 2: added dynamic_level, dsee_enabled, and band_mode. Older snapshots lack them and are discarded.
+        // 2: added dynamic_level and band_mode. Older snapshots lack them and are discarded.
         const val SNAPSHOT_VERSION = 2
 
         private const val KEY_VERSION = "snapshot_version"
@@ -241,7 +251,9 @@ class DeviceStateManager(private val context: Context) {
         private const val KEY_BASS_CUTOFF = "bass_cutoff"
         private const val KEY_SPEAKER_CORRECTION = "speaker_correction"
         private const val KEY_DYNAMIC_LEVEL = "dynamic_level"
-        private const val KEY_DSEE_ENABLED = "dsee_enabled"
+        private const val KEY_VIPER_SURROUND = "viper_surround"
+        private const val KEY_VIPER_SURROUND_WIDENING = "viper_surround_widening"
+        private const val KEY_VIPER_SURROUND_DEPTH = "viper_surround_depth"
         private const val KEY_TREBLE_ENABLED = "treble_enabled"
         private const val KEY_TREBLE_LEVEL = "treble_level"
         private const val KEY_MID_ENABLED = "mid_enabled"

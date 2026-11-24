@@ -44,6 +44,7 @@ void DynamicBass::FilterSamples(float *samples, uint32_t size) {
 void DynamicBass::Reset() {
     this->filterX.Reset();
     this->filterY.Reset();
+    this->lowPass.Reset();
     this->lowPass.SetLowPassParameter(55.0, this->samplingRate, this->qPeak / 666.0f + 0.5f);
 }
 

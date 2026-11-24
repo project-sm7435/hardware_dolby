@@ -146,7 +146,7 @@ Polyphase::Polyphase(int param_1) : waveBuffer1(2, 0x1000), waveBuffer2(2, 0x100
 }
 
 uint32_t Polyphase::GetLatency() {
-    return 63;
+    return 31;
 }
 
 uint32_t Polyphase::Process(float *samples, uint32_t size) {
