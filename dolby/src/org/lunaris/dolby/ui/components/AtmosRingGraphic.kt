@@ -50,7 +50,6 @@ fun AtmosRingGraphic(
     ringColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
     accentColor: Color = MaterialTheme.colorScheme.primary,
 ) {
-    val transition = rememberInfiniteTransition(label = "atmos_ring")
     var orbit by remember { mutableStateOf(0f) }
     LaunchedEffect(enabled) {
         if (!enabled) return@LaunchedEffect
@@ -61,12 +60,17 @@ fun AtmosRingGraphic(
             last = now
         }
     }
-    val breathe by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing), RepeatMode.Reverse),
-        label = "breathe",
-    )
+    val breathe = if (enabled) {
+        val transition = rememberInfiniteTransition(label = "atmos_ring")
+        transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing), RepeatMode.Reverse),
+            label = "breathe",
+        ).value
+    } else {
+        0f
+    }
 
     // Drag offset of the ring from its resting (centre) position.
     var dragOffset by remember { mutableStateOf(Offset.Zero) }

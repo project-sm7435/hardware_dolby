@@ -51,8 +51,6 @@
     <string name="dolby_viper_clarity_summary_natural">طبیعی: تیزکردن ملایم هارمونیک فرکانس‌های بالا برای جزئیات تمیز</string>
     <string name="dolby_viper_clarity_summary_ozone">OZone+‎: افزایش تربل روشن و باز با درخشش هارمونیک بالاتر گسترده‌تر</string>
     <string name="dolby_viper_clarity_summary_xhifi">XHiFi: گذراهای فشرده‌شده فرکانس بالا و وضوح در سطح استودیو را بازیابی می‌کند</string>
-    <string name="dolby_dsee">Sony DSEE HX</string>
-    <string name="dolby_dsee_summary">Sony Digital Sound Enhancement Engine: صدای فشرده را تا کیفیت نزدیک به Hi-Res ارتقا می‌دهد</string>
     <string name="dolby_viper_bass">بیس ViPER</string>
     <string name="dolby_viper_bass_mode">حالت بیس</string>
     <string name="dolby_viper_bass_frequency">فرکانس بیس</string>
@@ -246,4 +244,10 @@
     <string name="dolby_autoeq_search">جستجو</string>
     <string name="dolby_autoeq_active">پروفایل فعال</string>
     <string name="dolby_autoeq_selected">پروفایل انتخاب شده</string>
+
+    <!-- ViPER 3D Stereo -->
+    <string name="dolby_viper_surround">استریو سه‌بعدی</string>
+    <string name="dolby_viper_surround_summary">عرض صحنه استریو و عمق فضایی را در هدفون و بلندگوها گسترش می‌دهد</string>
+    <string name="dolby_viper_surround_widening">گسترش استریو</string>
+    <string name="dolby_viper_surround_depth">عمق فراگیر</string>
 </resources>

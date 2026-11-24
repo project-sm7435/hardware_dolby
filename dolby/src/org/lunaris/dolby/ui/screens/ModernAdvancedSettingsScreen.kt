@@ -118,7 +118,6 @@ private fun ModernAdvancedSettingsContent(
     var clarityExpanded by rememberSaveable { mutableStateOf(false) }
     var midExpanded by rememberSaveable { mutableStateOf(false) }
     var speakerExpanded by rememberSaveable { mutableStateOf(false) }
-    var dseeExpanded by rememberSaveable { mutableStateOf(false) }
     var levelerExpanded by rememberSaveable { mutableStateOf(false) }
     var virtualizerExpanded by rememberSaveable { mutableStateOf(false) }
     var dialogueExpanded by rememberSaveable { mutableStateOf(false) }
@@ -193,10 +192,11 @@ private fun ModernAdvancedSettingsContent(
                                     valueText = { "${it}Hz" },
                                     onValueChange = { viewModel.setBassCutoff(it) },
                                     valueRange = 15f..150f,
+                                    enabled = bassOn,
                                 )
                                 ViperSliderRow(
                                     title = stringResource(R.string.dolby_viper_bass_gain),
-                                    value = if (bassOn) state.profileSettings.bassLevel else 0,
+                                    value = if (bassOn) state.profileSettings.bassLevel else 1,
                                     valueText = { if (bassOn) "$it%" else "Off" },
                                     onValueChange = { viewModel.setBassLevel(it) },
                                     valueRange = 1f..100f,
@@ -226,7 +226,7 @@ private fun ModernAdvancedSettingsContent(
                                 ViperInfoRow(text = stringResource(R.string.dolby_dynamic_system_summary))
                                 ViperSliderRow(
                                     title = stringResource(R.string.dolby_dynamic_bass_strength),
-                                    value = state.profileSettings.dynamicLevel,
+                                    value = if (dynamicOn) state.profileSettings.dynamicLevel else 1,
                                     valueText = { if (dynamicOn) "$it%" else "Off" },
                                     onValueChange = { viewModel.setDynamicLevel(it) },
                                     valueRange = 1f..100f,
@@ -260,7 +260,7 @@ private fun ModernAdvancedSettingsContent(
                                 ViperInfoRow(text = stringResource(R.string.dolby_mid_enhancer_summary))
                                 ViperSliderRow(
                                     title = stringResource(R.string.dolby_mid_level),
-                                    value = state.profileSettings.midLevel,
+                                    value = if (midOn) state.profileSettings.midLevel else 1,
                                     valueText = { if (midOn) "$it%" else "Off" },
                                     onValueChange = { viewModel.setMidLevel(it) },
                                     valueRange = 1f..100f,
@@ -308,7 +308,7 @@ private fun ModernAdvancedSettingsContent(
                                 )
                                 ViperSliderRow(
                                     title = stringResource(R.string.dolby_viper_clarity_gain),
-                                    value = state.profileSettings.trebleLevel,
+                                    value = if (clarityOn) state.profileSettings.trebleLevel else 1,
                                     valueText = { if (clarityOn) "$it%" else "Off" },
                                     onValueChange = { viewModel.setTrebleLevel(it) },
                                     valueRange = 1f..100f,
@@ -341,29 +341,13 @@ private fun ModernAdvancedSettingsContent(
                                 ViperInfoRow(text = stringResource(R.string.dolby_speaker_correction_summary))
                                 ViperSliderRow(
                                     title = stringResource(R.string.dolby_speaker_correction_strength),
-                                    value = state.profileSettings.speakerCorrection,
+                                    value = if (speakerOn) state.profileSettings.speakerCorrection else 1,
                                     valueText = { if (speakerOn) "$it%" else "Off" },
                                     onValueChange = { viewModel.setSpeakerCorrection(it) },
                                     valueRange = 1f..100f,
                                     enabled = speakerOn,
                                 )
                             }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ViperExpandableRow(
-                            title = stringResource(R.string.dolby_dsee),
-                            checked = state.profileSettings.dseeEnabled,
-                            onCheckedChange = { viewModel.setDseeEnabled(it) },
-                            expanded = dseeExpanded,
-                            onExpandedChange = { dseeExpanded = it },
-                            icon = Icons.Default.HighQuality
-                        )
-
-                        AnimatedVisibility(visible = dseeExpanded) {
-                            ViperInfoRow(text = stringResource(R.string.dolby_dsee_summary))
                         }
                     }
                 }
@@ -391,56 +375,48 @@ private fun ModernAdvancedSettingsContent(
                 }
             }
             
-            if (state.settings.currentProfile != 0) {
-                item {
-                    ModernSettingsCard(
-                        title = "3D sound",
-                        icon = Icons.Default.Headphones
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (state.isOnSpeaker) {
-                                ViperExpandableRow(
-                                    title = stringResource(R.string.dolby_spk_virtualizer),
-                                    checked = state.profileSettings.speakerVirtualizerEnabled,
-                                    onCheckedChange = { viewModel.setSpeakerVirtualizer(it) },
-                                    expanded = virtualizerExpanded,
-                                    onExpandedChange = { virtualizerExpanded = it },
-                                    icon = Icons.Default.Speaker
-                                )
+            item {
+                ModernSettingsCard(
+                    title = "3D sound",
+                    icon = Icons.Default.Headphones
+                ) {
+                    val surroundOn = state.profileSettings.viperSurroundEnabled
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ViperExpandableRow(
+                            title = stringResource(R.string.dolby_viper_surround),
+                            checked = surroundOn,
+                            onCheckedChange = { viewModel.setViperSurroundEnabled(it) },
+                            expanded = virtualizerExpanded,
+                            onExpandedChange = { virtualizerExpanded = it },
+                            icon = Icons.Default.Headphones
+                        )
 
-                                AnimatedVisibility(visible = virtualizerExpanded) {
-                                    ViperInfoRow(text = stringResource(R.string.dolby_spk_virtualizer_summary))
-                                }
-                            } else {
-                                val hpOn = state.profileSettings.headphoneVirtualizerEnabled
-                                ViperExpandableRow(
-                                    title = stringResource(R.string.dolby_hp_virtualizer),
-                                    checked = hpOn,
-                                    onCheckedChange = { viewModel.setHeadphoneVirtualizer(it) },
-                                    expanded = virtualizerExpanded,
-                                    onExpandedChange = { virtualizerExpanded = it },
-                                    icon = Icons.Default.Headphones
+                        AnimatedVisibility(visible = virtualizerExpanded) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ViperInfoRow(text = stringResource(R.string.dolby_viper_surround_summary))
+                                ViperSliderRow(
+                                    title = stringResource(R.string.dolby_viper_surround_widening),
+                                    value = if (surroundOn) state.profileSettings.viperSurroundWidening else 1,
+                                    valueText = { if (surroundOn) "$it%" else "Off" },
+                                    onValueChange = { viewModel.setViperSurroundWidening(it) },
+                                    valueRange = 1f..100f,
+                                    enabled = surroundOn,
                                 )
-
-                                AnimatedVisibility(visible = virtualizerExpanded) {
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        ViperInfoRow(text = stringResource(R.string.dolby_hp_virtualizer_summary))
-                                        ViperSliderRow(
-                                            title = stringResource(R.string.dolby_hp_virtualizer_dolby_strength),
-                                            value = state.profileSettings.stereoWideningAmount,
-                                            valueText = { if (hpOn) "$it" else "Off" },
-                                            onValueChange = { viewModel.setStereoWidening(it) },
-                                            valueRange = 4f..64f,
-                                            steps = 59,
-                                            enabled = hpOn,
-                                        )
-                                    }
-                                }
+                                ViperSliderRow(
+                                    title = stringResource(R.string.dolby_viper_surround_depth),
+                                    value = if (surroundOn) state.profileSettings.viperSurroundDepth else 0,
+                                    valueText = { if (surroundOn) "$it%" else "Off" },
+                                    onValueChange = { viewModel.setViperSurroundDepth(it) },
+                                    valueRange = 0f..100f,
+                                    enabled = surroundOn,
+                                )
                             }
                         }
                     }
                 }
-                
+            }
+
+            if (state.settings.currentProfile != 0) {
                 item {
                     ModernSettingsCard(
                         title = "Dialogue Enhancement",
@@ -462,7 +438,7 @@ private fun ModernAdvancedSettingsContent(
                                     ViperInfoRow(text = stringResource(R.string.dolby_dialogue_enhancer_summary))
                                     ViperSliderRow(
                                         title = stringResource(R.string.dolby_dialogue_enhancer_dolby_strength),
-                                        value = state.profileSettings.dialogueEnhancerAmount,
+                                        value = if (dialogueOn) state.profileSettings.dialogueEnhancerAmount else 1,
                                         valueText = { if (dialogueOn) "$it" else "Off" },
                                         onValueChange = { viewModel.setDialogueEnhancerAmount(it) },
                                         valueRange = 1f..12f,

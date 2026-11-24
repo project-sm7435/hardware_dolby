@@ -104,7 +104,7 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
                     _currentAppliedAutoEqId.value = prefs.getString("last_applied_id", "") ?: ""
                 } else {
                     _currentAppliedAutoEqId.value = ""
-                    prefs.edit().putString("last_applied_id", "").commit()
+                    prefs.edit().putString("last_applied_id", "").apply()
                 }
                 
                 val currentPreset = allPresets.find { it.name == currentPresetName }
@@ -158,7 +158,7 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
                 val profile = autoEqRepository.getProfile(entry.id)
 
                 if (profile != null) {
-                    prefs.edit().putString("last_applied_id", entry.id).commit()
+                    prefs.edit().putString("last_applied_id", entry.id).apply()
                     _currentAppliedAutoEqId.value = entry.id
 
                     applyAutoEqProfile(profile.name, profile.graphicEq)

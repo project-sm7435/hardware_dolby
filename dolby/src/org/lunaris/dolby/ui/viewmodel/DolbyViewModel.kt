@@ -41,7 +41,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
 
     // Reloads the card when the master switch is flipped somewhere else (the QS tile).
     private val enabledListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if ((key == DolbyConstants.PREF_ENABLE || key == "device_state_revision") && !isCleared) loadSettings()
+        if ((key == DolbyConstants.PREF_ENABLE || key == "device_snapshot_restored") && !isCleared) loadSettings()
     }
 
     init {
@@ -82,7 +82,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     private fun observeSpeakerState() {
         speakerStateJob?.cancel()
         speakerStateJob = viewModelScope.launch {
-            repository.isOnSpeaker.collect { 
+            repository.isOnSpeaker.drop(1).collect { 
                 if (!isCleared) {
                     DolbyConstants.dlog(TAG, "Speaker state changed: $it")
                     loadSettings()
@@ -94,7 +94,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     private fun observeProfileChanges() {
         profileChangeJob?.cancel()
         profileChangeJob = viewModelScope.launch {
-            repository.currentProfile.collect {
+            repository.currentProfile.drop(1).collect {
                 if (!isCleared) {
                     DolbyConstants.dlog(TAG, "Profile changed to: $it")
                     loadSettings()
@@ -143,7 +143,9 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                     bassCutoff = repository.getBassCutoff(profile),
                     speakerCorrection = repository.getSpeakerCorrection(profile),
                     dynamicLevel = repository.getDynamicLevel(profile),
-                    dseeEnabled = repository.getDseeEnabled(profile)
+                    viperSurroundEnabled = repository.getViperSurroundEnabled(profile),
+                    viperSurroundWidening = repository.getViperSurroundWidening(profile),
+                    viperSurroundDepth = repository.getViperSurroundDepth(profile)
                 )
                 
                 // A cancelled load keeps running, so only the newest load may publish its result.
@@ -212,7 +214,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setBassEnhancerEnabled(profile, enabled)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting bass enhancer: ${e.message}")
             }
@@ -239,7 +240,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                     repository.setBassCurve(profile, 0)
                 }
                 repository.setBassLevel(profile, clamped)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error enabling ViPER bass: ${e.message}")
             }
@@ -258,7 +258,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setBassLevel(profile, level)
-                loadSettings()
             } catch (e: IllegalArgumentException) {
                 DolbyConstants.dlog(TAG, "Invalid bass level: ${e.message}")
                 loadSettings() // a failed change reloads the real state instead of blanking the screen
@@ -281,7 +280,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setBassCurve(profile, curve)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting bass curve: ${e.message}")
             }
@@ -300,7 +298,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setBassCutoff(profile, hz)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting bass cutoff: ${e.message}")
             }
@@ -319,29 +316,8 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setSpeakerCorrection(profile, level)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting speaker correction: ${e.message}")
-            }
-        }
-    }
-
-
-    fun setDseeEnabled(enabled: Boolean) {
-        stateMutationGen++
-        val current = _uiState.value
-        if (current is DolbyUiState.Success) {
-            _uiState.value = current.copy(
-                profileSettings = current.profileSettings.copy(dseeEnabled = enabled)
-            )
-        }
-        submitEffectOp("setDseeEnabled") {
-            try {
-                val profile = repository.getCurrentProfile()
-                repository.setDseeEnabled(profile, enabled)
-                loadSettings()
-            } catch (e: Exception) {
-                DolbyConstants.dlog(TAG, "Error setting DSEE: ${e.message}")
             }
         }
     }
@@ -358,7 +334,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setDynamicLevel(profile, level)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting dynamic system: ${e.message}")
             }
@@ -377,7 +352,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setClarityMode(profile, mode)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting clarity mode: ${e.message}")
             }
@@ -396,7 +370,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setMidLevel(profile, level)
-                loadSettings()
             } catch (e: IllegalArgumentException) {
                 DolbyConstants.dlog(TAG, "Invalid mid level: ${e.message}")
                 loadSettings() // a failed change reloads the real state instead of blanking the screen
@@ -419,7 +392,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setTrebleLevel(profile, level)
-                loadSettings()
             } catch (e: IllegalArgumentException) {
                 DolbyConstants.dlog(TAG, "Invalid treble level: ${e.message}")
                 loadSettings() // a failed change reloads the real state instead of blanking the screen
@@ -442,7 +414,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setVolumeLevelerEnabled(profile, enabled)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting volume leveler: ${e.message}")
             }
@@ -461,7 +432,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setIeqPreset(profile, preset)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting IEQ preset: ${e.message}")
             }
@@ -480,7 +450,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setHeadphoneVirtualizerEnabled(profile, enabled)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting headphone virtualizer: ${e.message}")
             }
@@ -499,7 +468,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setSpeakerVirtualizerEnabled(profile, enabled)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting speaker virtualizer: ${e.message}")
             }
@@ -518,9 +486,64 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setStereoWideningAmount(profile, amount)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting stereo widening: ${e.message}")
+            }
+        }
+    }
+
+    fun setViperSurroundEnabled(enabled: Boolean) {
+        stateMutationGen++
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(viperSurroundEnabled = enabled)
+            )
+        }
+        submitEffectOp("setViperSurroundEnabled") {
+            try {
+                val profile = repository.getCurrentProfile()
+                repository.setViperSurroundEnabled(profile, enabled)
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting 3D surround: ${e.message}")
+            }
+        }
+    }
+
+    fun setViperSurroundWidening(widening: Int) {
+        stateMutationGen++
+        val clamped = widening.coerceIn(1, 100)
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(viperSurroundWidening = clamped)
+            )
+        }
+        submitEffectOp("setViperSurroundWidening") {
+            try {
+                val profile = repository.getCurrentProfile()
+                repository.setViperSurroundWidening(profile, clamped)
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting 3D surround widening: ${e.message}")
+            }
+        }
+    }
+
+    fun setViperSurroundDepth(depth: Int) {
+        stateMutationGen++
+        val clamped = depth.coerceIn(0, 100)
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                profileSettings = current.profileSettings.copy(viperSurroundDepth = clamped)
+            )
+        }
+        submitEffectOp("setViperSurroundDepth") {
+            try {
+                val profile = repository.getCurrentProfile()
+                repository.setViperSurroundDepth(profile, clamped)
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting 3D surround depth: ${e.message}")
             }
         }
     }
@@ -537,7 +560,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setDialogueEnhancerEnabled(profile, enabled)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting dialogue enhancer: ${e.message}")
             }
@@ -556,7 +578,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val profile = repository.getCurrentProfile()
                 repository.setDialogueEnhancerAmount(profile, amount)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting dialogue enhancer amount: ${e.message}")
             }

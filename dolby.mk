@@ -136,9 +136,7 @@ PRODUCT_PACKAGES += \
     libdlbvol \
     libhwdap \
     libswgamedap \
-    libswvqe \
-    libdsee \
-    libv4a_re
+    libswvqe
 
 # Dolby vision Proprietary blobs
 PRODUCT_COPY_FILES += \

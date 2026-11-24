@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.lunaris.dolby.utils.HapticFeedbackHelper
 import org.lunaris.dolby.utils.rememberHapticFeedback
+import kotlin.math.roundToInt
 
 /**
  * ViperFX style rows for the advanced settings: a plain switch row, a row that opens a radio
@@ -76,10 +77,9 @@ fun ViperSwitchRow(
                 .toggleable(
                     value = checked,
                     role = Role.Switch,
-                    onValueChange = {
-                        val next = !latestChecked
+                    onValueChange = { newChecked ->
                         scope.launch { haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.CLICK) }
-                        onCheckedChange(next)
+                        onCheckedChange(newChecked)
                     },
                 )
                 .padding(horizontal = 16.dp, vertical = 20.dp),
@@ -199,10 +199,9 @@ fun ViperExpandableRow(
             }
             Switch(
                 checked = checked,
-                onCheckedChange = {
-                    val next = !latestChecked
+                onCheckedChange = { newChecked ->
                     scope.launch { haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.CLICK) }
-                    onCheckedChange(next)
+                    onCheckedChange(newChecked)
                 },
                 modifier = Modifier.padding(end = 16.dp),
                 thumbContent = {
@@ -343,8 +342,15 @@ fun ViperSliderRow(
     val scope = rememberCoroutineScope()
     // While dragging, follow the finger instead of waiting for the saved value to come back.
     var dragValue by remember { mutableStateOf<Float?>(null) }
-    var lastHaptic by remember { mutableIntStateOf(value) }
-    val shown = dragValue?.toInt() ?: value
+    var lastSent by remember { mutableIntStateOf(value) }
+    LaunchedEffect(enabled) {
+        if (!enabled) dragValue = null
+    }
+    LaunchedEffect(value) {
+        if (dragValue == null) lastSent = value
+    }
+    val activeDrag = if (enabled) dragValue else null
+    val shown = (activeDrag?.roundToInt() ?: value)
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -363,18 +369,22 @@ fun ViperSliderRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Slider(
-                value = dragValue ?: value.toFloat(),
+                value = (activeDrag ?: value.toFloat()).coerceIn(valueRange.start, valueRange.endInclusive),
                 onValueChange = { newValue ->
                     dragValue = newValue
-                    val intValue = newValue.toInt()
-                    if (intValue != lastHaptic) {
+                    val intValue = newValue.roundToInt()
+                    if (intValue != lastSent) {
                         scope.launch { haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.TEXTURE_TICK) }
-                        lastHaptic = intValue
+                        lastSent = intValue
                         onValueChange(intValue)
                     }
                 },
                 onValueChangeFinished = {
-                    dragValue?.let { onValueChange(it.toInt()) }
+                    dragValue?.let {
+                        val finalInt = it.roundToInt()
+                        lastSent = finalInt
+                        onValueChange(finalInt)
+                    }
                     dragValue = null
                 },
                 valueRange = valueRange,

@@ -46,7 +46,9 @@ data class ProfileSettings(
     val bassCutoff: Int = 60,
     val speakerCorrection: Int = 0,
     val dynamicLevel: Int = 0,
-    val dseeEnabled: Boolean = false
+    val viperSurroundEnabled: Boolean = false,
+    val viperSurroundWidening: Int = 50,
+    val viperSurroundDepth: Int = 35
 )
 
 data class EqualizerPreset(

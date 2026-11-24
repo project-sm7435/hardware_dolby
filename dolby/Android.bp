@@ -6,61 +6,6 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-cc_library_shared {
-    name: "libdolby_viper_jni",
-    system_ext_specific: true,
-    compile_multilib: "64",
-
-    srcs: [
-        "viper/viper_dsp_engine.cpp",
-        "viper/effects/*.cpp",
-        "viper/utils/*.cpp",
-    ],
-
-    local_include_dirs: [
-        "viper",
-        "viper/effects",
-        "viper/utils",
-    ],
-
-    header_libs: [
-        "jni_headers",
-        "libhardware_headers",
-        "libsystem_headers",
-    ],
-
-    shared_libs: [
-        "liblog",
-    ],
-
-    cflags: [
-        "-O3",
-        "-ffast-math",
-        "-fno-math-errno",
-        "-fno-trapping-math",
-        "-fvectorize",
-        "-fslp-vectorize",
-        "-fvisibility=hidden",
-        "-Wall",
-        "-Wextra",
-        "-Wno-unused-parameter",
-    ],
-
-    cppflags: [
-        "-std=c++17",
-        "-fno-exceptions",
-        "-fno-rtti",
-    ],
-
-    lto: {
-        thin: true,
-    },
-
-    strip: {
-        all: true,
-    },
-}
-
 android_app {
     name: "XiaomiDolby",
 
@@ -87,10 +32,6 @@ android_app {
         "com.google.android.material_material",
         "kotlinx-coroutines-android",
         "kotlinx-coroutines-core",
-    ],
-
-    jni_libs: [
-        "libdolby_viper_jni",
     ],
 
     required: [

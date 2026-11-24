@@ -51,8 +51,6 @@
     <string name="dolby_viper_clarity_summary_natural">Естественный: мягкое гармоническое заострение высоких частот для чистой детализации</string>
     <string name="dolby_viper_clarity_summary_ozone">OZone+: яркий, воздушный подъём высоких частот с расширенным верхним гармоническим блеском</string>
     <string name="dolby_viper_clarity_summary_xhifi">XHiFi: восстанавливает сжатые высокочастотные переходы и студийную чёткость</string>
-    <string name="dolby_dsee">Sony DSEE HX</string>
-    <string name="dolby_dsee_summary">Sony Digital Sound Enhancement Engine: улучшает сжатый звук до качества, близкого к Hi-Res</string>
     <string name="dolby_viper_bass">Бас ViPER</string>
     <string name="dolby_viper_bass_mode">Режим баса</string>
     <string name="dolby_viper_bass_frequency">Частота баса</string>
@@ -246,4 +244,10 @@
     <string name="dolby_autoeq_search">Поиск</string>
     <string name="dolby_autoeq_active">Активный профиль</string>
     <string name="dolby_autoeq_selected">Выбранный профиль</string>
+
+    <!-- ViPER 3D Stereo -->
+    <string name="dolby_viper_surround">3D Стерео</string>
+    <string name="dolby_viper_surround_summary">Расширяет стереосцену и пространственную глубину звучания в наушниках и динамиках</string>
+    <string name="dolby_viper_surround_widening">Расширение стерео</string>
+    <string name="dolby_viper_surround_depth">Глубина объёма</string>
 </resources>

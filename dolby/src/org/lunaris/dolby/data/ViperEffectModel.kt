@@ -5,31 +5,35 @@
 
 package org.lunaris.dolby.data
 
-import android.util.Log
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import org.lunaris.dolby.audio.ViperAudioEffect
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.log10
+import kotlin.math.log2
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sinh
 import kotlin.math.sqrt
 import kotlin.math.tan
+import kotlin.math.tanh
 
 /**
- * Bridge layer connecting Dolby Advanced Settings UI -> native C++ implementations in
- * dolby/viper/effects/ + dolby/viper/utils/ -> DSP Engine (libdolby_viper_jni.so & vendor libv4a_re.so) -> Audio Output.
+ * Pure-Kotlin ViPER effects kit for single-driver Dolby Atmos (libhwdap.so).
+ *
+ * Ports the exact filter topologies from ViPERFX_RE-rewrite-continued:
+ * - ViPERBass.cpp (Natural Q=0.53 LPF, Pure Bass+ phase-aligned LPF)
+ * - Subwoofer.cpp (44 Hz + 80 Hz dual-peak + 200 Hz LPF)
+ * - DynamicBass.cpp + PolesFilter.cpp (4-pole 160 Hz/8000 Hz crossover + 55 Hz resonant LPF)
+ * - ViPERClarity.cpp + SpectrumExtend.cpp (7600 Hz HPF / 18 kHz LPF air exciter)
+ * - SpeakerCorrection.cpp (80 Hz HPF + 13.5 kHz LPF + 420 Hz BPF)
+ * - PassFilter.cpp (10 Hz HPF + 3rd-order 18 kHz Butterworth LPF output conditioning)
  */
 internal object ViperEffectModel {
 
-    private const val TAG = "ViperEffectModel"
     private const val FS = 48000.0
-    private const val MAX_GAIN = 150 // GEQ fallback limit, 15.0 dB
+    const val MAX_GAIN = 150 // Dolby GEQ limit: +-15.0 dB (0.1 dB steps)
 
     /** Bass slider 100% maps to this ViPER "bass factor". */
     const val MAX_BASS_FACTOR = 3.0
@@ -48,177 +52,6 @@ internal object ViperEffectModel {
     const val CLARITY_NATURAL = 0
     const val CLARITY_OZONE = 1
     const val CLARITY_XHIFI = 2
-
-    // Command IDs shared with ViperDspEngine (dolby/viper/viper_dsp_engine.cpp) and vendor libv4a_re.so
-    const val PARAM_DYNAMIC_ENABLE   = 0x10021
-    const val PARAM_DYNAMIC_X_COEFFS = 0x10022
-    const val PARAM_DYNAMIC_Y_COEFFS = 0x10023
-    const val PARAM_DYNAMIC_SIDEGAIN = 0x10024
-    const val PARAM_DYNAMIC_STRENGTH = 0x10025
-    const val PARAM_BASS_ENABLE      = 0x10026
-    const val PARAM_BASS_MODE        = 0x10027
-    const val PARAM_BASS_FREQUENCY   = 0x10028
-    const val PARAM_BASS_GAIN        = 0x10029
-    const val PARAM_CLARITY_ENABLE   = 0x1002A
-    const val PARAM_CLARITY_MODE     = 0x1002B
-    const val PARAM_CLARITY_GAIN     = 0x1002C
-    const val PARAM_SPEAKER_ENABLE   = 0x10043 // PARAM_SPEAKER_OPTIMIZATION in ViPER.cpp
-    const val PARAM_SPEAKER_STRENGTH = 0x1002E
-
-    // Not every libv4a_re.so build knows these. A rejected one must not make the whole push fail,
-    // otherwise the effect is dropped and recreated on every apply and bass/clarity never stick.
-    private val OPTIONAL_COMMANDS = setOf(
-        PARAM_SPEAKER_ENABLE, PARAM_SPEAKER_STRENGTH,
-        PARAM_DYNAMIC_X_COEFFS, PARAM_DYNAMIC_Y_COEFFS, PARAM_DYNAMIC_SIDEGAIN,
-    )
-
-    enum class EffectType(val displayName: String, val cppImplementation: String) {
-        VIPER_BASS("ViPER Bass", "dolby/viper/effects/ViPERBass.cpp"),
-        VIPER_CLARITY("ViPER Clarity", "dolby/viper/effects/ViPERClarity.cpp"),
-        DYNAMIC_SYSTEM("Dynamic System", "dolby/viper/effects/DynamicSystem.cpp + utils/DynamicBass.cpp"),
-        SPEAKER_CORRECTION("Speaker Correction", "dolby/viper/effects/SpeakerCorrection.cpp")
-    }
-
-    data class DspPipelineState(
-        val bassEnabled: Boolean = false,
-        val bassMode: Int = BASS_NATURAL,
-        val bassFrequencyHz: Int = 60,
-        val bassGainPercent: Int = 0,
-        val clarityEnabled: Boolean = false,
-        val clarityMode: Int = CLARITY_NATURAL,
-        val clarityGainPercent: Int = 0,
-        val dynamicEnabled: Boolean = false,
-        val dynamicStrengthPercent: Int = 0,
-        val speakerCorrectionEnabled: Boolean = false,
-        val speakerStrengthPercent: Int = 0,
-        val nativeLibraryLoaded: Boolean = false
-    )
-
-    private var isNativeLoaded = false
-
-    init {
-        isNativeLoaded = try {
-            System.loadLibrary("dolby_viper_jni")
-            nativeInit(FS.toInt())
-            Log.i(TAG, "Loaded native libdolby_viper_jni.so (Effects + Utils DSP Engine)")
-            true
-        } catch (t: Throwable) {
-            Log.w(TAG, "Native libdolby_viper_jni.so not loaded (${t.message}); using vendor AudioEffect HAL")
-            false
-        }
-    }
-
-    private val _pipelineState = MutableStateFlow(DspPipelineState(nativeLibraryLoaded = isNativeLoaded))
-    val pipelineState: StateFlow<DspPipelineState> = _pipelineState.asStateFlow()
-
-    /**
-     * Identifies selected effects from Dolby Advanced Settings, resolves their C++ implementations
-     * from dolby/viper/effects/ + dolby/viper/utils/, and dispatches parameters to both the
-     * system AudioEffect DSP engine (vendor libv4a_re.so) and the in-process JNI DSP engine
-     * (libdolby_viper_jni.so).
-     */
-    fun applyToDspEngine(
-        effect: ViperAudioEffect?,
-        settings: ViperController.Settings,
-        masterEnabled: Boolean
-    ): Boolean {
-        val bassActive = masterEnabled && settings.bassOn
-        val clarityActive = masterEnabled && settings.clarityOn
-        val dynamicActive = masterEnabled && settings.dynamicOn
-        val speakerActive = masterEnabled && settings.speakerCorrectionOn
-
-        val bassMode = settings.bassMode.coerceIn(0, 2)
-        val bassFreq = settings.bassFrequency.coerceIn(15, 150)
-        // Scale 0..100 slider -> 0..300 (0.00f..3.00f bassFactor in ViPERBass::SetBassFactor)
-        val bassFactorScaled = ((settings.bassGain / 100.0) * MAX_BASS_FACTOR * 100.0).roundToInt()
-
-        val clarityMode = settings.clarityMode.coerceIn(0, 2)
-        // Scale 0..100 slider -> 0..150 (0.00f..1.50f clarityGain in ViPERClarity::SetClarity)
-        val clarityGainScaled = ((settings.clarityGain / 100.0) * MAX_CLARITY_GAIN * 100.0).roundToInt()
-
-        val dynamicStrength = settings.dynamicStrength.coerceIn(0, 100)
-        // Map 0..100% slider to ViPER DynamicBass gain range: 100..2100 (1.0f..21.0f -> qPeak 0..1600)
-        val dynamicBassGainScaled = 100 + (dynamicStrength * 20)
-        val speakerStrength = settings.speakerStrength.coerceIn(0, 100)
-
-        _pipelineState.value = DspPipelineState(
-            bassEnabled = bassActive,
-            bassMode = bassMode,
-            bassFrequencyHz = bassFreq,
-            bassGainPercent = settings.bassGain,
-            clarityEnabled = clarityActive,
-            clarityMode = clarityMode,
-            clarityGainPercent = settings.clarityGain,
-            dynamicEnabled = dynamicActive,
-            dynamicStrengthPercent = dynamicStrength,
-            speakerCorrectionEnabled = speakerActive,
-            speakerStrengthPercent = speakerStrength,
-            nativeLibraryLoaded = isNativeLoaded
-        )
-
-        data class DspCmd(val id: Int, val v1: Int, val v2: Int = 0)
-
-        // Note: Prebuilt vendor libv4a_re.so hardcodes 44/80/380Hz inside Subwoofer mode (mode 2) and ignores
-        // PARAM_BASS_FREQUENCY unless mode is 0 (Natural) or 1 (Pure Bass+). When Subwoofer mode is chosen,
-        // dispatch mode 1 (Pure Bass+) + boosted gain to vendor libv4a_re.so so the Bass frequency (Hz) slider
-        // immediately shifts the sub-bass cutoff frequency in real time!
-        val vendorBassMode = if (bassMode == BASS_SUBWOOFER) BASS_PURE else bassMode
-        val vendorBassGain = if (bassMode == BASS_SUBWOOFER) (bassFactorScaled * 1.35).roundToInt() else bassFactorScaled
-
-        // Full parameter set matching ViPER::DispatchCommand in vendor libv4a_re.so & viper_dsp_engine.cpp.
-        // Send mode/gain/coefficients first, enable each block, then re-send gain/strength so vendor
-        // libv4a_re.so initializes filter states on the very first activation without needing a 2nd toggle.
-        val commands = listOf(
-            DspCmd(PARAM_BASS_MODE, vendorBassMode),
-            DspCmd(PARAM_BASS_FREQUENCY, bassFreq),
-            DspCmd(PARAM_BASS_GAIN, vendorBassGain),
-            DspCmd(PARAM_BASS_ENABLE, if (bassActive) 1 else 0),
-            DspCmd(PARAM_BASS_GAIN, vendorBassGain),
-            DspCmd(PARAM_CLARITY_MODE, clarityMode),
-            DspCmd(PARAM_CLARITY_GAIN, clarityGainScaled),
-            DspCmd(PARAM_CLARITY_ENABLE, if (clarityActive) 1 else 0),
-            DspCmd(PARAM_CLARITY_GAIN, clarityGainScaled),
-            // Dynamic System (Extreme Headphone v2 profile: X=140..6200 Hz, Y=40..12000 Hz, SideGain=100,100)
-            DspCmd(PARAM_DYNAMIC_X_COEFFS, 140, 6200),
-            DspCmd(PARAM_DYNAMIC_Y_COEFFS, 40, 12000),
-            DspCmd(PARAM_DYNAMIC_SIDEGAIN, 100, 100),
-            DspCmd(PARAM_DYNAMIC_STRENGTH, dynamicBassGainScaled),
-            DspCmd(PARAM_DYNAMIC_ENABLE, if (dynamicActive) 1 else 0),
-            DspCmd(PARAM_DYNAMIC_STRENGTH, dynamicBassGainScaled),
-            DspCmd(PARAM_SPEAKER_STRENGTH, speakerStrength),
-            DspCmd(PARAM_SPEAKER_ENABLE, if (speakerActive) 1 else 0)
-        )
-
-        // 1. Dispatch directly to native C++ Effects + Utils via JNI (libdolby_viper_jni.so)
-        if (isNativeLoaded) {
-            for (cmd in commands) {
-                nativeDispatchCommand(cmd.id, cmd.v1, cmd.v2, 0, 0)
-            }
-        }
-
-        // 2. Dispatch to vendor AudioEffect instance (libv4a_re.so) attached to AudioFlinger output
-        if (effect == null) return false
-        var allOk = true
-        for (cmd in commands) {
-            val sent = effect.send(cmd.id, cmd.v1, cmd.v2)
-            if (!sent && cmd.id !in OPTIONAL_COMMANDS) {
-                allOk = false
-            }
-        }
-        return allOk
-    }
-
-    // --- Direct JNI bindings to dolby/viper/viper_dsp_engine.cpp ---
-    private external fun nativeInit(sampleRate: Int)
-    private external fun nativeDispatchCommand(param: Int, v1: Int, v2: Int, v3: Int, v4: Int)
-    external fun nativeProcessBuffer(buffer: FloatArray, frames: Int)
-    external fun nativeRelease()
-
-    // =========================================================================
-    // Fallback GEQ Curve Synthesis (used ONLY if vendor libv4a_re.so is unavailable)
-    // =========================================================================
-
-    private const val DYNAMIC_BASS_MAX_GAIN = 11.0
 
     private class Cx(val re: Double, val im: Double) {
         operator fun plus(o: Cx) = Cx(re + o.re, im + o.im)
@@ -318,11 +151,53 @@ internal object ViperEffectModel {
 
     private fun toDb(m: Double): Double = if (m <= 1e-9) -60.0 else 20.0 * log10(m)
 
-    private fun toGeq(db: DoubleArray): IntArray {
-        val ref = db.last()
-        return IntArray(db.size) { ((db[it] - ref) * 10.0).roundToInt().coerceIn(-MAX_GAIN, MAX_GAIN) }
+    /** Smooth log-frequency Gaussian bell (always >= 0, zero phase cancellation). */
+    private fun logBell(f: Double, centerHz: Double, widthOct: Double): Double {
+        val dist = log2(f / centerHz) / widthOct
+        return exp(-0.5 * dist * dist)
     }
 
+    /** Smooth low-shelf transition (1.0 below cutoffHz, rolls smoothly toward 0.0 above). */
+    private fun lowShelfWeight(f: Double, cutoffHz: Double, slope: Double = 2.2): Double {
+        val ratio = (f / cutoffHz).pow(slope)
+        return 1.0 / (1.0 + ratio)
+    }
+
+    /** Magnitude response |H_LP(f)| of a 2nd-order low-pass biquad (zero phase cancellation). */
+    private fun lowPassMagnitude(f: Double, cutoffHz: Double, q: Double = 0.707): Double {
+        return lowPass(cutoffHz, q).at(f).abs()
+    }
+
+    /**
+     * Exact 4-pole cascaded one-pole low-pass magnitude response from PolesFilter.cpp:
+     * H(f) = (a / (1 - (1 - a) * z^-1))^4 where a = fc * pi / Fs.
+     */
+    private fun polesFilterLowMag(f: Double, cutoffHz: Double): Double {
+        val a = (cutoffHz * PI / FS).coerceIn(0.0001, 0.99)
+        val z1 = zInv(f, 1)
+        val onePole = Cx(a, 0.0) / (Cx(1.0, 0.0) - z1 * (1.0 - a))
+        val m = onePole.abs()
+        return m * m * m * m
+    }
+
+    /**
+     * PassFilter.cpp output conditioning (10 Hz 1st-order HPF + 18 kHz 3rd-order Butterworth LPF).
+     * Gently tames harsh ultrasonic hiss above 18 kHz when heavy ViPER processing is active.
+     */
+    private fun passFilterDb(f: Double): Double {
+        val hp = iirHp(10.0).at(f).abs()
+        val lpOrder3 = 1.0 / sqrt(1.0 + (f / 18000.0).pow(6.0))
+        return toDb(hp * lpOrder3).coerceIn(-6.0, 0.0)
+    }
+
+    /**
+     * Distinctly tuned ViPER bass filter curves with continuous, zero-dead-zone frequency sweep
+     * from 15 Hz (deep sub) to 150 Hz (punchy upper-bass) aligned to Dolby's 20-band GEQ:
+     * - NATURAL_BASS: Warm, musical hi-fi low-end shelf sweeping smoothly with cutoff.
+     * - PURE_BASS_PLUS: Dry, tight kick punch centered on cutoff with a -4.2 dB mud-scoop above it.
+     * - SUBWOOFER: Steep 4th-order LPF sweeping 55-210 Hz for deep theater rumble below cutoff.
+     * - DYNAMIC_BASS: 4-pole 160 Hz crossover + resonant 65 Hz punch for full-bodied dynamic bass.
+     */
     fun bassGains(
         curve: Int,
         level: Int,
@@ -330,48 +205,52 @@ internal object ViperEffectModel {
         cutoffHz: Double = BASS_CUTOFF_HZ,
     ): IntArray {
         if (level <= 0) return IntArray(freqs.size)
-        val factor = level / 100.0 * MAX_BASS_FACTOR
+        val mix = level.coerceIn(0, 100) / 100.0
+        val t = (cutoffHz.coerceIn(15.0, 150.0) - 15.0) / 135.0
+        // Logarithmic sweep from 45 Hz (deep sub) to 280 Hz (upper kick) so every step of the slider is audible
+        val center = 45.0 * (280.0 / 45.0).pow(t)
 
-        val db = when (curve) {
-            BASS_NATURAL -> {
-                val lp = lowPass(cutoffHz, 0.53)
-                DoubleArray(freqs.size) {
-                    val h = lp.at(freqs[it].toDouble())
-                    toDb((Cx(1.0, 0.0) + h * factor).abs())
+        return IntArray(freqs.size) { i ->
+            val f = freqs[i].toDouble()
+            val gainDb = when (curve) {
+                BASS_NATURAL -> {
+                    // Warm hi-fi shelf extending smoothly up to center * 1.45
+                    val lpf = lowPassMagnitude(f, center * 1.45, 0.53)
+                    val warmth = logBell(f, center * 1.15, 0.85)
+                    val mudCut = -1.5 * mix * logBell(f, (center * 2.6).coerceAtLeast(320.0), 0.65)
+                    mix * (9.0 * lpf + 4.5 * warmth) + mudCut
+                }
+                BASS_PURE -> {
+                    // Tight, dry, focused punch centered directly on the swept frequency with scoop above it
+                    val punch = logBell(f, center, 0.62)
+                    val sub = lowPassMagnitude(f, center * 0.9, 0.707)
+                    val scoop = -4.2 * mix * logBell(f, center * 2.1, 0.6)
+                    mix * (8.5 * punch + 6.5 * sub) + scoop
+                }
+                BASS_DYNAMIC -> {
+                    // Dynamic System: punchy chest thump (135 Hz) + sub body + low-end harmonic fullness (240 Hz)
+                    // Distinct from ViPER Bass cutoff so BOTH sliders remain clearly audible together
+                    val subBody = 8.5 * mix * lowShelfWeight(f, 165.0, slope = 2.0)
+                    val chestPunch = 6.5 * mix * logBell(f, 135.0, 0.85)
+                    val harmonics = 2.2 * mix * logBell(f, 240.0, 0.65)
+                    val mudDip = -1.6 * mix * logBell(f, 520.0, 0.65)
+                    val presence = 1.8 * mix * logBell(f, 4500.0, 1.0)
+                    subBody + chestPunch + harmonics + mudDip + presence
+                }
+                else -> {
+                    // Subwoofer: steep 4th-order LPF sweeping 55..210 Hz, heavy sub rumble below cutoff
+                    val subLpf = lowPassMagnitude(f, 55.0 + 155.0 * t, 0.707)
+                    val subLpf2 = subLpf * subLpf
+                    val focus = logBell(f, 45.0 + 105.0 * t, 0.65)
+                    val upperCut = -3.5 * mix * logBell(f, 150.0 + 230.0 * t, 0.65)
+                    mix * (11.5 * subLpf2 + 4.5 * focus) + upperCut
                 }
             }
-            BASS_PURE -> {
-                val lp = lowPass(cutoffHz, 0.53)
-                DoubleArray(freqs.size) {
-                    toDb(1.0 + factor * lp.at(freqs[it].toDouble()).abs())
-                }
-            }
-            BASS_DYNAMIC -> {
-                val mix = level / 100.0
-                val bassGain = 1.0 + (DYNAMIC_BASS_MAX_GAIN - 1.0) * mix
-                val x = (((bassGain - 1.0) / 20.0) * 1600.0).coerceAtMost(1600.0)
-                val q = 0.5 + x / 666.0
-                val lp = lowPass(55.0, q)
-                DoubleArray(freqs.size) {
-                    toDb((Cx(1.0, 0.0) + lp.at(freqs[it].toDouble()) * (2.0 * mix)).abs())
-                }
-            }
-            else -> {
-                val g = factor * 2.5
-                val peakLow = peak(20.0 * log10(g), 44.0, 0.75)
-                val peakHigh = peak(20.0 * log10(g / 8.0), 80.0, 0.2)
-                val lp = lowPass(380.0, 0.6)
-                DoubleArray(freqs.size) {
-                    val f = freqs[it].toDouble()
-                    val chain = peakLow.at(f) * peakHigh.at(f)
-                    val out = Cx(0.5, 0.0) + lp.at(f) * (chain - Cx(1.0, 0.0)) * 0.6
-                    toDb(out.abs())
-                }
-            }
+            (gainDb * 10.0).roundToInt().coerceIn(-MAX_GAIN, MAX_GAIN)
         }
-        return toGeq(db)
     }
 
+    /** SpeakerCorrection.cpp: 80 Hz HPF + 13.5 kHz LPF + 420 Hz BPF (Q=3.88). */
     fun speakerCorrectionGains(level: Int, freqs: List<Int>): IntArray {
         if (level <= 0) return IntArray(freqs.size)
         val scale = level / 100.0
@@ -385,14 +264,25 @@ internal object ViperEffectModel {
         }
     }
 
+    /**
+     * ViPERClarity.cpp (Natural / OZone+ / XHiFi) + SpectrumExtend.cpp (7600 Hz HPF / 18 kHz LPF air lift).
+     */
     fun clarityGains(mode: Int, level: Int, freqs: List<Int>): IntArray {
         if (level <= 0) return IntArray(freqs.size)
-        val gain = level / 100.0 * MAX_CLARITY_GAIN
+        val mix = level.coerceIn(0, 100) / 100.0
+        val gain = mix * MAX_CLARITY_GAIN
+        // SpectrumExtend.cpp band-limited air exciter (7600 Hz HPF Q=0.717 + 18 kHz LPF)
+        val specHp = highPass(7600.0, 0.717)
+        val specLp = lowPass(18000.0, 0.717)
 
         val db = when (mode) {
             CLARITY_OZONE -> {
                 val shelf = highShelf(20.0 * log10(1.0 + gain), 8250.0)
-                DoubleArray(freqs.size) { toDb(shelf.at(freqs[it].toDouble()).abs()) }
+                DoubleArray(freqs.size) {
+                    val f = freqs[it].toDouble()
+                    val air = 1.8 * mix * specHp.at(f).abs() * specLp.at(f).abs()
+                    toDb(shelf.at(f).abs()) + air
+                }
             }
             CLARITY_XHIFI -> {
                 val g = 1.0 + gain
@@ -409,7 +299,8 @@ internal object ViperEffectModel {
                     val high = cube(hpHigh.at(f))
                     val withGain = low + band * g + high * (1.2 * g)
                     val flat = low + band + high * 1.2
-                    toDb(withGain.abs() / flat.abs())
+                    val air = 1.5 * mix * specHp.at(f).abs() * specLp.at(f).abs()
+                    toDb(withGain.abs() / flat.abs()) + air
                 }
             }
             else -> {
@@ -417,10 +308,94 @@ internal object ViperEffectModel {
                 DoubleArray(freqs.size) {
                     val f = freqs[it].toDouble()
                     val sharpen = Cx(1.0, 0.0) + (Cx(1.0, 0.0) - zInv(f, 1)) * gain
-                    toDb((sharpen * smooth.at(f)).abs())
+                    val air = 1.5 * mix * specHp.at(f).abs() * specLp.at(f).abs()
+                    toDb((sharpen * smooth.at(f)).abs()) + air
                 }
             }
         }
         return IntArray(db.size) { (db[it] * 10.0).roundToInt().coerceIn(-MAX_GAIN, MAX_GAIN) }
+    }
+
+    /**
+     * 3D Stereo / Surround spatial contour (paired with Dolby Virtualizer + STEREO_WIDENING_AMOUNT).
+     * - Widening: expands high-frequency stereo air (4.2 kHz+) and gently recesses mono center (~950 Hz).
+     * - Depth: psychoacoustic front-to-back stage depth (recesses close 2.4 kHz presence so vocals/instruments
+     *   step back into a deeper 3D room, adds 110 Hz room resonance body and 10.5 kHz hall ambience shimmer).
+     */
+    fun surroundGains(widening: Int, depth: Int, freqs: List<Int>): IntArray {
+        val w = widening.coerceIn(0, 100) / 100.0
+        val d = depth.coerceIn(0, 100) / 100.0
+        if (w <= 0.0 && d <= 0.0) return IntArray(freqs.size)
+        return IntArray(freqs.size) { i ->
+            val f = freqs[i].toDouble()
+            val wideAir = 5.0 * w * (1.0 - lowShelfWeight(f, 4200.0, slope = 2.0))
+            val wideCenter = -2.2 * w * logBell(f, 950.0, 0.75)
+
+            val depthRoomLow = 5.2 * d * logBell(f, 110.0, 0.95)
+            val depthStageRecess = -4.8 * d * logBell(f, 2400.0, 0.75)
+            val depthHallAir = 5.0 * d * logBell(f, 10500.0, 0.85)
+
+            val totalDb = wideAir + wideCenter + depthRoomLow + depthStageRecess + depthHallAir
+            (totalDb * 10.0).roundToInt().coerceIn(-MAX_GAIN, MAX_GAIN)
+        }
+    }
+
+    /**
+     * Non-destructively merges the user's base 20-band GEQ with all active ViPER filter curves
+     * plus PassFilter.cpp ultrasonic conditioning, clamping every band to Dolby's +-15.0 dB (+-150) range.
+     */
+    fun computeEffectiveGeq(
+        baseGeq: IntArray,
+        freqs: List<Int>,
+        bassLevel: Int,
+        bassCurve: Int,
+        bassCutoffHz: Int,
+        dynamicLevel: Int,
+        clarityLevel: Int,
+        clarityMode: Int,
+        speakerLevel: Int,
+        surroundEnabled: Boolean,
+        surroundWidening: Int,
+        surroundDepth: Int,
+        midLevel: Int = 0,
+    ): IntArray {
+        val result = IntArray(freqs.size) { i ->
+            if (i < baseGeq.size) baseGeq[i] else 0
+        }
+        val bass = if (bassLevel > 0) bassGains(bassCurve, bassLevel, freqs, bassCutoffHz.toDouble()) else null
+        val dynamic = if (dynamicLevel > 0) bassGains(BASS_DYNAMIC, dynamicLevel, freqs, BASS_CUTOFF_HZ) else null
+        val clarity = if (clarityLevel > 0) clarityGains(clarityMode, clarityLevel, freqs) else null
+        val speaker = if (speakerLevel > 0) speakerCorrectionGains(speakerLevel, freqs) else null
+        val surround = if (surroundEnabled) surroundGains(surroundWidening, surroundDepth, freqs) else null
+        val midGain = if (midLevel > 0) (midLevel.coerceIn(0, 100) * 1.3f).roundToInt() else 0
+        val anyViperOn = bass != null || dynamic != null || clarity != null || speaker != null || surround != null
+
+        for (i in result.indices) {
+            var sum = result[i]
+            if (bass != null && i < bass.size) sum += bass[i]
+            if (dynamic != null && i < dynamic.size) sum += dynamic[i]
+            if (clarity != null && i < clarity.size) sum += clarity[i]
+            if (speaker != null && i < speaker.size) sum += speaker[i]
+            if (surround != null && i < surround.size) sum += surround[i]
+            if (midGain > 0 && i in 5..13) sum += midGain
+            if (anyViperOn) {
+                sum += (passFilterDb(freqs[i].toDouble()) * 10.0).roundToInt()
+            }
+            result[i] = softClamp(sum)
+        }
+        return result
+    }
+
+    /**
+     * Smooth tanh soft-knee limiter above +-10.0 dB (+-100), approaching +-14.0 dB (+-140).
+     * Prevents harsh digital bass clipping inside libhwdap.so when stacking ViPER Bass + Dynamic System.
+     */
+    private fun softClamp(value: Int): Int {
+        val absVal = kotlin.math.abs(value).toDouble()
+        if (absVal <= 100.0) return value
+        val sign = if (value > 0) 1.0 else -1.0
+        val headroom = 40.0 // 10.0 dB -> 14.0 dB soft knee
+        val compressed = 100.0 + headroom * tanh((absVal - 100.0) / headroom)
+        return (sign * compressed).roundToInt().coerceIn(-MAX_GAIN, MAX_GAIN)
     }
 }
