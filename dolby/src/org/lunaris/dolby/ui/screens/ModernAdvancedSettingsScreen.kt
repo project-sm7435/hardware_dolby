@@ -136,7 +136,7 @@ private fun ModernAdvancedSettingsContent(
                 subtitle = stringResource(R.string.dolby_advanced_summary),
             )
         }
-        if (state.settings.enabled) {
+        if (state.settings.enabled && state.settings.soundEngineMode == org.lunaris.dolby.SoundEngineMode.DOLBY_ATMOS) {
             item {
                 ModernSettingsCard(
                     title = stringResource(R.string.dolby_category_settings),
@@ -471,7 +471,12 @@ private fun ModernAdvancedSettingsContent(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = stringResource(R.string.dolby_adv_settings_footer),
+                            text = stringResource(
+                                if (state.settings.enabled && state.settings.soundEngineMode == org.lunaris.dolby.SoundEngineMode.XIAOMI_SOUND)
+                                    R.string.xiaomi_sound_active_notice
+                                else
+                                    R.string.dolby_adv_settings_footer
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )

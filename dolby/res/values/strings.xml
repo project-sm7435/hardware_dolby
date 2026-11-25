@@ -250,4 +250,21 @@
     <string name="dolby_viper_surround_summary">Expands stereo soundstage width and spatial depth across headphones and speakers</string>
     <string name="dolby_viper_surround_widening">Stereo widening</string>
     <string name="dolby_viper_surround_depth">Surround depth</string>
+
+    <!-- Sound Engine Selector & Xiaomi Sound -->
+    <string name="sound_effects_title">Sound effects</string>
+    <string name="sound_engine_dolby">Dolby Atmos</string>
+    <string name="sound_engine_xiaomi">Xiaomi Sound</string>
+    <string name="xiaomi_sound_on">Xiaomi Sound audio tuning on</string>
+    <string name="xiaomi_sound_off">Xiaomi Sound audio tuning off</string>
+    <string name="xiaomi_sound_settings_title">Xiaomi Sound</string>
+    <string name="xiaomi_sound_scenario">Audio scenario</string>
+    <string name="xiaomi_sound_scenario_smart">Smart</string>
+    <string name="xiaomi_sound_scenario_music">Music</string>
+    <string name="xiaomi_sound_scenario_movie">Movie</string>
+    <string name="xiaomi_sound_3d_surround">3D surround</string>
+    <string name="xiaomi_sound_3d_surround_summary">Expands spatial soundstage using Xiaomi MiSound DSP</string>
+    <string name="xiaomi_sound_surround_level">Surround intensity</string>
+    <string name="xiaomi_sound_vocal_level">Vocal enhancement</string>
+    <string name="xiaomi_sound_active_notice">Xiaomi Sound is currently active. Switch back to Dolby Atmos on the Home tab to use Dolby Equalizer and ViPER DSP effects.</string>
 </resources>

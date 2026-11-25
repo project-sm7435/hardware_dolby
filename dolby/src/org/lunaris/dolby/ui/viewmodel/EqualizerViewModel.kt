@@ -76,7 +76,7 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
     private fun observeProfileChanges() {
         profileChangeJob?.cancel()
         profileChangeJob = viewModelScope.launch {
-            repository.currentProfile.collect {
+            repository.currentProfile.drop(1).collect {
                 if (!isCleared) {
                     DolbyConstants.dlog(TAG, "Profile changed, reloading equalizer")
                     loadEqualizer()

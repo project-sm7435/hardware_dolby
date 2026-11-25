@@ -20,7 +20,7 @@ class DolbyTileService : TileService() {
 
     // Keeps the tile in step with the card in the app while the QS panel is open.
     private val enabledListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == DolbyConstants.PREF_ENABLE) updateTile()
+        if (key == DolbyConstants.PREF_ENABLE || key == DolbyConstants.PREF_SOUND_ENGINE_MODE) updateTile()
     }
 
     override fun onStartListening() {
@@ -57,6 +57,9 @@ class DolbyTileService : TileService() {
     }
 
     private fun getProfileName(): String {
+        if (repository.getSoundEngineMode() == org.lunaris.dolby.SoundEngineMode.XIAOMI_SOUND) {
+            return getString(R.string.sound_engine_xiaomi)
+        }
         val profile = repository.getCurrentProfile()
         val profiles = resources.getStringArray(R.array.dolby_profile_entries)
         val profileValues = resources.getStringArray(R.array.dolby_profile_values)

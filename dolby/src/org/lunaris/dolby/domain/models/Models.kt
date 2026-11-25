@@ -1,9 +1,11 @@
 /*
- * Copyright (C) 2024-2025 Lunaris AOSP
+ * Copyright (C) 2024-2026 Lunaris AOSP
  * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.lunaris.dolby.domain.models
+
+import org.lunaris.dolby.SoundEngineMode
 
 enum class BandMode(val value: String, val displayName: String, val bandCount: Int) {
     TEN_BAND("10", "10 Bands", 10),
@@ -22,8 +24,16 @@ data class DolbyProfile(
     val nameResId: Int
 )
 
+data class MiSoundSettings(
+    val scenario: Int = 0,
+    val surround3dEnabled: Boolean = false,
+    val surroundLevel: Int = 50,
+    val vocalLevel: Int = 0
+)
+
 data class DolbySettings(
     val enabled: Boolean = true,
+    val soundEngineMode: SoundEngineMode = SoundEngineMode.DOLBY_ATMOS,
     val currentProfile: Int = 0,
     val bassEnhancerEnabled: Boolean = false,
     val volumeLevelerEnabled: Boolean = false,
@@ -69,6 +79,7 @@ sealed class DolbyUiState {
     data class Success(
         val settings: DolbySettings,
         val profileSettings: ProfileSettings,
+        val miSoundSettings: MiSoundSettings = MiSoundSettings(),
         val currentPresetName: String,
         val isOnSpeaker: Boolean
     ) : DolbyUiState()

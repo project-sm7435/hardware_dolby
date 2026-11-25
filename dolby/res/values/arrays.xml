@@ -126,4 +126,18 @@
         <item>2</item>
     </string-array>
 
+
+    <!-- Xiaomi Sound Scenarios -->
+    <string-array name="xiaomi_sound_scenario_entries">
+        <item>@string/xiaomi_sound_scenario_smart</item>
+        <item>@string/xiaomi_sound_scenario_music</item>
+        <item>@string/xiaomi_sound_scenario_movie</item>
+    </string-array>
+
+    <string-array name="xiaomi_sound_scenario_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+
 </resources>

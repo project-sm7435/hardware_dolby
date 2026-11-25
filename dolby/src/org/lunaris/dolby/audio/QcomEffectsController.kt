@@ -1,0 +1,295 @@
+/*
+ * Copyright (C) 2024-2026 Lunaris AOSP
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+@file:Suppress("DEPRECATION")
+
+package org.lunaris.dolby.audio
+
+import android.media.audiofx.BassBoost
+import android.media.audiofx.Virtualizer
+import android.os.SystemClock
+import org.lunaris.dolby.DolbyConstants
+
+/**
+ * Manages Qualcomm's native audio_effects.xml proxy effects on global session 0:
+ * - BassBoost proxy (14804144-a5ee-4d24-aa88-0002a5d5c51b -> libqcbassboost.so + offload_bundle)
+ * - Virtualizer proxy (d3467faa-acc7-4d34-acaf-0002a5d5c51b -> libqcvirt.so + offload_bundle)
+ *
+ * Paired with Dolby DAP (libhwdap.so) in DolbyRepository for real QCOM DSP sub-bass weight and
+ * hardware-offload-compatible spatial widening, with automatic deduplication (zero track-skip pop)
+ * and graceful fallback to pure Dolby GEQ if the proxy is unavailable.
+ */
+internal class QcomEffectsController {
+
+    data class ApplyResult(
+        val bassActive: Boolean,
+        val appliedBassStrength: Int,
+        val virtActive: Boolean,
+        val appliedVirtStrength: Int,
+    )
+
+    private var bassBoost: BassBoost? = null
+    private var virtualizer: Virtualizer? = null
+
+    private var lastBassEnabled: Boolean? = null
+    private var lastBassStrength: Int? = null
+    private var lastVirtEnabled: Boolean? = null
+    private var lastVirtStrength: Int? = null
+
+    private var nextBassRetryMs = 0L
+    private var nextVirtRetryMs = 0L
+
+    @Synchronized
+    fun invalidateCache() {
+        lastBassEnabled = null
+        lastBassStrength = null
+        lastVirtEnabled = null
+        lastVirtStrength = null
+    }
+
+    @Synchronized
+    fun apply(bassStrength: Int, virtStrength: Int, force: Boolean = false): ApplyResult {
+        val targetBass = bassStrength.coerceIn(0, 1000)
+        val targetVirt = virtStrength.coerceIn(0, 1000)
+
+        val appliedBass = applyBassBoost(targetBass, force)
+        val appliedVirt = applyVirtualizer(targetVirt, force)
+
+        return ApplyResult(
+            bassActive = appliedBass > 0,
+            appliedBassStrength = appliedBass,
+            virtActive = appliedVirt > 0,
+            appliedVirtStrength = appliedVirt,
+        )
+    }
+
+    @Synchronized
+    fun disableAll(releaseHandles: Boolean = false) {
+        try {
+            bassBoost?.let { bb ->
+                if (lastBassEnabled != false || releaseHandles) {
+                    try {
+                        bb.enabled = false
+                    } catch (_: Throwable) {
+                    }
+                }
+                if (releaseHandles) {
+                    try {
+                        bb.release()
+                    } catch (_: Throwable) {
+                    }
+                    bassBoost = null
+                }
+            }
+        } catch (_: Throwable) {
+            if (releaseHandles) bassBoost = null
+        }
+
+        try {
+            virtualizer?.let { virt ->
+                if (lastVirtEnabled != false || releaseHandles) {
+                    try {
+                        virt.enabled = false
+                    } catch (_: Throwable) {
+                    }
+                }
+                if (releaseHandles) {
+                    try {
+                        virt.release()
+                    } catch (_: Throwable) {
+                    }
+                    virtualizer = null
+                }
+            }
+        } catch (_: Throwable) {
+            if (releaseHandles) virtualizer = null
+        }
+
+        if (releaseHandles) {
+            invalidateCache()
+        } else {
+            lastBassEnabled = false
+            lastBassStrength = 0
+            lastVirtEnabled = false
+            lastVirtStrength = 0
+        }
+    }
+
+    private fun applyBassBoost(strength: Int, force: Boolean): Int {
+        if (strength <= 0) {
+            bassBoost?.let { bb ->
+                if (force || lastBassEnabled != false) {
+                    try {
+                        if (bb.hasControl()) {
+                            bb.setStrength(0)
+                            bb.enabled = false
+                        } else {
+                            dropBassBoost()
+                        }
+                    } catch (_: Throwable) {
+                        dropBassBoost()
+                    }
+                }
+            }
+            lastBassEnabled = false
+            lastBassStrength = 0
+            return 0
+        }
+
+        if (!force && lastBassEnabled == true && lastBassStrength == strength && isBassReady()) {
+            return strength
+        }
+
+        val bb = obtainBassBoost() ?: return 0
+        return try {
+            if (force || lastBassStrength != strength) {
+                bb.setStrength(strength.toShort())
+            }
+            if (force || lastBassEnabled != true || !bb.enabled) {
+                bb.enabled = true
+            }
+            lastBassEnabled = true
+            lastBassStrength = strength
+            strength
+        } catch (t: Throwable) {
+            DolbyConstants.dlog(TAG, "QCOM BassBoost apply failed: ${t.message}")
+            dropBassBoost()
+            0
+        }
+    }
+
+    private fun applyVirtualizer(strength: Int, force: Boolean): Int {
+        if (strength <= 0) {
+            virtualizer?.let { virt ->
+                if (force || lastVirtEnabled != false) {
+                    try {
+                        if (virt.hasControl()) {
+                            virt.setStrength(0)
+                            virt.enabled = false
+                        } else {
+                            dropVirtualizer()
+                        }
+                    } catch (_: Throwable) {
+                        dropVirtualizer()
+                    }
+                }
+            }
+            lastVirtEnabled = false
+            lastVirtStrength = 0
+            return 0
+        }
+
+        if (!force && lastVirtEnabled == true && lastVirtStrength == strength && isVirtReady()) {
+            return strength
+        }
+
+        val virt = obtainVirtualizer() ?: return 0
+        return try {
+            if (force || lastVirtStrength != strength) {
+                virt.setStrength(strength.toShort())
+            }
+            if (force || lastVirtEnabled != true || !virt.enabled) {
+                virt.enabled = true
+            }
+            lastVirtEnabled = true
+            lastVirtStrength = strength
+            strength
+        } catch (t: Throwable) {
+            DolbyConstants.dlog(TAG, "QCOM Virtualizer apply failed: ${t.message}")
+            dropVirtualizer()
+            0
+        }
+    }
+
+    private fun isBassReady(): Boolean = try {
+        bassBoost?.hasControl() == true
+    } catch (_: Throwable) {
+        false
+    }
+
+    private fun isVirtReady(): Boolean = try {
+        virtualizer?.hasControl() == true
+    } catch (_: Throwable) {
+        false
+    }
+
+    private fun obtainBassBoost(): BassBoost? {
+        bassBoost?.let { existing ->
+            if (isBassReady()) return existing
+            dropBassBoost()
+        }
+        val now = SystemClock.elapsedRealtime()
+        if (now < nextBassRetryMs) return null
+        return try {
+            val created = BassBoost(EFFECT_PRIORITY, 0)
+            if (!created.strengthSupported) {
+                created.release()
+                nextBassRetryMs = now + RETRY_BACKOFF_MS
+                null
+            } else {
+                bassBoost = created
+                lastBassEnabled = null
+                lastBassStrength = null
+                created
+            }
+        } catch (t: Throwable) {
+            DolbyConstants.dlog(TAG, "Failed to create QCOM BassBoost: ${t.message}")
+            nextBassRetryMs = now + RETRY_BACKOFF_MS
+            null
+        }
+    }
+
+    private fun obtainVirtualizer(): Virtualizer? {
+        virtualizer?.let { existing ->
+            if (isVirtReady()) return existing
+            dropVirtualizer()
+        }
+        val now = SystemClock.elapsedRealtime()
+        if (now < nextVirtRetryMs) return null
+        return try {
+            val created = Virtualizer(EFFECT_PRIORITY, 0)
+            if (!created.strengthSupported) {
+                created.release()
+                nextVirtRetryMs = now + RETRY_BACKOFF_MS
+                null
+            } else {
+                virtualizer = created
+                lastVirtEnabled = null
+                lastVirtStrength = null
+                created
+            }
+        } catch (t: Throwable) {
+            DolbyConstants.dlog(TAG, "Failed to create QCOM Virtualizer: ${t.message}")
+            nextVirtRetryMs = now + RETRY_BACKOFF_MS
+            null
+        }
+    }
+
+    private fun dropBassBoost() {
+        try {
+            bassBoost?.release()
+        } catch (_: Throwable) {
+        }
+        bassBoost = null
+        lastBassEnabled = null
+        lastBassStrength = null
+    }
+
+    private fun dropVirtualizer() {
+        try {
+            virtualizer?.release()
+        } catch (_: Throwable) {
+        }
+        virtualizer = null
+        lastVirtEnabled = null
+        lastVirtStrength = null
+    }
+
+    companion object {
+        private const val TAG = "QcomEffects"
+        private const val EFFECT_PRIORITY = 100
+        private const val RETRY_BACKOFF_MS = 2_000L
+    }
+}

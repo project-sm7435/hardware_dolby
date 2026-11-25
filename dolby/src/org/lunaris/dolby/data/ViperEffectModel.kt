@@ -344,6 +344,44 @@ internal object ViperEffectModel {
      * Non-destructively merges the user's base 20-band GEQ with all active ViPER filter curves
      * plus PassFilter.cpp ultrasonic conditioning, clamping every band to Dolby's +-15.0 dB (+-150) range.
      */
+    /**
+     * Maps ViPER Bass (mode + gain) and Dynamic System strength into a single shared QCOM
+     * BassBoost proxy strength (0..1000) using smooth screen blending so both sliders remain
+     * responsive across 1-100% even when stacked.
+     */
+    fun computeQcomBassStrength(bassLevel: Int, bassCurve: Int, dynamicLevel: Int): Int {
+        val bLvl = bassLevel.coerceIn(0, 100)
+        val dLvl = dynamicLevel.coerceIn(0, 100)
+        val bassContrib = if (bLvl > 0) {
+            val scale = when (bassCurve) {
+                BASS_NATURAL -> 5.0   // 0..500 warm QCOM low-end assist
+                BASS_PURE -> 6.0      // 0..600 tight punchy QCOM assist
+                else -> 9.5           // 0..950 heavy Subwoofer theater rumble
+            }
+            (bLvl * scale) / 1000.0
+        } else {
+            0.0
+        }
+        val dynContrib = if (dLvl > 0) (dLvl * 7.5) / 1000.0 else 0.0
+        if (bassContrib <= 0.0 && dynContrib <= 0.0) return 0
+        val blended = 1.0 - (1.0 - bassContrib.coerceIn(0.0, 1.0)) * (1.0 - dynContrib.coerceIn(0.0, 1.0))
+        return (blended * 1000.0).roundToInt().coerceIn(0, 1000)
+    }
+
+    /**
+     * Maps 3D Stereo (widening + depth) into QCOM Virtualizer proxy strength (0..1000).
+     */
+    fun computeQcomVirtualizerStrength(
+        surroundEnabled: Boolean,
+        surroundWidening: Int,
+        surroundDepth: Int,
+    ): Int {
+        if (!surroundEnabled) return 0
+        val w = surroundWidening.coerceIn(0, 100)
+        val d = surroundDepth.coerceIn(0, 100)
+        return (100 + (w * 550 / 100) + (d * 350 / 100)).coerceIn(0, 1000)
+    }
+
     fun computeEffectiveGeq(
         baseGeq: IntArray,
         freqs: List<Int>,
@@ -358,6 +396,8 @@ internal object ViperEffectModel {
         surroundWidening: Int,
         surroundDepth: Int,
         midLevel: Int = 0,
+        qcomBassStrength: Int = 0,
+        qcomVirtActive: Boolean = false,
     ): IntArray {
         val result = IntArray(freqs.size) { i ->
             if (i < baseGeq.size) baseGeq[i] else 0
@@ -370,13 +410,30 @@ internal object ViperEffectModel {
         val midGain = if (midLevel > 0) (midLevel.coerceIn(0, 100) * 1.3f).roundToInt() else 0
         val anyViperOn = bass != null || dynamic != null || clarity != null || speaker != null || surround != null
 
+        // When QCOM libqcbassboost.so is active, trim redundant 47/141 Hz sub-bass GEQ boost
+        // so QCOM DSP sub-bass + Dolby GEQ shaping stack cleanly with zero clipping distortion.
+        val qBassNorm = qcomBassStrength.coerceIn(0, 1000) / 1000.0
+        val surroundScale = if (qcomVirtActive) 0.85 else 1.0
+
         for (i in result.indices) {
-            var sum = result[i]
-            if (bass != null && i < bass.size) sum += bass[i]
-            if (dynamic != null && i < dynamic.size) sum += dynamic[i]
+            val baseVal = result[i]
+            var bassDelta = 0
+            if (bass != null && i < bass.size) bassDelta += bass[i]
+            if (dynamic != null && i < dynamic.size) bassDelta += dynamic[i]
+
+            if (qBassNorm > 0.0 && bassDelta > 0) {
+                val trim = when (i) {
+                    0 -> (55.0 * qBassNorm).roundToInt() // 47 Hz: trim up to -5.5 dB
+                    1 -> (20.0 * qBassNorm).roundToInt() // 141 Hz: trim up to -2.0 dB
+                    else -> 0
+                }
+                bassDelta = (bassDelta - trim).coerceAtLeast(0)
+            }
+
+            var sum = baseVal + bassDelta
             if (clarity != null && i < clarity.size) sum += clarity[i]
             if (speaker != null && i < speaker.size) sum += speaker[i]
-            if (surround != null && i < surround.size) sum += surround[i]
+            if (surround != null && i < surround.size) sum += (surround[i] * surroundScale).roundToInt()
             if (midGain > 0 && i in 5..13) sum += midGain
             if (anyViperOn) {
                 sum += (passFilterDb(freqs[i].toDouble()) * 10.0).roundToInt()

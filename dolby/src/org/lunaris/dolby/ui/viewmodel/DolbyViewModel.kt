@@ -10,6 +10,7 @@ import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import org.lunaris.dolby.DolbyConstants
+import org.lunaris.dolby.SoundEngineMode
 import org.lunaris.dolby.data.DolbyRepository
 import org.lunaris.dolby.domain.models.*
 import org.lunaris.dolby.service.DolbyEffectService
@@ -41,7 +42,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
 
     // Reloads the card when the master switch is flipped somewhere else (the QS tile).
     private val enabledListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if ((key == DolbyConstants.PREF_ENABLE || key == "device_snapshot_restored") && !isCleared) loadSettings()
+        if ((key == DolbyConstants.PREF_ENABLE || key == DolbyConstants.PREF_SOUND_ENGINE_MODE || key == "device_snapshot_restored") && !isCleared) loadSettings()
     }
 
     init {
@@ -116,15 +117,24 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 repository.ensureLiveState()
                 val enabled = repository.getSavedDolbyEnabled()
+                val soundEngineMode = repository.getSoundEngineMode()
                 val profile = repository.getCurrentProfile()
                 val bandMode = repository.getBandMode()
                 
                 val settings = DolbySettings(
                     enabled = enabled,
+                    soundEngineMode = soundEngineMode,
                     currentProfile = profile,
                     bassEnhancerEnabled = repository.getBassEnhancerEnabled(profile),
                     volumeLevelerEnabled = repository.getVolumeLevelerEnabled(profile),
                     bandMode = bandMode
+                )
+
+                val miSoundSettings = MiSoundSettings(
+                    scenario = repository.getMiSoundScenario(),
+                    surround3dEnabled = repository.getMiSound3dSurround(),
+                    surroundLevel = repository.getMiSoundSurroundLevel(),
+                    vocalLevel = repository.getMiSoundVocalLevel()
                 )
                 
                 val profileSettings = ProfileSettings(
@@ -153,6 +163,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = DolbyUiState.Success(
                         settings = settings,
                         profileSettings = profileSettings,
+                        miSoundSettings = miSoundSettings,
                         currentPresetName = repository.getPresetName(profile),
                         isOnSpeaker = repository.isOnSpeaker.value
                     )
@@ -162,6 +173,92 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                     DolbyConstants.dlog(TAG, "Error loading settings: ${e.message}")
                     _uiState.value = DolbyUiState.Error(e.message ?: "Unknown error")
                 }
+            }
+        }
+    }
+
+    fun setSoundEngineMode(mode: SoundEngineMode) {
+        stateMutationGen++
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                settings = current.settings.copy(soundEngineMode = mode)
+            )
+        }
+        submitEffectOp("setSoundEngineMode") {
+            try {
+                repository.setSoundEngineMode(mode)
+                loadSettings()
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting sound engine mode: ${e.message}")
+            }
+        }
+    }
+
+    fun setMiSoundScenario(scenario: Int) {
+        stateMutationGen++
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                miSoundSettings = current.miSoundSettings.copy(scenario = scenario)
+            )
+        }
+        submitEffectOp("setMiSoundScenario") {
+            try {
+                repository.setMiSoundScenario(scenario)
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting MiSound scenario: ${e.message}")
+            }
+        }
+    }
+
+    fun setMiSound3dSurround(enabled: Boolean) {
+        stateMutationGen++
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                miSoundSettings = current.miSoundSettings.copy(surround3dEnabled = enabled)
+            )
+        }
+        submitEffectOp("setMiSound3dSurround") {
+            try {
+                repository.setMiSound3dSurround(enabled)
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting MiSound 3D surround: ${e.message}")
+            }
+        }
+    }
+
+    fun setMiSoundSurroundLevel(level: Int) {
+        stateMutationGen++
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                miSoundSettings = current.miSoundSettings.copy(surroundLevel = level.coerceIn(0, 100))
+            )
+        }
+        submitEffectOp("setMiSoundSurroundLevel") {
+            try {
+                repository.setMiSoundSurroundLevel(level)
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting MiSound surround level: ${e.message}")
+            }
+        }
+    }
+
+    fun setMiSoundVocalLevel(level: Int) {
+        stateMutationGen++
+        val current = _uiState.value
+        if (current is DolbyUiState.Success) {
+            _uiState.value = current.copy(
+                miSoundSettings = current.miSoundSettings.copy(vocalLevel = level.coerceIn(0, 100))
+            )
+        }
+        submitEffectOp("setMiSoundVocalLevel") {
+            try {
+                repository.setMiSoundVocalLevel(level)
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting MiSound vocal level: ${e.message}")
             }
         }
     }

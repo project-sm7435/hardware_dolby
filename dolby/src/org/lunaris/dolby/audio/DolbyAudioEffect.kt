@@ -14,7 +14,11 @@ class DolbyAudioEffect(priority: Int, audioSession: Int) : AudioEffect(
     EFFECT_TYPE_NULL, EFFECT_TYPE_DAP, priority, audioSession
 ) {
     var dsOn: Boolean
-        get() = getIntParam(EFFECT_PARAM_ENABLE) == 1 && getEnabled()
+        get() = try {
+            getIntParam(EFFECT_PARAM_ENABLE) == 1 && getEnabled()
+        } catch (_: Throwable) {
+            false
+        }
         set(value) {
             setIntParam(EFFECT_PARAM_ENABLE, if (value) 1 else 0)
             val status = setEnabled(value)
@@ -24,7 +28,11 @@ class DolbyAudioEffect(priority: Int, audioSession: Int) : AudioEffect(
         }
 
     var profile: Int
-        get() = getIntParam(EFFECT_PARAM_PROFILE)
+        get() = try {
+            getIntParam(EFFECT_PARAM_PROFILE)
+        } catch (_: Throwable) {
+            0
+        }
         set(value) {
             setIntParam(EFFECT_PARAM_PROFILE, value)
         }

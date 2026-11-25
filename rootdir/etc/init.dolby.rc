@@ -1,2 +1,26 @@
 on early-boot
     mkdir /data/vendor/multimedia 0775 system system
+
+# MiSound property bridge.
+# system_app may not set vendor_audio_prop (neverallow), so XiaomiDolby writes
+# persist.sys.dolby.misound.* and init mirrors them to the vendor properties libmisoundfx reads.
+on property:persist.sys.dolby.misound.disable=*
+    setprop persist.vendor.audio.misound.disable ${persist.sys.dolby.misound.disable}
+
+on property:persist.sys.dolby.misound.scenario=*
+    setprop persist.vendor.audio.misound.scenario ${persist.sys.dolby.misound.scenario}
+
+on property:persist.sys.dolby.misound.auto_scenario=*
+    setprop persist.vendor.audio.auto.scenario ${persist.sys.dolby.misound.auto_scenario}
+
+on property:persist.sys.dolby.misound.music_state=*
+    setprop persist.vendor.audio.sfx.hd.music.state ${persist.sys.dolby.misound.music_state}
+
+on property:persist.sys.dolby.misound.surround3d=*
+    setprop persist.vendor.audio.3dsurround.enable ${persist.sys.dolby.misound.surround3d}
+
+on property:persist.sys.dolby.misound.surround_level=*
+    setprop persist.vendor.audio.surround.level ${persist.sys.dolby.misound.surround_level}
+
+on property:persist.sys.dolby.misound.vocal_level=*
+    setprop persist.vendor.audio.vocal.level ${persist.sys.dolby.misound.vocal_level}

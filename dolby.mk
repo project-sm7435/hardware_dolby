@@ -26,6 +26,7 @@ AUDIO_FEATURE_ENABLED_DS2_DOLBY_DAP := true
 
 # SEPolicy
 BOARD_VENDOR_SEPOLICY_DIRS += $(DOLBY_PATH)/sepolicy/vendor
+SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += $(DOLBY_PATH)/sepolicy/system_ext/private
 
 # HIDL
 DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE += $(DOLBY_PATH)/dolby_framework_matrix.xml
@@ -131,12 +132,20 @@ PRODUCT_PACKAGES += \
     libdeccfg \
     vendor.dolby.media.c2@1.0-service
 
-# Dolby SoundFX Blobs
+# Dolby & Xiaomi SoundFX Blobs
 PRODUCT_PACKAGES += \
     libdlbvol \
     libhwdap \
+    libmisoundfx \
     libswgamedap \
     libswvqe
+
+# Xiaomi Sound (MiSound) Props
+PRODUCT_VENDOR_PROPERTIES += \
+    ro.vendor.audio.sfx.speaker=true \
+    ro.vendor.audio.sfx.spk.movie=true \
+    persist.vendor.audio.misound.disable=true \
+    persist.vendor.audio.sfx.hd.music.state=1
 
 # Dolby vision Proprietary blobs
 PRODUCT_COPY_FILES += \

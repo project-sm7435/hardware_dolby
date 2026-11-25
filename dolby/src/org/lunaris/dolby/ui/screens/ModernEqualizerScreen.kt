@@ -252,6 +252,37 @@ private fun ModernEqualizerContent(
             title = stringResource(R.string.dolby_preset),
             subtitle = stringResource(R.string.dolby_equalizer_summary),
         )
+        val context = LocalContext.current
+        val isXiaomiSoundActive = remember(state) {
+            org.lunaris.dolby.data.DolbyRepository.get(context).getSavedDolbyEnabled() &&
+                org.lunaris.dolby.data.DolbyRepository.get(context).getSoundEngineMode() == org.lunaris.dolby.SoundEngineMode.XIAOMI_SOUND
+        }
+        if (isXiaomiSoundActive) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = stringResource(R.string.xiaomi_sound_active_notice),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+        }
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.extraLarge,

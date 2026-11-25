@@ -128,7 +128,8 @@ fun DolbyLogo(
 fun DolbyMainCard(
     enabled: Boolean,
     onEnabledChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isXiaomiSound: Boolean = false,
 ) {
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
@@ -177,11 +178,18 @@ fun DolbyMainCard(
             ) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = stringResource(R.string.dolby_title),
+                        text = stringResource(if (isXiaomiSound) R.string.sound_engine_xiaomi else R.string.dolby_title),
                         style = MaterialTheme.typography.headlineSmallEmphasized,
                     )
                     Text(
-                        text = stringResource(if (enabled) R.string.dolby_atmos_on else R.string.dolby_atmos_off),
+                        text = stringResource(
+                            when {
+                                isXiaomiSound && enabled -> R.string.xiaomi_sound_on
+                                isXiaomiSound && !enabled -> R.string.xiaomi_sound_off
+                                enabled -> R.string.dolby_atmos_on
+                                else -> R.string.dolby_atmos_off
+                            }
+                        ),
                         style = MaterialTheme.typography.labelLargeEmphasized,
                     )
                 }
@@ -605,4 +613,162 @@ fun ModernConfirmDialog(
         textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         shape = MaterialTheme.shapes.extraLarge
     )
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun SoundEngineSelectorCard(
+    selectedMode: org.lunaris.dolby.SoundEngineMode,
+    enabled: Boolean,
+    onModeSelected: (org.lunaris.dolby.SoundEngineMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val haptic = rememberHapticFeedback()
+    val scope = rememberCoroutineScope()
+    val options = listOf(
+        org.lunaris.dolby.SoundEngineMode.DOLBY_ATMOS to stringResource(R.string.sound_engine_dolby),
+        org.lunaris.dolby.SoundEngineMode.XIAOMI_SOUND to stringResource(R.string.sound_engine_xiaomi)
+    )
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier.size(40.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.GraphicEq,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        text = stringResource(R.string.sound_effects_title),
+                        style = MaterialTheme.typography.titleMediumEmphasized,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text(
+                        text = if (selectedMode == org.lunaris.dolby.SoundEngineMode.DOLBY_ATMOS) {
+                            stringResource(R.string.sound_engine_dolby)
+                        } else {
+                            stringResource(R.string.sound_engine_xiaomi)
+                        },
+                        style = MaterialTheme.typography.labelMediumEmphasized,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                options.forEachIndexed { index, (mode, label) ->
+                    SegmentedButton(
+                        selected = selectedMode == mode,
+                        onClick = {
+                            if (selectedMode != mode) {
+                                scope.launch {
+                                    haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.CLICK)
+                                }
+                                onModeSelected(mode)
+                            }
+                        },
+                        enabled = enabled,
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = options.size
+                        ),
+                        label = {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelLargeEmphasized
+                            )
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun XiaomiSoundSettingsCard(
+    settings: org.lunaris.dolby.domain.models.MiSoundSettings,
+    onScenarioChange: (Int) -> Unit,
+    onSurround3dChange: (Boolean) -> Unit,
+    onSurroundLevelChange: (Int) -> Unit,
+    onVocalLevelChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    ModernSettingsCard(
+        title = stringResource(R.string.xiaomi_sound_settings_title),
+        icon = Icons.Rounded.SurroundSound,
+        modifier = modifier
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            ModernSettingSelector(
+                title = stringResource(R.string.xiaomi_sound_scenario),
+                currentValue = settings.scenario,
+                entries = R.array.xiaomi_sound_scenario_entries,
+                values = R.array.xiaomi_sound_scenario_values,
+                onValueChange = onScenarioChange
+            )
+
+            ModernSettingSwitch(
+                title = stringResource(R.string.xiaomi_sound_3d_surround),
+                subtitle = stringResource(R.string.xiaomi_sound_3d_surround_summary),
+                checked = settings.surround3dEnabled,
+                onCheckedChange = onSurround3dChange,
+                icon = Icons.Rounded.SpatialAudio
+            )
+
+            AnimatedVisibility(visible = settings.surround3dEnabled) {
+                ModernSettingSlider(
+                    title = stringResource(R.string.xiaomi_sound_surround_level),
+                    value = settings.surroundLevel,
+                    onValueChange = { onSurroundLevelChange(it.toInt()) },
+                    valueRange = 0f..100f,
+                    steps = 0,
+                    valueLabel = { "$it%" }
+                )
+            }
+
+            ModernSettingSlider(
+                title = stringResource(R.string.xiaomi_sound_vocal_level),
+                value = settings.vocalLevel,
+                onValueChange = { onVocalLevelChange(it.toInt()) },
+                valueRange = 0f..100f,
+                steps = 0,
+                valueLabel = { "$it%" }
+            )
+        }
+    }
 }

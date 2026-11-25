@@ -1,16 +1,52 @@
 /*
- * Copyright (C) 2024-2025 Lunaris AOSP
+ * Copyright (C) 2024-2026 Lunaris AOSP
  * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.lunaris.dolby
 
 import android.util.Log
+import java.util.UUID
+
+enum class SoundEngineMode(val id: Int) {
+    DOLBY_ATMOS(0),
+    XIAOMI_SOUND(1);
+
+    companion object {
+        fun fromId(id: Int): SoundEngineMode =
+            entries.firstOrNull { it.id == id } ?: DOLBY_ATMOS
+    }
+}
 
 object DolbyConstants {
 
     const val TAG = "Dolby"
-    
+
+    val EFFECT_UUID_DAP: UUID = UUID.fromString("9d4921da-8225-4f29-aefa-39537a04bcaa")
+    val EFFECT_UUID_MISOUND: UUID = UUID.fromString("5b8e36a5-144a-4c38-b1d7-0002a5d5c51b")
+
+    const val PREF_SOUND_ENGINE_MODE = "sound_engine_mode"
+    const val PREF_MISOUND_SCENARIO = "misound_scenario"
+    const val PREF_MISOUND_3D_SURROUND = "misound_3d_surround"
+    const val PREF_MISOUND_SURROUND_LEVEL = "misound_surround_level"
+    const val PREF_MISOUND_VOCAL_LEVEL = "misound_vocal_level"
+
+    const val PROP_MISOUND_DISABLE = "persist.sys.dolby.misound.disable"
+    const val PROP_MISOUND_SCENARIO = "persist.sys.dolby.misound.scenario"
+    const val PROP_MISOUND_AUTO_SCENARIO = "persist.sys.dolby.misound.auto_scenario"
+    const val PROP_MISOUND_MUSIC_STATE = "persist.sys.dolby.misound.music_state"
+    const val PROP_MISOUND_3D_SURROUND = "persist.sys.dolby.misound.surround3d"
+    const val PROP_MISOUND_SURROUND_LEVEL = "persist.sys.dolby.misound.surround_level"
+    const val PROP_MISOUND_VOCAL_LEVEL = "persist.sys.dolby.misound.vocal_level"
+
+    // libmisoundfx.so QdspParameterId values for AudioEffect.setParameter(int, int)
+    const val MISOUND_PARAM_ENABLE = 0
+    const val MISOUND_PARAM_SCENARIO = 1
+    const val MISOUND_PARAM_HEADSET_TYPE = 2
+    const val MISOUND_PARAM_3D_SURROUND_ENABLE = 7
+    const val MISOUND_PARAM_SURROUND_LEVEL = 8
+    const val MISOUND_PARAM_VOCAL_LEVEL = 9
+
     const val PREF_ENABLE = "dolby_enable"
     const val PREF_PROFILE = "dolby_profile"
     const val PREF_PRESET = "dolby_preset"
@@ -45,7 +81,7 @@ object DolbyConstants {
     const val PREF_PRESETS_MIGRATED = "presets_migrated"
     const val PREF_BAND_MODE = "dolby_band_mode"
     const val PREF_DEVICE_STATE_MEMORY = "device_state_memory_enabled"
-    
+
     const val PREF_FILE_PRESETS = "presets"
 
     enum class DsParam(val id: Int, val length: Int = 1) {

@@ -61,6 +61,10 @@ class SummaryProvider : ContentProvider() {
                 return@use context.getString(R.string.dolby_off)
             }
 
+            if (repository.getSoundEngineMode() == org.lunaris.dolby.SoundEngineMode.XIAOMI_SOUND) {
+                return@use context.getString(R.string.sound_engine_xiaomi)
+            }
+
             val profile = repository.getCurrentProfile()
             val profiles = context.resources.getStringArray(R.array.dolby_profile_entries)
             val profileValues = context.resources.getStringArray(R.array.dolby_profile_values)
