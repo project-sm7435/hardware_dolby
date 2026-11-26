@@ -194,11 +194,7 @@ class DolbyEffectService : Service() {
         handler = Handler(workerThread.looper)
         deviceStateManager = DeviceStateManager(this)
         dolbyPrefs.registerOnSharedPreferenceChangeListener(prefChangeListener)
-        val userStart = pendingUserStart
-        pendingUserStart = false
-        if (userStart) {
-            skipNextStartApply = true
-        }
+        val userStart = consumePendingUserStart()
 
         handler.post {
             try {
@@ -324,8 +320,7 @@ class DolbyEffectService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val fromUser = skipNextStartApply
-        skipNextStartApply = false
+        val fromUser = intent?.getBooleanExtra(EXTRA_FROM_USER, false) == true || consumeSkipNextStartApply()
         if (!fromUser) {
             handler.post {
                 retryAttempt = 0
@@ -399,6 +394,20 @@ class DolbyEffectService : Service() {
         @Volatile
         private var skipNextStartApply = false
 
+        private const val EXTRA_FROM_USER = "extra_from_user"
+
+        private fun consumePendingUserStart(): Boolean {
+            val v = pendingUserStart
+            pendingUserStart = false
+            return v
+        }
+
+        private fun consumeSkipNextStartApply(): Boolean {
+            val v = skipNextStartApply
+            skipNextStartApply = false
+            return v
+        }
+
         fun start(context: Context) {
             val intent = Intent(context, DolbyEffectService::class.java)
             context.startService(intent)
@@ -407,7 +416,9 @@ class DolbyEffectService : Service() {
         fun startFromUser(context: Context) {
             pendingUserStart = true
             skipNextStartApply = true
-            start(context)
+            val intent = Intent(context, DolbyEffectService::class.java)
+                .putExtra(EXTRA_FROM_USER, true)
+            context.startService(intent)
         }
 
         fun stop(context: Context) {

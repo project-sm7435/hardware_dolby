@@ -26,9 +26,9 @@ data class DolbyProfile(
 
 data class MiSoundSettings(
     val scenario: Int = 0,
-    val surround3dEnabled: Boolean = false,
-    val surroundLevel: Int = 50,
-    val vocalLevel: Int = 0
+    val surround3dEnabled: Boolean = true,
+    val surroundLevel: Int = 45,
+    val vocalLevel: Int = 20
 )
 
 data class DolbySettings(
@@ -92,7 +92,10 @@ sealed class EqualizerUiState {
         val presets: List<EqualizerPreset>,
         val currentPreset: EqualizerPreset,
         val bandGains: List<BandGain>,
-        val bandMode: BandMode
+        val bandMode: BandMode,
+        val soundEngineMode: SoundEngineMode = SoundEngineMode.DOLBY_ATMOS,
+        val isEngineEnabled: Boolean = true,
+        val miSoundScenario: Int = 0
     ) : EqualizerUiState()
     data class Error(val message: String) : EqualizerUiState()
 }

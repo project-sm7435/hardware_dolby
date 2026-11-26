@@ -39,12 +39,16 @@ fun ModernAdvancedSettingsScreen(
 
     val listState = rememberLazyListState()
     val showTitle by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+    val isScrolled by remember {
+        derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 8 }
+    }
 
     Scaffold(
         topBar = {
             DolbyTopAppBar(
                 title = stringResource(R.string.dolby_category_adv_settings),
                 showTitle = showTitle || uiState !is DolbyUiState.Success,
+                scrolled = isScrolled,
             )
         },
         containerColor = MaterialTheme.colorScheme.surface
@@ -58,7 +62,7 @@ fun ModernAdvancedSettingsScreen(
                         .padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    ExpressiveLoadingState(message = stringResource(R.string.loading))
                 }
             }
             is DolbyUiState.Success -> {
@@ -78,22 +82,10 @@ fun ModernAdvancedSettingsScreen(
                         .padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Error,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                        Text(
-                            text = state.message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
+                    ExpressiveErrorState(
+                        message = state.message,
+                        onRetry = { viewModel.loadSettings() }
+                    )
                 }
             }
         }
@@ -131,9 +123,28 @@ private fun ModernAdvancedSettingsContent(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         item {
+            val isDolbyMode = state.settings.soundEngineMode == org.lunaris.dolby.SoundEngineMode.DOLBY_ATMOS
+            val profileEntries = androidx.compose.ui.res.stringArrayResource(R.array.dolby_profile_entries)
+            val profileValues = androidx.compose.ui.res.stringArrayResource(R.array.dolby_profile_values)
+            val activeProfileIndex = profileValues.indexOfFirst { it.toIntOrNull() == state.settings.currentProfile }
+            val activeProfileName = profileEntries.getOrElse(activeProfileIndex.coerceAtLeast(0)) { "" }
+            val scenarioEntries = androidx.compose.ui.res.stringArrayResource(R.array.xiaomi_sound_scenario_entries)
+            val activeScenarioName = scenarioEntries.getOrElse(state.miSoundSettings.scenario.coerceIn(0, 2)) { "" }
+            val activeModeLabel = if (isDolbyMode) activeProfileName else activeScenarioName
+            val outputName = stringResource(
+                if (state.isOnSpeaker) R.string.dolby_output_speaker else R.string.dolby_output_headphones
+            )
+            val outputIcon = if (state.isOnSpeaker) Icons.Default.Speaker else Icons.Default.Headphones
+            val contextBadge = if (state.settings.enabled && activeModeLabel.isNotEmpty()) {
+                "$activeModeLabel · $outputName"
+            } else {
+                outputName
+            }
             DolbyPageHeading(
                 title = stringResource(R.string.dolby_category_adv_settings),
                 subtitle = stringResource(R.string.dolby_advanced_summary),
+                badgeText = contextBadge,
+                badgeIcon = outputIcon,
             )
         }
         if (state.settings.enabled && state.settings.soundEngineMode == org.lunaris.dolby.SoundEngineMode.DOLBY_ATMOS) {
@@ -474,8 +485,10 @@ private fun ModernAdvancedSettingsContent(
                             text = stringResource(
                                 if (state.settings.enabled && state.settings.soundEngineMode == org.lunaris.dolby.SoundEngineMode.XIAOMI_SOUND)
                                     R.string.xiaomi_sound_active_notice
+                                else if (!state.settings.enabled && state.settings.soundEngineMode == org.lunaris.dolby.SoundEngineMode.XIAOMI_SOUND)
+                                    R.string.xiaomi_sound_disabled_advanced_summary
                                 else
-                                    R.string.dolby_adv_settings_footer
+                                    R.string.dolby_disabled_advanced_summary
                             ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer

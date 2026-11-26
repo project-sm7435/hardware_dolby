@@ -18,6 +18,7 @@ import android.os.Looper
 import android.util.Log
 import org.lunaris.dolby.DolbyConstants
 import org.lunaris.dolby.R
+import org.lunaris.dolby.SoundEngineMode
 import org.lunaris.dolby.data.AppProfileManager
 import org.lunaris.dolby.data.DolbyRepository
 import org.lunaris.dolby.utils.ToastHelper
@@ -113,7 +114,12 @@ class AppProfileMonitorService : Service() {
             
             if (hasOriginalProfile && originalProfile >= 0) {
                 DolbyConstants.dlog(TAG, "Restoring original profile: $originalProfile")
-                dolbyRepository.setCurrentProfile(originalProfile)
+                if (dolbyRepository.getSoundEngineMode() == SoundEngineMode.DOLBY_ATMOS) {
+                    dolbyRepository.setCurrentProfile(originalProfile)
+                } else {
+                    getSharedPreferences("dolby_prefs", Context.MODE_PRIVATE)
+                        .edit().putString(DolbyConstants.PREF_PROFILE, originalProfile.toString()).apply()
+                }
                 
                 val prefs = getSharedPreferences("dolby_prefs", Context.MODE_PRIVATE)
                 val currentProfile = prefs.getString(DolbyConstants.PREF_PROFILE, "0")?.toIntOrNull() ?: 0
@@ -155,6 +161,10 @@ class AppProfileMonitorService : Service() {
 
     private fun checkForegroundApp() {
         try {
+            if (!dolbyRepository.getSavedDolbyEnabled() ||
+                dolbyRepository.getSoundEngineMode() != SoundEngineMode.DOLBY_ATMOS) {
+                return
+            }
             val prefs = getSharedPreferences("dolby_prefs", Context.MODE_PRIVATE)
             val headphoneOnlyMode = prefs.getBoolean("app_profile_headphone_only", false)
             
@@ -178,6 +188,10 @@ class AppProfileMonitorService : Service() {
                 pendingSwitchRunnable = Runnable {
                     synchronized(this) {
                         try {
+                            if (!dolbyRepository.getSavedDolbyEnabled() ||
+                                dolbyRepository.getSoundEngineMode() != SoundEngineMode.DOLBY_ATMOS) {
+                                return@Runnable
+                            }
                             if (headphoneOnlyMode && !isHeadphoneConnected()) {
                                 DolbyConstants.dlog(TAG, "Headphones disconnected, aborting profile switch")
                                 return@Runnable

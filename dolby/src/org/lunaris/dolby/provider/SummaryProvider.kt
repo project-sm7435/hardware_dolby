@@ -14,6 +14,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
 import org.lunaris.dolby.R
+import org.lunaris.dolby.SoundEngineMode
 import org.lunaris.dolby.data.DolbyRepository
 
 private const val KEY_DOLBY = "dolby"
@@ -61,11 +62,17 @@ class SummaryProvider : ContentProvider() {
                 return@use context.getString(R.string.dolby_off)
             }
 
-            if (repository.getSoundEngineMode() == org.lunaris.dolby.SoundEngineMode.XIAOMI_SOUND) {
-                return@use context.getString(R.string.sound_engine_xiaomi)
+            if (repository.getSoundEngineMode() == SoundEngineMode.XIAOMI_SOUND) {
+                val scenarios = context.resources.getStringArray(R.array.xiaomi_sound_scenario_entries)
+                val scenarioName = scenarios.getOrElse(repository.getMiSoundScenario()) { "" }
+                return@use if (scenarioName.isNotEmpty()) {
+                    "${context.getString(R.string.sound_engine_xiaomi)} ($scenarioName)"
+                } else {
+                    context.getString(R.string.sound_engine_xiaomi)
+                }
             }
 
-            val profile = repository.getCurrentProfile()
+            val profile = repository.getSavedProfile()
             val profiles = context.resources.getStringArray(R.array.dolby_profile_entries)
             val profileValues = context.resources.getStringArray(R.array.dolby_profile_values)
 

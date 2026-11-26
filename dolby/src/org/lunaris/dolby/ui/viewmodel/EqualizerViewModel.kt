@@ -12,6 +12,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import org.lunaris.dolby.DolbyConstants
 import org.lunaris.dolby.R
+import org.lunaris.dolby.SoundEngineMode
 import org.lunaris.dolby.data.DolbyRepository
 import org.lunaris.dolby.data.autoeq.*
 import org.lunaris.dolby.domain.models.*
@@ -35,6 +36,7 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
     @Volatile private var currentProfile = 0
     @Volatile private var currentBandMode = BandMode.TEN_BAND
     private var profileChangeJob: Job? = null
+    private var miSoundScenarioJob: Job? = null
     @Volatile private var isCleared = false
 
     private lateinit var autoEqRepository: AutoEqRepository
@@ -67,18 +69,53 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
             }
             .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    private val statePrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (!isCleared && (
+                key == "device_snapshot_restored" ||
+                key == DolbyConstants.PREF_ENABLE ||
+                key == DolbyConstants.PREF_DOLBY_MASTER_ENABLE ||
+                key == DolbyConstants.PREF_MISOUND_MASTER_ENABLE ||
+                key == DolbyConstants.PREF_SOUND_ENGINE_MODE ||
+                key == DolbyConstants.PREF_MISOUND_SCENARIO
+            )
+        ) {
+            loadEqualizer()
+        }
+    }
+
     init {
         DolbyConstants.dlog(TAG, "ViewModel initialized")
+        repository.registerEnabledListener(statePrefsListener)
         loadEqualizer()
         observeProfileChanges()
     }
     
+    private var engineModeJob: Job? = null
+
     private fun observeProfileChanges() {
         profileChangeJob?.cancel()
         profileChangeJob = viewModelScope.launch {
             repository.currentProfile.drop(1).collect {
                 if (!isCleared) {
                     DolbyConstants.dlog(TAG, "Profile changed, reloading equalizer")
+                    loadEqualizer()
+                }
+            }
+        }
+        engineModeJob?.cancel()
+        engineModeJob = viewModelScope.launch {
+            repository.soundEngineMode.drop(1).collect {
+                if (!isCleared) {
+                    DolbyConstants.dlog(TAG, "Sound engine mode changed, reloading equalizer")
+                    loadEqualizer()
+                }
+            }
+        }
+        miSoundScenarioJob?.cancel()
+        miSoundScenarioJob = viewModelScope.launch {
+            repository.miSoundScenario.drop(1).collect {
+                if (!isCleared) {
+                    DolbyConstants.dlog(TAG, "MiSound scenario changed, reloading equalizer")
                     loadEqualizer()
                 }
             }
@@ -90,11 +127,25 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
         
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                currentProfile = repository.getCurrentProfile()
-                currentBandMode = repository.getBandMode()
+                val engineMode = repository.getSoundEngineMode()
+                val engineEnabled = repository.getSavedDolbyEnabled()
+                val scenario = repository.getMiSoundScenario()
+                currentProfile = if (engineMode == SoundEngineMode.DOLBY_ATMOS) {
+                    repository.getCurrentProfile()
+                } else {
+                    repository.getSavedProfile()
+                }
+                currentBandMode = if (engineMode == SoundEngineMode.XIAOMI_SOUND) {
+                    BandMode.TEN_BAND
+                } else {
+                    repository.getBandMode()
+                }
                 val bandGains = repository.getEqualizerGains(currentProfile, currentBandMode)
                 
-                val builtInPresets = getBuiltInPresets(currentBandMode)
+                val builtInPresets = getBuiltInPresets(
+                    bandMode = currentBandMode,
+                    isXiaomiMode = engineMode == SoundEngineMode.XIAOMI_SOUND
+                )
                 val userPresets = repository.getUserPresets()
                 val allPresets = userPresets + builtInPresets
                 
@@ -120,7 +171,10 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
                         presets = allPresets,
                         currentPreset = currentPreset,
                         bandGains = bandGains,
-                        bandMode = currentBandMode
+                        bandMode = currentBandMode,
+                        soundEngineMode = engineMode,
+                        isEngineEnabled = engineEnabled,
+                        miSoundScenario = scenario
                     )
                 }
             } catch (e: Exception) {
@@ -186,15 +240,22 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
                     return@launch
                 }
 
-                val targetFreqs = when (currentBandMode) {
-                    BandMode.TEN_BAND -> DolbyRepository.BAND_FREQUENCIES_10
-                    BandMode.FIFTEEN_BAND -> DolbyRepository.BAND_FREQUENCIES_15
-                    BandMode.TWENTY_BAND -> DolbyRepository.BAND_FREQUENCIES_20
+                val isXiaomi = repository.getSoundEngineMode() == SoundEngineMode.XIAOMI_SOUND
+                val targetFreqs = if (isXiaomi) {
+                    DolbyRepository.MISOUND_BAND_FREQUENCIES_10
+                } else {
+                    when (currentBandMode) {
+                        BandMode.TEN_BAND -> DolbyRepository.BAND_FREQUENCIES_10
+                        BandMode.FIFTEEN_BAND -> DolbyRepository.BAND_FREQUENCIES_15
+                        BandMode.TWENTY_BAND -> DolbyRepository.BAND_FREQUENCIES_20
+                    }
                 }
+                val minG = if (isXiaomi) DolbyConstants.MISOUND_EQ_MIN_TENTHS else -150
+                val maxG = if (isXiaomi) DolbyConstants.MISOUND_EQ_MAX_TENTHS else 150
 
                 val newBandGains = targetFreqs.map { targetHz ->
                     val calculatedGain = interpolateGainForFrequency(targetHz, parsedAutoEq)
-                    BandGain(frequency = targetHz, gain = calculatedGain.coerceIn(-150, 150))
+                    BandGain(frequency = targetHz, gain = calculatedGain.coerceIn(minG, maxG))
                 }
 
                 val presetName = context.getString(R.string.dolby_autoeq_preset_name, headphoneName)
@@ -251,20 +312,31 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
         return (lowerGain + ratio * (upperGain - lowerGain)).toInt()
     }
 
-    private fun getBuiltInPresets(bandMode: BandMode): List<EqualizerPreset> {
+    private fun getBuiltInPresets(
+        bandMode: BandMode,
+        isXiaomiMode: Boolean = false
+    ): List<EqualizerPreset> {
         val names = context.resources.getStringArray(R.array.dolby_preset_entries)
         val values = context.resources.getStringArray(R.array.dolby_preset_values)
         
         return names.mapIndexed { index, name ->
             val gains = values[index].split(",").map { it.toInt() }
             
-            val frequencies = when (bandMode) {
-                BandMode.TEN_BAND -> DolbyRepository.BAND_FREQUENCIES_10
-                BandMode.FIFTEEN_BAND -> DolbyRepository.BAND_FREQUENCIES_15
-                BandMode.TWENTY_BAND -> DolbyRepository.BAND_FREQUENCIES_20
+            val frequencies = if (isXiaomiMode) {
+                DolbyRepository.MISOUND_BAND_FREQUENCIES_10
+            } else {
+                when (bandMode) {
+                    BandMode.TEN_BAND -> DolbyRepository.BAND_FREQUENCIES_10
+                    BandMode.FIFTEEN_BAND -> DolbyRepository.BAND_FREQUENCIES_15
+                    BandMode.TWENTY_BAND -> DolbyRepository.BAND_FREQUENCIES_20
+                }
             }
             
             val tenBandGains = gains.filterIndexed { i, _ -> i % 2 == 0 }
+                .map {
+                    if (isXiaomiMode) it.coerceIn(DolbyConstants.MISOUND_EQ_MIN_TENTHS, DolbyConstants.MISOUND_EQ_MAX_TENTHS)
+                    else it
+                }
             
             val targetGains = when (bandMode) {
                 BandMode.TEN_BAND -> tenBandGains
@@ -301,6 +373,7 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun setBandMode(mode: BandMode) {
+        if (repository.getSoundEngineMode() == SoundEngineMode.XIAOMI_SOUND) return
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 repository.setBandMode(mode)
@@ -308,6 +381,17 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
                 loadEqualizer()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting band mode: ${e.message}")
+            }
+        }
+    }
+
+    fun setMiSoundScenario(scenario: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                repository.setMiSoundScenario(scenario)
+                loadEqualizer()
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting MiSound scenario: ${e.message}")
             }
         }
     }
@@ -336,10 +420,15 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
             BandMode.TWENTY_BAND -> DolbyRepository.BAND_FREQUENCIES_20
         }
         
-        val targetFreqs = when (targetMode) {
-            BandMode.TEN_BAND -> DolbyRepository.BAND_FREQUENCIES_10
-            BandMode.FIFTEEN_BAND -> DolbyRepository.BAND_FREQUENCIES_15
-            BandMode.TWENTY_BAND -> DolbyRepository.BAND_FREQUENCIES_20
+        val isXiaomi = repository.getSoundEngineMode() == SoundEngineMode.XIAOMI_SOUND
+        val targetFreqs = if (isXiaomi) {
+            DolbyRepository.MISOUND_BAND_FREQUENCIES_10
+        } else {
+            when (targetMode) {
+                BandMode.TEN_BAND -> DolbyRepository.BAND_FREQUENCIES_10
+                BandMode.FIFTEEN_BAND -> DolbyRepository.BAND_FREQUENCIES_15
+                BandMode.TWENTY_BAND -> DolbyRepository.BAND_FREQUENCIES_20
+            }
         }
         
         if (preset.bandGains.size != sourceFreqs.size) {
@@ -401,8 +490,15 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
                         )
                         return@launch
                     }
+                    val isXiaomi = state.soundEngineMode == SoundEngineMode.XIAOMI_SOUND
+                    val clampedGain = if (isXiaomi) {
+                        gain.coerceIn(DolbyConstants.MISOUND_EQ_MIN_TENTHS, DolbyConstants.MISOUND_EQ_MAX_TENTHS)
+                    } else {
+                        gain.coerceIn(-150, 150)
+                    }
                     val newBandGains = state.bandGains.toMutableList()
-                    newBandGains[index] = newBandGains[index].copy(gain = gain)
+                    newBandGains[index] = newBandGains[index].copy(gain = clampedGain)
+                    _uiState.value = state.copy(bandGains = newBandGains)
                     repository.setEqualizerGains(currentProfile, newBandGains, currentBandMode)
                     loadEqualizer()
                 }
@@ -480,8 +576,12 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
     fun resetGains() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val flatPreset = getBuiltInPresets(currentBandMode).first()
-                repository.setEqualizerGains(currentProfile, flatPreset.bandGains, currentBandMode)
+                if (repository.getSoundEngineMode() == SoundEngineMode.XIAOMI_SOUND) {
+                    repository.resetMiSoundEqGains()
+                } else {
+                    val flatPreset = getBuiltInPresets(currentBandMode).first()
+                    repository.setEqualizerGains(currentProfile, flatPreset.bandGains, currentBandMode)
+                }
                 loadEqualizer()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error resetting gains: ${e.message}")
@@ -491,9 +591,14 @@ class EqualizerViewModel(application: Application) : AndroidViewModel(applicatio
 
     override fun onCleared() {
         isCleared = true
+        repository.unregisterEnabledListener(statePrefsListener)
         viewModelScope.coroutineContext.cancelChildren()
         profileChangeJob?.cancel()
         profileChangeJob = null
+        engineModeJob?.cancel()
+        engineModeJob = null
+        miSoundScenarioJob?.cancel()
+        miSoundScenarioJob = null
         repository.close()
         super.onCleared()
     }

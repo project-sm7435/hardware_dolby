@@ -31,6 +31,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     
     private var speakerStateJob: Job? = null
     private var profileChangeJob: Job? = null
+    private var miSoundScenarioJob: Job? = null
     @Volatile private var isCleared = false
 
     private val effectOps = LinkedHashMap<String, suspend () -> Unit>()
@@ -42,7 +43,17 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
 
     // Reloads the card when the master switch is flipped somewhere else (the QS tile).
     private val enabledListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if ((key == DolbyConstants.PREF_ENABLE || key == DolbyConstants.PREF_SOUND_ENGINE_MODE || key == "device_snapshot_restored") && !isCleared) loadSettings()
+        if (!isCleared && (
+                key == "device_snapshot_restored" ||
+                key == DolbyConstants.PREF_ENABLE ||
+                key == DolbyConstants.PREF_DOLBY_MASTER_ENABLE ||
+                key == DolbyConstants.PREF_MISOUND_MASTER_ENABLE ||
+                key == DolbyConstants.PREF_SOUND_ENGINE_MODE ||
+                key == DolbyConstants.PREF_MISOUND_SCENARIO
+            )
+        ) {
+            loadSettings()
+        }
     }
 
     init {
@@ -52,6 +63,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         startEffectWorker()
         observeSpeakerState()
         observeProfileChanges()
+        observeMiSoundScenarioChanges()
     }
     
     private fun startEffectWorker() {
@@ -104,6 +116,18 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun observeMiSoundScenarioChanges() {
+        miSoundScenarioJob?.cancel()
+        miSoundScenarioJob = viewModelScope.launch {
+            repository.miSoundScenario.drop(1).collect {
+                if (!isCleared) {
+                    DolbyConstants.dlog(TAG, "MiSound scenario changed to: $it")
+                    loadSettings()
+                }
+            }
+        }
+    }
+
     fun loadSettings() {
         if (isCleared) {
             DolbyConstants.dlog(TAG, "ViewModel cleared, skipping loadSettings")
@@ -118,7 +142,11 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                 repository.ensureLiveState()
                 val enabled = repository.getSavedDolbyEnabled()
                 val soundEngineMode = repository.getSoundEngineMode()
-                val profile = repository.getCurrentProfile()
+                val profile = if (soundEngineMode == SoundEngineMode.DOLBY_ATMOS) {
+                    repository.getCurrentProfile()
+                } else {
+                    repository.getSavedProfile()
+                }
                 val bandMode = repository.getBandMode()
                 
                 val settings = DolbySettings(
@@ -197,15 +225,22 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setMiSoundScenario(scenario: Int) {
         stateMutationGen++
+        val clamped = scenario.coerceIn(0, 2)
         val current = _uiState.value
         if (current is DolbyUiState.Success) {
             _uiState.value = current.copy(
-                miSoundSettings = current.miSoundSettings.copy(scenario = scenario)
+                miSoundSettings = MiSoundSettings(
+                    scenario = clamped,
+                    surround3dEnabled = repository.getMiSound3dSurround(clamped),
+                    surroundLevel = repository.getMiSoundSurroundLevel(clamped),
+                    vocalLevel = repository.getMiSoundVocalLevel(clamped)
+                )
             )
         }
         submitEffectOp("setMiSoundScenario") {
             try {
-                repository.setMiSoundScenario(scenario)
+                repository.setMiSoundScenario(clamped)
+                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting MiSound scenario: ${e.message}")
             }
@@ -274,7 +309,6 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         submitEffectOp("setDolbyEnabled") {
             try {
                 repository.setDolbyEnabledFromUser(enabled)
-                loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting Dolby enabled: ${e.message}")
             }
@@ -710,6 +744,8 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         speakerStateJob = null
         profileChangeJob?.cancel()
         profileChangeJob = null
+        miSoundScenarioJob?.cancel()
+        miSoundScenarioJob = null
         repository.close()
         super.onCleared()
     }

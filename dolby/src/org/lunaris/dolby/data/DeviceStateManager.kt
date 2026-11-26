@@ -10,7 +10,7 @@ import android.content.SharedPreferences
 import android.media.AudioDeviceInfo
 
 import org.lunaris.dolby.DolbyConstants
-import org.lunaris.dolby.domain.models.BandGain
+import org.lunaris.dolby.SoundEngineMode
 import org.lunaris.dolby.domain.models.BandMode
 
 class DeviceStateManager(private val context: Context) {
@@ -57,11 +57,15 @@ class DeviceStateManager(private val context: Context) {
     fun saveSnapshot(deviceKey: String, repository: DolbyRepository) {
         // Saved profile, read from prefs: getCurrentProfile() also writes to the effect.
         val profile = repository.getSavedProfile()
+        val engineMode = repository.getSoundEngineMode()
         val prefs = getDevicePrefs(deviceKey)
         val editor = prefs.edit()
 
         editor.putInt(KEY_VERSION, SNAPSHOT_VERSION)
 
+        editor.putInt(KEY_SOUND_ENGINE_MODE, engineMode.id)
+        editor.putBoolean(KEY_DOLBY_MASTER_ENABLED, repository.getSavedEngineEnabled(SoundEngineMode.DOLBY_ATMOS))
+        editor.putBoolean(KEY_MISOUND_MASTER_ENABLED, repository.getSavedEngineEnabled(SoundEngineMode.XIAOMI_SOUND))
         editor.putBoolean(KEY_DOLBY_ENABLED, repository.getSavedDolbyEnabled())
         editor.putInt(KEY_PROFILE, profile)
         editor.putString(KEY_BAND_MODE, repository.getBandMode().value)
@@ -101,13 +105,24 @@ class DeviceStateManager(private val context: Context) {
             editor.putInt(KEY_STEREO, repository.getStereoWideningAmount(profile))
         }
 
-        val gains = repository.getEqualizerGains(profile, BandMode.TWENTY_BAND)
+        val gains = repository.getDolbyEqualizerGainsForSnapshot(profile)
         editor.putInt(KEY_EQ_BAND_COUNT, gains.size)
         editor.putString(KEY_EQ_GAINS, gains.joinToString(",") { it.gain.toString() })
 
+        editor.putInt(KEY_MISOUND_SCENARIO, repository.getMiSoundScenario())
+        for (s in 0..2) {
+            editor.putBoolean("${KEY_MISOUND_3D_PREFIX}$s", repository.getMiSound3dSurround(s))
+            editor.putInt("${KEY_MISOUND_SURROUND_LEVEL_PREFIX}$s", repository.getMiSoundSurroundLevel(s))
+            editor.putInt("${KEY_MISOUND_VOCAL_LEVEL_PREFIX}$s", repository.getMiSoundVocalLevel(s))
+            editor.putString(
+                "${KEY_MISOUND_EQ_PREFIX}$s",
+                repository.readMiSoundScenarioGeq(s).joinToString(",")
+            )
+        }
+
         editor.apply()
         DolbyConstants.dlog(TAG,
-            "Snapshot saved for device=$deviceKey profile=$profile bands=${gains.size} v=$SNAPSHOT_VERSION")
+            "Snapshot saved for device=$deviceKey mode=$engineMode profile=$profile v=$SNAPSHOT_VERSION")
     }
 
     fun restoreSnapshot(
@@ -131,9 +146,21 @@ class DeviceStateManager(private val context: Context) {
         }
 
         return try {
+            val restoredMode = SoundEngineMode.fromId(
+                prefs.getInt(KEY_SOUND_ENGINE_MODE, SoundEngineMode.DOLBY_ATMOS.id)
+            )
             val enabled = prefs.getBoolean(KEY_DOLBY_ENABLED, true)
             val profile = prefs.getInt(KEY_PROFILE, 0)
 
+            // Restore MiSound scenarios cleanly without pushing Dolby parameters
+            val miScenario = prefs.getInt(KEY_MISOUND_SCENARIO, 0).coerceIn(0, 2)
+            val s3d = (0..2).map { prefs.getBoolean("${KEY_MISOUND_3D_PREFIX}$it", it != 1) }
+            val sLevel = (0..2).map { prefs.getInt("${KEY_MISOUND_SURROUND_LEVEL_PREFIX}$it", 45) }
+            val vLevel = (0..2).map { prefs.getInt("${KEY_MISOUND_VOCAL_LEVEL_PREFIX}$it", 20) }
+            val eqList = (0..2).map { prefs.getString("${KEY_MISOUND_EQ_PREFIX}$it", null) }
+            repository.restoreMiSoundSnapshot(miScenario, s3d, sLevel, vLevel, eqList)
+
+            // Restore Dolby prefs without forcing Dolby active when restoredMode == XIAOMI_SOUND
             prefs.getString(KEY_BAND_MODE, null)?.let { modeVal ->
                 val mode = when (modeVal) {
                     "15" -> BandMode.FIFTEEN_BAND
@@ -143,56 +170,42 @@ class DeviceStateManager(private val context: Context) {
                 repository.setBandMode(mode)
             }
 
-            // Restore base Dolby settings first, then apply ViPER overrides last so 3D Stereo
-            // virtualizer/widening and ViPER GEQ curves are never overwritten.
-            repository.setIeqPreset(profile, prefs.getInt(KEY_IEQ, 0))
-            repository.setHeadphoneVirtualizerEnabled(profile, prefs.getBoolean(KEY_HP_VIRT, false))
-            repository.setSpeakerVirtualizerEnabled(profile, prefs.getBoolean(KEY_SPK_VIRT, false))
-            repository.setDialogueEnhancerEnabled(profile, prefs.getBoolean(KEY_DIALOGUE, false))
-            repository.setDialogueEnhancerAmount(profile, prefs.getInt(KEY_DIALOGUE_AMT, 6))
+            repository.restoreDolbyProfilePrefsForSnapshot(
+                profile = profile,
+                ieqPreset = prefs.getInt(KEY_IEQ, 0),
+                hpVirt = prefs.getBoolean(KEY_HP_VIRT, false),
+                spkVirt = prefs.getBoolean(KEY_SPK_VIRT, false),
+                dialogueEnabled = prefs.getBoolean(KEY_DIALOGUE, false),
+                dialogueAmount = prefs.getInt(KEY_DIALOGUE_AMT, 6),
+                volumeLeveler = if (repository.volumeLevelerSupported) prefs.getBoolean(KEY_VOLUME, false) else null,
+                stereoWidening = if (repository.stereoWideningSupported) prefs.getInt(KEY_STEREO, 32) else null,
+                eqGains20 = prefs.getString(KEY_EQ_GAINS, null),
+                bassCurve = prefs.getInt(KEY_BASS_CURVE, 0),
+                bassCutoff = prefs.getInt(KEY_BASS_CUTOFF, 60),
+                bassLevel = prefs.getInt(KEY_BASS_LEVEL, 0),
+                clarityMode = prefs.getInt(KEY_CLARITY_MODE, 0),
+                trebleLevel = prefs.getInt(KEY_TREBLE_LEVEL, 0),
+                dynamicLevel = prefs.getInt(KEY_DYNAMIC_LEVEL, 0),
+                speakerCorrection = prefs.getInt(KEY_SPEAKER_CORRECTION, 0),
+                midLevel = prefs.getInt(KEY_MID_LEVEL, 0),
+                viperSurroundWidening = prefs.getInt(KEY_VIPER_SURROUND_WIDENING, 50),
+                viperSurroundDepth = prefs.getInt(KEY_VIPER_SURROUND_DEPTH, 35),
+                viperSurroundEnabled = prefs.getBoolean(KEY_VIPER_SURROUND, false)
+            )
 
-            if (repository.volumeLevelerSupported) {
-                repository.setVolumeLevelerEnabled(profile, prefs.getBoolean(KEY_VOLUME, false))
-            }
-            if (repository.stereoWideningSupported) {
-                repository.setStereoWideningAmount(profile, prefs.getInt(KEY_STEREO, 32))
-            }
-
-            val storedBandCount = prefs.getInt(KEY_EQ_BAND_COUNT, -1)
-            val gainsStr = prefs.getString(KEY_EQ_GAINS, null)
-            if (gainsStr != null && storedBandCount > 0) {
-                val gains = gainsStr.split(",").mapNotNull { it.toIntOrNull() }
-                if (gains.size == storedBandCount) {
-                    val bandGains = gains.mapIndexed { i, g ->
-                        BandGain(
-                            frequency = DolbyRepository.BAND_FREQUENCIES_20.getOrElse(i) { i },
-                            gain = g
-                        )
-                    }
-                    repository.setEqualizerGains(profile, bandGains, BandMode.TWENTY_BAND)
-                }
-            }
-
-            repository.setBassCurve(profile, prefs.getInt(KEY_BASS_CURVE, 0))
-            repository.setBassCutoff(profile, prefs.getInt(KEY_BASS_CUTOFF, 60))
-            repository.setBassLevel(profile, prefs.getInt(KEY_BASS_LEVEL, 0))
-            repository.setClarityMode(profile, prefs.getInt(KEY_CLARITY_MODE, 0))
-            repository.setTrebleLevel(profile, prefs.getInt(KEY_TREBLE_LEVEL, 0))
-            repository.setDynamicLevel(profile, prefs.getInt(KEY_DYNAMIC_LEVEL, 0))
-            repository.setSpeakerCorrection(profile, prefs.getInt(KEY_SPEAKER_CORRECTION, 0))
-            repository.setMidLevel(profile, prefs.getInt(KEY_MID_LEVEL, 0))
-            repository.setViperSurroundWidening(profile, prefs.getInt(KEY_VIPER_SURROUND_WIDENING, 50))
-            repository.setViperSurroundDepth(profile, prefs.getInt(KEY_VIPER_SURROUND_DEPTH, 35))
-            repository.setViperSurroundEnabled(profile, prefs.getBoolean(KEY_VIPER_SURROUND, false))
-
+            repository.restoreEngineMasterStates(
+                dolbyMaster = prefs.getBoolean(KEY_DOLBY_MASTER_ENABLED, enabled),
+                misoundMaster = prefs.getBoolean(KEY_MISOUND_MASTER_ENABLED, enabled)
+            )
+            repository.setCurrentProfile(profile)
+            repository.setSoundEngineMode(restoredMode)
             if (restoreEnabled) {
                 repository.setDolbyEnabled(enabled)
             }
-            repository.setCurrentProfile(profile)
             repository.notifySnapshotRestored()
 
             DolbyConstants.dlog(TAG,
-                "Snapshot restored for device=$deviceKey profile=$profile v=$storedVersion")
+                "Snapshot restored for device=$deviceKey mode=$restoredMode profile=$profile v=$storedVersion")
             true
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG,
@@ -229,11 +242,19 @@ class DeviceStateManager(private val context: Context) {
     companion object {
         private const val TAG = "DeviceStateManager"
 
-        // 2: added dynamic_level and band_mode. Older snapshots lack them and are discarded.
-        const val SNAPSHOT_VERSION = 2
+        // 3: added sound_engine_mode, per-engine master enables, and MiSound per-scenario state.
+        const val SNAPSHOT_VERSION = 3
 
         private const val KEY_VERSION = "snapshot_version"
+        private const val KEY_SOUND_ENGINE_MODE = "sound_engine_mode"
+        private const val KEY_DOLBY_MASTER_ENABLED = "dolby_master_enabled"
+        private const val KEY_MISOUND_MASTER_ENABLED = "misound_master_enabled"
         private const val KEY_DOLBY_ENABLED = "enabled"
+        private const val KEY_MISOUND_SCENARIO = "misound_scenario"
+        private const val KEY_MISOUND_3D_PREFIX = "misound_3d_"
+        private const val KEY_MISOUND_SURROUND_LEVEL_PREFIX = "misound_surround_lvl_"
+        private const val KEY_MISOUND_VOCAL_LEVEL_PREFIX = "misound_vocal_lvl_"
+        private const val KEY_MISOUND_EQ_PREFIX = "misound_eq_"
         private const val KEY_PROFILE = "profile"
         private const val KEY_BAND_MODE = "band_mode"
         private const val KEY_IEQ = "ieq"

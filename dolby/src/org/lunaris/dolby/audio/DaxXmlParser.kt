@@ -22,8 +22,8 @@ data class DaxProfileTuning(
 )
 
 /**
- * Parses /vendor/etc/dolby/dax-default.xml so Xiaomi Sound's Smart, Music, and Movie scenarios
- * load the exact tuning curves defined in dax-default.xml just like Dolby profiles.
+ * Parses /vendor/etc/dolby/dax-default.xml for Dolby Atmos profile metadata/tuning.
+ * (Xiaomi Sound uses MiSoundXmlParser + R.raw.misound_profiles exclusively.)
  */
 object DaxXmlParser {
     private const val TAG = "DaxXmlParser"
@@ -57,6 +57,7 @@ object DaxXmlParser {
         val file = XML_PATHS.map(::File).firstOrNull { it.exists() && it.canRead() }
             ?: return emptyMap()
 
+        val geqPresets = mutableMapOf<Int, IntArray>()
         val result = mutableMapOf<Int, DaxProfileTuning>()
         try {
             val factory = XmlPullParserFactory.newInstance()
@@ -64,6 +65,9 @@ object DaxXmlParser {
             file.inputStream().use { stream ->
                 parser.setInput(stream, "UTF-8")
                 var currentProfileId = -1
+                var currentEndpoint: String? = null
+                var currentPresetId = -1
+                var currentPresetGains = mutableListOf<Int>()
                 var geq = IntArray(20) { 0 }
                 var bass = false
                 var hpVirt = false
@@ -77,8 +81,19 @@ object DaxXmlParser {
                     when (event) {
                         XmlPullParser.START_TAG -> {
                             when (parser.name) {
+                                "preset" -> {
+                                    if (parser.getAttributeValue(null, "type") == "geq") {
+                                        currentPresetId = parser.getAttributeValue(null, "id")?.toIntOrNull() ?: -1
+                                        currentPresetGains = mutableListOf()
+                                    }
+                                }
+                                "band_geq" -> if (currentPresetId >= 0) {
+                                    val gain = parser.getAttributeValue(null, "gain")?.toIntOrNull() ?: 0
+                                    currentPresetGains.add(gain)
+                                }
                                 "profile" -> {
                                     currentProfileId = parser.getAttributeValue(null, "id")?.toIntOrNull() ?: -1
+                                    currentEndpoint = null
                                     geq = IntArray(20) { 0 }
                                     bass = false
                                     hpVirt = false
@@ -87,40 +102,53 @@ object DaxXmlParser {
                                     dlgEnable = false
                                     dlgAmount = 6
                                 }
-                                "geq-band-gains" -> if (currentProfileId >= 0) {
-                                    val raw = parser.getAttributeValue(null, "value").orEmpty()
-                                    val parsed = raw.split(",", " ")
-                                        .mapNotNull { it.trim().toIntOrNull() }
-                                    if (parsed.size >= 20) {
-                                        geq = parsed.take(20).toIntArray()
+                                "endpoint_type" -> if (currentProfileId >= 0) {
+                                    currentEndpoint = parser.getAttributeValue(null, "id")
+                                }
+                                "bass-enhancer-enable" -> if (currentProfileId >= 0 &&
+                                    (currentEndpoint == "headphone" || currentEndpoint == "speaker")
+                                ) {
+                                    bass = bass || parser.getAttributeValue(null, "value") == "true"
+                                }
+                                "virtualizer-enable" -> if (currentProfileId >= 0) {
+                                    val v = parser.getAttributeValue(null, "value") == "true"
+                                    when (currentEndpoint) {
+                                        "headphone" -> hpVirt = v
+                                        "speaker" -> spkVirt = v
                                     }
                                 }
-                                "bass-enhancer-enable" -> if (currentProfileId >= 0) {
-                                    bass = parser.getAttributeValue(null, "value") == "true"
+                                "surround-boost" -> if (currentProfileId >= 0 && currentEndpoint == "headphone") {
+                                    val boost = parser.getAttributeValue(null, "value")?.toIntOrNull()
+                                    if (boost != null && boost > 0) widening = boost
                                 }
-                                "headphone-virtualizer" -> if (currentProfileId >= 0) {
-                                    hpVirt = parser.getAttributeValue(null, "value") == "true"
+                                "dialog-enhancer-enable" -> if (currentProfileId >= 0 &&
+                                    (currentEndpoint == "headphone" || currentEndpoint == "speaker")
+                                ) {
+                                    dlgEnable = dlgEnable || parser.getAttributeValue(null, "value") == "true"
                                 }
-                                "speaker-virtualizer" -> if (currentProfileId >= 0) {
-                                    spkVirt = parser.getAttributeValue(null, "value") == "true"
-                                }
-                                "stereo-widening-amount" -> if (currentProfileId >= 0) {
-                                    widening = parser.getAttributeValue(null, "value")?.toIntOrNull() ?: 32
-                                }
-                                "dialogue-enhancer-enable" -> if (currentProfileId >= 0) {
-                                    dlgEnable = parser.getAttributeValue(null, "value") == "true"
-                                }
-                                "dialogue-enhancer-amount" -> if (currentProfileId >= 0) {
-                                    dlgAmount = parser.getAttributeValue(null, "value")?.toIntOrNull() ?: 6
+                                "dialog-enhancer-amount" -> if (currentProfileId >= 0 &&
+                                    (currentEndpoint == "headphone" || currentEndpoint == "speaker")
+                                ) {
+                                    dlgAmount = parser.getAttributeValue(null, "value")?.toIntOrNull() ?: dlgAmount
                                 }
                             }
                         }
                         XmlPullParser.END_TAG -> {
-                            if (parser.name == "profile" && currentProfileId >= 0) {
+                            if (parser.name == "preset" && currentPresetId >= 0) {
+                                if (currentPresetGains.size >= 20) {
+                                    geqPresets[currentPresetId] = currentPresetGains.take(20).toIntArray()
+                                }
+                                currentPresetId = -1
+                            } else if (parser.name == "endpoint_type") {
+                                currentEndpoint = null
+                            } else if (parser.name == "profile" && currentProfileId >= 0) {
+                                val fallback = defaultFallback(currentProfileId)
+                                val xmlGeq = geqPresets[currentProfileId]
+                                geq = if (xmlGeq != null && xmlGeq.any { it != 0 }) xmlGeq else fallback.geqBandGains
                                 result[currentProfileId] = DaxProfileTuning(
                                     daxProfileId = currentProfileId,
                                     geqBandGains = geq,
-                                    bassEnhancerEnable = bass,
+                                    bassEnhancerEnable = bass || fallback.bassEnhancerEnable,
                                     headphoneVirtualizer = hpVirt,
                                     speakerVirtualizer = spkVirt,
                                     stereoWideningAmount = widening,

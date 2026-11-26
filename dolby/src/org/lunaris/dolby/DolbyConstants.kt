@@ -26,10 +26,14 @@ object DolbyConstants {
     val EFFECT_UUID_MISOUND: UUID = UUID.fromString("5b8e36a5-144a-4c38-b1d7-0002a5d5c51b")
 
     const val PREF_SOUND_ENGINE_MODE = "sound_engine_mode"
+    const val PREF_DOLBY_MASTER_ENABLE = "dolby_master_enable"
+    const val PREF_MISOUND_MASTER_ENABLE = "misound_master_enable"
     const val PREF_MISOUND_SCENARIO = "misound_scenario"
     const val PREF_MISOUND_3D_SURROUND = "misound_3d_surround"
     const val PREF_MISOUND_SURROUND_LEVEL = "misound_surround_level"
     const val PREF_MISOUND_VOCAL_LEVEL = "misound_vocal_level"
+    const val PREF_MISOUND_EQ_GAINS = "misound_eq_gains"
+    const val PREF_MISOUND_SCENARIO_PREFIX = "misound_scenario_"
 
     const val PROP_MISOUND_DISABLE = "persist.sys.dolby.misound.disable"
     const val PROP_MISOUND_SCENARIO = "persist.sys.dolby.misound.scenario"
@@ -38,14 +42,39 @@ object DolbyConstants {
     const val PROP_MISOUND_3D_SURROUND = "persist.sys.dolby.misound.surround3d"
     const val PROP_MISOUND_SURROUND_LEVEL = "persist.sys.dolby.misound.surround_level"
     const val PROP_MISOUND_VOCAL_LEVEL = "persist.sys.dolby.misound.vocal_level"
+    const val PROP_MISOUND_EQ = "persist.sys.dolby.misound.eq"
+    const val PROP_MISOUND_HEADSET_TYPE = "persist.sys.dolby.misound.headset_type"
 
-    // libmisoundfx.so QdspParameterId values for AudioEffect.setParameter(int, int)
-    const val MISOUND_PARAM_ENABLE = 0
-    const val MISOUND_PARAM_SCENARIO = 1
-    const val MISOUND_PARAM_HEADSET_TYPE = 2
-    const val MISOUND_PARAM_3D_SURROUND_ENABLE = 7
-    const val MISOUND_PARAM_SURROUND_LEVEL = 8
-    const val MISOUND_PARAM_VOCAL_LEVEL = 9
+    // Verified libmisoundfx.so MiSound_command(cmdCode=5 EFFECT_CMD_SET_PARAM) paramIds
+    const val MISOUND_PARAM_HEADSET_TYPE = 1
+    const val MISOUND_PARAM_EQ_LEVEL = 2
+    const val MISOUND_PARAM_MUSIC = 4
+    const val MISOUND_PARAM_MOVIE = 5 // Dead no-op in libmisoundfx.so; kept for reference only
+    const val MISOUND_PARAM_SCENARIO = 15
+    const val MISOUND_PARAM_SURROUND_LEVEL = 16
+    const val MISOUND_PARAM_VOCAL_LEVEL = 17
+    const val MISOUND_PARAM_MOVIE_MODE_ENABLE = 18
+    const val MISOUND_PARAM_3D_SURROUND_ENABLE = 20 // Internally maps to QdspParameterId=22
+    const val MISOUND_PARAM_SKIP_NEXT_OFF = 22 // One-shot skip-next-off guard; never send on disable
+    const val MISOUND_PARAM_ENABLE = 25 // Actual QdspMisoundGefDriver::setEnabled
+
+    // Native libmisoundfx.so scenario IDs (UI indices 0=Smart, 1=Music, 2=Movie)
+    const val MISOUND_SCENARIO_MUSIC = 1
+    const val MISOUND_SCENARIO_MOVIE = 2
+    const val MISOUND_SCENARIO_VOCAL = 3
+    const val MISOUND_SCENARIO_SMART = 4
+
+    const val MISOUND_EQ_BAND_COUNT = 10
+    const val MISOUND_EQ_MIN_DB = -12.0f
+    const val MISOUND_EQ_MAX_DB = 12.0f
+    const val MISOUND_EQ_MIN_TENTHS = -120
+    const val MISOUND_EQ_MAX_TENTHS = 120
+
+    fun uiScenarioToNative(uiScenario: Int): Int = when (uiScenario.coerceIn(0, 2)) {
+        1 -> MISOUND_SCENARIO_MUSIC
+        2 -> MISOUND_SCENARIO_MOVIE
+        else -> MISOUND_SCENARIO_SMART
+    }
 
     const val PREF_ENABLE = "dolby_enable"
     const val PREF_PROFILE = "dolby_profile"

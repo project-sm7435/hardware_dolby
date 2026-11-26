@@ -6,6 +6,7 @@
 package org.lunaris.dolby.audio
 
 import android.media.audiofx.AudioEffect
+import android.util.Log
 import org.lunaris.dolby.DolbyConstants
 import org.lunaris.dolby.DolbyConstants.DsParam
 import java.util.UUID
@@ -15,15 +16,30 @@ class DolbyAudioEffect(priority: Int, audioSession: Int) : AudioEffect(
 ) {
     var dsOn: Boolean
         get() = try {
-            getIntParam(EFFECT_PARAM_ENABLE) == 1 && getEnabled()
+            hasControl() && getEnabled() && getIntParam(EFFECT_PARAM_ENABLE) == 1
         } catch (_: Throwable) {
             false
         }
         set(value) {
-            setIntParam(EFFECT_PARAM_ENABLE, if (value) 1 else 0)
-            val status = setEnabled(value)
-            if (status != SUCCESS) {
-                throw IllegalStateException("setEnabled($value) failed, status=$status")
+            if (!hasControl()) {
+                throw IllegalStateException("DolbyAudioEffect lost control before dsOn=$value")
+            }
+            if (value) {
+                setIntParam(EFFECT_PARAM_ENABLE, 1)
+                if (!getEnabled()) {
+                    val status = setEnabled(true)
+                    if (status != SUCCESS) {
+                        throw IllegalStateException("setEnabled(true) failed, status=$status")
+                    }
+                }
+            } else {
+                runCatching { setIntParam(EFFECT_PARAM_ENABLE, 0) }
+                if (getEnabled()) {
+                    val status = setEnabled(false)
+                    if (status != SUCCESS) {
+                        Log.w(TAG, "setEnabled(false) returned status=$status")
+                    }
+                }
             }
         }
 

@@ -11,6 +11,7 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import org.lunaris.dolby.DolbyConstants
 import org.lunaris.dolby.R
+import org.lunaris.dolby.SoundEngineMode
 import org.lunaris.dolby.data.DolbyRepository
 
 class DolbyTileService : TileService() {
@@ -20,7 +21,15 @@ class DolbyTileService : TileService() {
 
     // Keeps the tile in step with the card in the app while the QS panel is open.
     private val enabledListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == DolbyConstants.PREF_ENABLE || key == DolbyConstants.PREF_SOUND_ENGINE_MODE) updateTile()
+        if (key == DolbyConstants.PREF_ENABLE ||
+            key == DolbyConstants.PREF_DOLBY_MASTER_ENABLE ||
+            key == DolbyConstants.PREF_MISOUND_MASTER_ENABLE ||
+            key == DolbyConstants.PREF_SOUND_ENGINE_MODE ||
+            key == DolbyConstants.PREF_PROFILE ||
+            key == DolbyConstants.PREF_MISOUND_SCENARIO
+        ) {
+            updateTile()
+        }
     }
 
     override fun onStartListening() {
@@ -57,10 +66,16 @@ class DolbyTileService : TileService() {
     }
 
     private fun getProfileName(): String {
-        if (repository.getSoundEngineMode() == org.lunaris.dolby.SoundEngineMode.XIAOMI_SOUND) {
-            return getString(R.string.sound_engine_xiaomi)
+        if (repository.getSoundEngineMode() == SoundEngineMode.XIAOMI_SOUND) {
+            val scenarios = resources.getStringArray(R.array.xiaomi_sound_scenario_entries)
+            val scenarioName = scenarios.getOrElse(repository.getMiSoundScenario()) { "" }
+            return if (scenarioName.isNotEmpty()) {
+                "${getString(R.string.sound_engine_xiaomi)} · $scenarioName"
+            } else {
+                getString(R.string.sound_engine_xiaomi)
+            }
         }
-        val profile = repository.getCurrentProfile()
+        val profile = repository.getSavedProfile()
         val profiles = resources.getStringArray(R.array.dolby_profile_entries)
         val profileValues = resources.getStringArray(R.array.dolby_profile_values)
         
