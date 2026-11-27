@@ -135,22 +135,25 @@ class DolbyEffectService : Service() {
 
     private var wasPlaybackActive = false
     private var wasRestricted = false
-    private var pendingResumeFromIdle = false
+    private var pendingForceRestore = false
     private var lastPlaybackStoppedAtMs = 0L
 
     private val playbackRefreshRunnable = Runnable {
         try {
             val configs = audioManager.activePlaybackConfigurations
             val restricted = hasRestrictedPlayback(configs)
-            val forceRestore = pendingResumeFromIdle
-            pendingResumeFromIdle = false
+            val forceRestore = pendingForceRestore
+            pendingForceRestore = false
             repository.refreshOnPlayback(emptySet(), restricted, forceRestore)
         } catch (e: Exception) {
             Log.w(TAG, "refreshOnPlayback failed", e)
         }
     }
 
-    private fun schedulePlaybackRefresh() {
+    private fun schedulePlaybackRefresh(forceRestore: Boolean = false) {
+        if (forceRestore) {
+            pendingForceRestore = true
+        }
         handler.removeCallbacks(playbackRefreshRunnable)
         handler.postDelayed(playbackRefreshRunnable, PLAYBACK_REFRESH_DELAY_MS)
     }
@@ -162,23 +165,22 @@ class DolbyEffectService : Service() {
             val now = SystemClock.elapsedRealtime()
 
             if (restricted) {
-                if (!wasRestricted) {
-                    schedulePlaybackRefresh()
-                }
+                schedulePlaybackRefresh(forceRestore = !wasRestricted)
             } else if (isActive) {
                 if (!wasPlaybackActive) {
                     val idleDurationMs = if (lastPlaybackStoppedAtMs == 0L) Long.MAX_VALUE else (now - lastPlaybackStoppedAtMs)
-                    if (idleDurationMs >= STANDBY_IDLE_THRESHOLD_MS) {
-                        pendingResumeFromIdle = true
+                    val shouldForce = idleDurationMs >= STANDBY_IDLE_THRESHOLD_MS || lastPlaybackStoppedAtMs > 0L
+                    if (shouldForce) {
+                        pendingForceRestore = true
                         try {
                             repository.ensureLiveState()
                         } catch (e: Exception) {
                             Log.w(TAG, "ensureLiveState on playback failed", e)
                         }
-                        schedulePlaybackRefresh()
                     }
-                } else if (wasRestricted) {
-                    schedulePlaybackRefresh()
+                    schedulePlaybackRefresh(forceRestore = shouldForce)
+                } else {
+                    schedulePlaybackRefresh(forceRestore = true)
                 }
             } else if (wasPlaybackActive) {
                 lastPlaybackStoppedAtMs = now

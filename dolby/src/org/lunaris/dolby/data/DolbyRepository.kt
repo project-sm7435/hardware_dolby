@@ -241,7 +241,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             .putBoolean(DolbyConstants.PREF_SPK_VIRTUALIZER, spkVirt)
             .putBoolean(DolbyConstants.PREF_DIALOGUE, dialogueEnabled)
             .putInt(DolbyConstants.PREF_DIALOGUE_AMOUNT, dialogueAmount)
-            .putInt(DolbyConstants.PREF_BASS_CURVE, bassCurve)
+            .putInt(DolbyConstants.PREF_BASS_CURVE, bassCurve.coerceIn(0, 2))
             .putInt(DolbyConstants.PREF_BASS_CUTOFF, bassCutoff.coerceIn(15, 150))
             .putInt(DolbyConstants.PREF_BASS_LEVEL, bassLevel.coerceIn(0, 100))
             .putBoolean(DolbyConstants.PREF_BASS, bassLevel > 0)
@@ -703,6 +703,9 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
 
             if (!needsRestore) return
 
+            if (forceRestore) {
+                invalidateDapCache()
+            }
             lastAppliedRestricted = effectiveRestricted
             runCatching {
                 if (dolbyEffect.profile != savedProfile) {
@@ -1030,7 +1033,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         if (isReleased) return
         try {
             getProfilePrefs(profile).edit().putBoolean(DolbyConstants.PREF_BASS, enabled).apply()
-            syncViperState(profile)
+            syncViperState(profile, forceRebind = true)
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting bass enhancer: ${e.message}")
         }
@@ -1053,8 +1056,9 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     @Synchronized
     fun setBassCurve(profile: Int, curve: Int) {
         if (isReleased) return
-        getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_BASS_CURVE, curve).apply()
-        syncViperState(profile)
+        val clamped = curve.coerceIn(0, 2)
+        getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_BASS_CURVE, clamped).apply()
+        syncViperState(profile, forceRebind = true)
         notifyStateUpdated()
     }
 
@@ -1066,7 +1070,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     fun setBassCutoff(profile: Int, hz: Int) {
         if (isReleased) return
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_BASS_CUTOFF, hz.coerceIn(15, 150)).apply()
-        syncViperState(profile)
+        syncViperState(profile, forceRebind = true)
         notifyStateUpdated()
     }
 
@@ -1080,7 +1084,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             .putInt(DolbyConstants.PREF_BASS_LEVEL, level)
             .putBoolean(DolbyConstants.PREF_BASS, level > 0)
             .apply()
-        syncViperState(profile)
+        syncViperState(profile, forceRebind = true)
         notifyStateUpdated()
     }
 
@@ -1093,7 +1097,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         if (isReleased) return
         val newLevel = level.coerceIn(0, 100)
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_SPEAKER_CORRECTION, newLevel).apply()
-        syncViperState(profile)
+        syncViperState(profile, forceRebind = true)
         notifyStateUpdated()
     }
 
@@ -1117,7 +1121,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     fun setClarityMode(profile: Int, mode: Int) {
         if (isReleased) return
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_CLARITY_MODE, mode).apply()
-        syncViperState(profile)
+        syncViperState(profile, forceRebind = true)
         notifyStateUpdated()
     }
 
@@ -1131,7 +1135,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             .putInt(DolbyConstants.PREF_TREBLE_LEVEL, level)
             .putBoolean(DolbyConstants.PREF_TREBLE, level > 0)
             .apply()
-        syncViperState(profile)
+        syncViperState(profile, forceRebind = true)
         notifyStateUpdated()
     }
 
@@ -1149,7 +1153,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         if (isReleased) return
         if (level !in 0..100) throw IllegalArgumentException("Dynamic system level must be between 0 and 100")
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_DYNAMIC_LEVEL, level).apply()
-        syncViperState(profile)
+        syncViperState(profile, forceRebind = true)
         notifyStateUpdated()
     }
 
@@ -1161,7 +1165,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     fun setViperSurroundEnabled(profile: Int, enabled: Boolean) {
         if (isReleased) return
         getProfilePrefs(profile).edit().putBoolean(DolbyConstants.PREF_VIPER_SURROUND, enabled).apply()
-        syncViperState(profile)
+        syncViperState(profile, forceRebind = true)
         notifyStateUpdated()
     }
 
@@ -1173,7 +1177,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     fun setViperSurroundWidening(profile: Int, widening: Int) {
         if (isReleased) return
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_VIPER_SURROUND_WIDENING, widening.coerceIn(1, 100)).apply()
-        syncViperState(profile)
+        syncViperState(profile, forceRebind = true)
         notifyStateUpdated()
     }
 
@@ -1185,7 +1189,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     fun setViperSurroundDepth(profile: Int, depth: Int) {
         if (isReleased) return
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_VIPER_SURROUND_DEPTH, depth.coerceIn(0, 100)).apply()
-        syncViperState(profile)
+        syncViperState(profile, forceRebind = true)
         notifyStateUpdated()
     }
 
@@ -1268,7 +1272,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
 
         try {
             getProfilePrefs(profile).edit().putBoolean(DolbyConstants.PREF_HP_VIRTUALIZER, enabled).apply()
-            syncViperState(profile)
+            syncViperState(profile, forceRebind = true)
             notifyStateUpdated()
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting headphone virtualizer: ${e.message}")
@@ -1294,7 +1298,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
 
         try {
             getProfilePrefs(profile).edit().putBoolean(DolbyConstants.PREF_SPK_VIRTUALIZER, enabled).apply()
-            syncViperState(profile)
+            syncViperState(profile, forceRebind = true)
             notifyStateUpdated()
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting speaker virtualizer: ${e.message}")
@@ -1319,7 +1323,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
 
         try {
             getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_STEREO_WIDENING, amount).apply()
-            syncViperState(profile)
+            syncViperState(profile, forceRebind = true)
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting stereo widening: ${e.message}")
         }
@@ -1424,7 +1428,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
                 val gainsString = gains.joinToString(",")
                 getProfilePrefs(profile).edit().putString(DolbyConstants.PREF_PRESET, gainsString).apply()
                 if (getSavedDolbyEnabled()) {
-                    applyViper(profile)
+                    applyViper(profile, forceRebind = true)
                 }
             }
         } catch (e: Exception) {
@@ -1723,7 +1727,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             .putInt(DolbyConstants.PREF_MID_LEVEL, level)
             .putBoolean(DolbyConstants.PREF_MID, level > 0)
             .apply()
-        syncViperState(profile)
+        syncViperState(profile, forceRebind = true)
         notifyStateUpdated()
     }
 

@@ -71,6 +71,9 @@ internal class QcomEffectsController {
             bassBoost?.let { bb ->
                 if (lastBassEnabled != false || releaseHandles) {
                     try {
+                        if (bb.hasControl()) {
+                            bb.setStrength(0)
+                        }
                         bb.enabled = false
                     } catch (_: Throwable) {
                     }
@@ -91,6 +94,9 @@ internal class QcomEffectsController {
             virtualizer?.let { virt ->
                 if (lastVirtEnabled != false || releaseHandles) {
                     try {
+                        if (virt.hasControl()) {
+                            virt.setStrength(0)
+                        }
                         virt.enabled = false
                     } catch (_: Throwable) {
                     }
@@ -138,16 +144,24 @@ internal class QcomEffectsController {
             return 0
         }
 
-        if (!force && lastBassEnabled == true && lastBassStrength == strength && isBassReady()) {
+        val currentEnabled = try {
+            bassBoost?.enabled == true
+        } catch (_: Throwable) {
+            false
+        }
+
+        if (!force && lastBassEnabled == true && lastBassStrength == strength && currentEnabled && isBassReady()) {
             return strength
         }
 
         val bb = obtainBassBoost() ?: return 0
         return try {
-            if (force || lastBassStrength != strength) {
-                bb.setStrength(strength.toShort())
+            if (!bb.hasControl()) {
+                dropBassBoost()
+                return 0
             }
-            if (force || lastBassEnabled != true || !bb.enabled) {
+            bb.setStrength(strength.toShort())
+            if (!bb.enabled || force || lastBassEnabled != true) {
                 bb.enabled = true
             }
             lastBassEnabled = true
@@ -181,16 +195,24 @@ internal class QcomEffectsController {
             return 0
         }
 
-        if (!force && lastVirtEnabled == true && lastVirtStrength == strength && isVirtReady()) {
+        val currentEnabled = try {
+            virtualizer?.enabled == true
+        } catch (_: Throwable) {
+            false
+        }
+
+        if (!force && lastVirtEnabled == true && lastVirtStrength == strength && currentEnabled && isVirtReady()) {
             return strength
         }
 
         val virt = obtainVirtualizer() ?: return 0
         return try {
-            if (force || lastVirtStrength != strength) {
-                virt.setStrength(strength.toShort())
+            if (!virt.hasControl()) {
+                dropVirtualizer()
+                return 0
             }
-            if (force || lastVirtEnabled != true || !virt.enabled) {
+            virt.setStrength(strength.toShort())
+            if (!virt.enabled || force || lastVirtEnabled != true) {
                 virt.enabled = true
             }
             lastVirtEnabled = true
