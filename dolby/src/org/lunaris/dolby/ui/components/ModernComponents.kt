@@ -1348,8 +1348,6 @@ fun XiaomiSoundSettingsCard(
     settings: org.lunaris.dolby.domain.models.MiSoundSettings,
     onScenarioChange: (Int) -> Unit,
     onSurround3dChange: (Boolean) -> Unit,
-    onSurroundLevelChange: (Int) -> Unit,
-    onVocalLevelChange: (Int) -> Unit,
     onOpenEqualizerClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1372,36 +1370,8 @@ fun XiaomiSoundSettingsCard(
                 title = stringResource(R.string.xiaomi_sound_3d_surround),
                 subtitle = stringResource(R.string.xiaomi_sound_3d_surround_summary),
                 checked = settings.surround3dEnabled,
-                badgeText = if (settings.surround3dEnabled) "${settings.surroundLevel}%" else null,
-                shape = groupedCardShape(first = true, last = !settings.surround3dEnabled),
                 onCheckedChange = onSurround3dChange,
                 icon = Icons.Rounded.SpatialAudio
-            )
-
-            androidx.compose.animation.AnimatedVisibility(
-                visible = settings.surround3dEnabled,
-                enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) +
-                    androidx.compose.animation.expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()),
-                exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) +
-                    androidx.compose.animation.shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec())
-            ) {
-                ModernSettingSlider(
-                    title = stringResource(R.string.xiaomi_sound_surround_level),
-                    value = settings.surroundLevel,
-                    onValueChange = { onSurroundLevelChange(it.toInt()) },
-                    valueRange = 0f..100f,
-                    steps = 19,
-                    valueLabel = { "$it%" }
-                )
-            }
-
-            ModernSettingSlider(
-                title = stringResource(R.string.xiaomi_sound_vocal_level),
-                value = settings.vocalLevel,
-                onValueChange = { onVocalLevelChange(it.toInt()) },
-                valueRange = 0f..100f,
-                steps = 19,
-                valueLabel = { "$it%" }
             )
 
             androidx.compose.material3.FilledTonalButton(

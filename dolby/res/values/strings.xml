@@ -264,9 +264,7 @@
     <string name="xiaomi_sound_scenario_movie">Movie</string>
     <string name="xiaomi_sound_3d_surround">3D surround</string>
     <string name="xiaomi_sound_3d_surround_summary">Expands spatial soundstage using Xiaomi MiSound DSP</string>
-    <string name="xiaomi_sound_surround_level">Surround intensity</string>
-    <string name="xiaomi_sound_vocal_level">Vocal enhancement</string>
-    <string name="xiaomi_sound_active_notice">Xiaomi Sound is currently active. Configure scenario, 3D surround, and vocal enhancement on the Home tab, or open the Equalizer tab for Mi Sound\'s 10-band EQ. Switch back to Dolby Atmos on the Home tab to use Dolby &amp; ViPER DSP effects.</string>
+    <string name="xiaomi_sound_active_notice">Xiaomi Sound is currently active. Configure scenario and 3D surround on the Home tab, or open the Equalizer tab for Mi Sound\'s 10-band EQ. Switch back to Dolby Atmos on the Home tab to use Dolby &amp; ViPER DSP effects.</string>
     <string name="xiaomi_sound_equalizer_title">Mi Sound Equalizer</string>
     <string name="xiaomi_sound_equalizer_summary">10-band Xiaomi Sound DSP equalizer per scenario</string>
     <string name="xiaomi_sound_equalizer_open">Equalizer (10 Bands)</string>

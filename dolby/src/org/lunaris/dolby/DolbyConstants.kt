@@ -18,6 +18,9 @@ enum class SoundEngineMode(val id: Int) {
     }
 }
 
+/** Result of the flowchart's exclusive switch: only one engine, or none, may be running. */
+enum class ActiveEngine { DOLBY, MISOUND, NONE }
+
 object DolbyConstants {
 
     const val TAG = "Dolby"

@@ -193,15 +193,16 @@ class DeviceStateManager(private val context: Context) {
                 viperSurroundEnabled = prefs.getBoolean(KEY_VIPER_SURROUND, false)
             )
 
-            repository.restoreEngineMasterStates(
-                dolbyMaster = prefs.getBoolean(KEY_DOLBY_MASTER_ENABLED, enabled),
-                misoundMaster = prefs.getBoolean(KEY_MISOUND_MASTER_ENABLED, enabled)
-            )
-            repository.setCurrentProfile(profile)
-            repository.setSoundEngineMode(restoredMode)
+            // restoreEnabled=false (user just toggled): keep their on/off, restore everything else.
             if (restoreEnabled) {
-                repository.setDolbyEnabled(enabled)
+                repository.restoreEngineMasterStates(
+                    dolbyMaster = prefs.getBoolean(KEY_DOLBY_MASTER_ENABLED, enabled),
+                    misoundMaster = prefs.getBoolean(KEY_MISOUND_MASTER_ENABLED, enabled)
+                )
             }
+            repository.restoreSavedProfile(profile)
+            // Single apply: masters + mode are already stored, so this routes exactly once.
+            repository.setSoundEngineMode(restoredMode, carryEnabled = !restoreEnabled)
             repository.notifySnapshotRestored()
 
             DolbyConstants.dlog(TAG,
