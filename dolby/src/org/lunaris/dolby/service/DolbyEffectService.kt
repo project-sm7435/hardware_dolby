@@ -49,10 +49,6 @@ class DolbyEffectService : Service() {
     private var retryAttempt = 0
     private val retryRunnable = Runnable { applyStateWithRetry() }
 
-    /**
-     * Applies the saved master switch/profile and keeps retrying with a growing delay until the
-     * effect reports the saved state. Fixes Dolby being off after reboot.
-     */
     private fun applyStateWithRetry() {
         handler.removeCallbacks(retryRunnable)
         val ok = try {
@@ -183,6 +179,9 @@ class DolbyEffectService : Service() {
             handler.removeCallbacks(trackVerifyRunnable)
             handler.postDelayed(trackVerifyRunnable, TRACK_VERIFY_DELAY_MS)
         }
+        // A fresh playback event starts a fresh retry budget; otherwise it stays exhausted forever.
+        refreshFailures = 0
+        handler.removeCallbacks(playbackRetryRunnable)
         handler.removeCallbacks(playbackRefreshRunnable)
         handler.postDelayed(playbackRefreshRunnable, PLAYBACK_REFRESH_DELAY_MS)
     }
@@ -358,6 +357,9 @@ class DolbyEffectService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val fromUser = intent?.getBooleanExtra(EXTRA_FROM_USER, false) == true || consumeSkipNextStartApply()
+        // onCreate already consumed this if the service was just created; clear it if the service
+        // was already running so a later restart isn't wrongly treated as a user start.
+        if (fromUser) pendingUserStart = false
         if (!fromUser) {
             handler.post {
                 retryAttempt = 0

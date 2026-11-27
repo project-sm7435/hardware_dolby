@@ -21,10 +21,6 @@ data class DaxProfileTuning(
     val dialogueEnhancerAmount: Int,
 )
 
-/**
- * Parses /vendor/etc/dolby/dax-default.xml for Dolby Atmos profile metadata/tuning.
- * (Xiaomi Sound uses MiSoundXmlParser + R.raw.misound_profiles exclusively.)
- */
 object DaxXmlParser {
     private const val TAG = "DaxXmlParser"
     private val XML_PATHS = listOf(
@@ -36,10 +32,6 @@ object DaxXmlParser {
     @Volatile
     private var cachedProfiles: Map<Int, DaxProfileTuning>? = null
 
-    /**
-     * Maps Xiaomi Sound UI scenario index (0=Smart, 1=Music, 2=Movie)
-     * to dax-default.xml profile ID (0=Dynamic/Smart, 2=Music, 1=Movie).
-     */
     fun scenarioToDaxProfileId(scenario: Int): Int = when (scenario) {
         0 -> 0 // Smart -> Dynamic
         1 -> 2 // Music -> Music

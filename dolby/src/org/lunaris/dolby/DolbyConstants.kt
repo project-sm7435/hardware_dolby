@@ -18,7 +18,6 @@ enum class SoundEngineMode(val id: Int) {
     }
 }
 
-/** Result of the flowchart's exclusive switch: only one engine, or none, may be running. */
 enum class ActiveEngine { DOLBY, MISOUND, NONE }
 
 object DolbyConstants {
@@ -90,16 +89,19 @@ object DolbyConstants {
     const val PREF_DIALOGUE_AMOUNT = "dolby_dialogue_amount"
     const val PREF_BASS = "dolby_bass"
     const val PREF_BASS_LEVEL = "dolby_bass_level"
+    const val PREF_BASS_LAST_LEVEL = "dolby_bass_last_level"
     const val PREF_BASS_CURVE = "dolby_bass_curve"
     const val PREF_CLARITY_MODE = "dolby_clarity_mode"
     const val PREF_BASS_CUTOFF = "dolby_bass_cutoff"
     const val PREF_SPEAKER_CORRECTION = "dolby_speaker_correction"
+    const val PREF_SPEAKER_CORRECTION_LAST_LEVEL = "dolby_speaker_correction_last_level"
     // GEQ delta (0.1 dB per band) the speaker correction really added, after the +-15 dB clamp
     const val PREF_SPEAKER_APPLIED = "dolby_speaker_correction_applied"
     // GEQ delta (0.1 dB per band) bass / treble really added, after the +-15 dB clamp
     const val PREF_BASS_APPLIED = "dolby_bass_applied"
     // Dynamic system is its own effect in ViPER, so it has its own level (0 = off) next to ViPER bass
     const val PREF_DYNAMIC_LEVEL = "dolby_dynamic_level"
+    const val PREF_DYNAMIC_LAST_LEVEL = "dolby_dynamic_last_level"
     const val PREF_DYNAMIC_APPLIED = "dolby_dynamic_applied"
     const val PREF_TREBLE_APPLIED = "dolby_treble_applied"
     const val PREF_VIPER_SURROUND = "dolby_viper_surround"
@@ -107,8 +109,10 @@ object DolbyConstants {
     const val PREF_VIPER_SURROUND_DEPTH = "dolby_viper_surround_depth"
     const val PREF_MID = "dolby_mid"
     const val PREF_MID_LEVEL = "dolby_mid_level"
+    const val PREF_MID_LAST_LEVEL = "dolby_mid_last_level"
     const val PREF_TREBLE = "dolby_treble"
     const val PREF_TREBLE_LEVEL = "dolby_treble_level"
+    const val PREF_TREBLE_LAST_LEVEL = "dolby_treble_last_level"
     const val PREF_VOLUME = "dolby_volume"
     const val PREF_PRESETS_MIGRATED = "presets_migrated"
     const val PREF_BAND_MODE = "dolby_band_mode"

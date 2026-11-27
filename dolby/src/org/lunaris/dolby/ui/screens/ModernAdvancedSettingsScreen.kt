@@ -163,18 +163,7 @@ private fun ModernAdvancedSettingsContent(
                         ViperExpandableRow(
                             title = stringResource(R.string.dolby_viper_bass),
                             checked = bassOn,
-                            onCheckedChange = { enabled ->
-                                if (enabled) {
-                                    val target = if (latestProfileSettings.bassLevel > 0 && latestProfileSettings.bassCurve != 3) {
-                                        latestProfileSettings.bassLevel
-                                    } else {
-                                        50
-                                    }
-                                    viewModel.enableViperBass(target)
-                                } else {
-                                    viewModel.setBassLevel(0)
-                                }
-                            },
+                            onCheckedChange = { viewModel.setBassEnabled(it) },
                             expanded = bassExpanded,
                             onExpandedChange = { bassExpanded = it },
                             icon = Icons.Default.Speaker
@@ -219,14 +208,7 @@ private fun ModernAdvancedSettingsContent(
                         ViperExpandableRow(
                             title = stringResource(R.string.dolby_dynamic_system),
                             checked = dynamicOn,
-                            onCheckedChange = { enabled ->
-                                if (enabled) {
-                                    val target = if (latestProfileSettings.dynamicLevel > 0) latestProfileSettings.dynamicLevel else 45
-                                    viewModel.setDynamicLevel(target)
-                                } else {
-                                    viewModel.setDynamicLevel(0)
-                                }
-                            },
+                            onCheckedChange = { viewModel.setDynamicEnabled(it) },
                             expanded = dynamicExpanded,
                             onExpandedChange = { dynamicExpanded = it },
                             icon = Icons.Default.Tune
@@ -253,14 +235,7 @@ private fun ModernAdvancedSettingsContent(
                         ViperExpandableRow(
                             title = stringResource(R.string.dolby_mid_enhancer),
                             checked = midOn,
-                            onCheckedChange = { enabled ->
-                                if (enabled) {
-                                    val target = if (latestProfileSettings.midLevel > 0) latestProfileSettings.midLevel else 40
-                                    viewModel.setMidLevel(target)
-                                } else {
-                                    viewModel.setMidLevel(0)
-                                }
-                            },
+                            onCheckedChange = { viewModel.setMidEnabled(it) },
                             expanded = midExpanded,
                             onExpandedChange = { midExpanded = it },
                             icon = Icons.Default.VolumeUp
@@ -287,14 +262,7 @@ private fun ModernAdvancedSettingsContent(
                         ViperExpandableRow(
                             title = stringResource(R.string.dolby_viper_clarity),
                             checked = clarityOn,
-                            onCheckedChange = { enabled ->
-                                if (enabled) {
-                                    val target = if (latestProfileSettings.trebleLevel > 0) latestProfileSettings.trebleLevel else 30
-                                    viewModel.setTrebleLevel(target)
-                                } else {
-                                    viewModel.setTrebleLevel(0)
-                                }
-                            },
+                            onCheckedChange = { viewModel.setTrebleEnabled(it) },
                             expanded = clarityExpanded,
                             onExpandedChange = { clarityExpanded = it },
                             icon = Icons.Default.Hearing
@@ -334,14 +302,7 @@ private fun ModernAdvancedSettingsContent(
                         ViperExpandableRow(
                             title = stringResource(R.string.dolby_speaker_correction),
                             checked = speakerOn,
-                            onCheckedChange = { enabled ->
-                                if (enabled) {
-                                    val target = if (latestProfileSettings.speakerCorrection > 0) latestProfileSettings.speakerCorrection else 50
-                                    viewModel.setSpeakerCorrection(target)
-                                } else {
-                                    viewModel.setSpeakerCorrection(0)
-                                }
-                            },
+                            onCheckedChange = { viewModel.setSpeakerCorrectionEnabled(it) },
                             expanded = speakerExpanded,
                             onExpandedChange = { speakerExpanded = it },
                             icon = Icons.Default.Speaker

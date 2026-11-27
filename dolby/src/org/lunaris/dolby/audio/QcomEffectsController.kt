@@ -13,15 +13,6 @@ import android.media.audiofx.Virtualizer
 import android.os.SystemClock
 import org.lunaris.dolby.DolbyConstants
 
-/**
- * Manages Qualcomm's native audio_effects.xml proxy effects on global session 0:
- * - BassBoost proxy (14804144-a5ee-4d24-aa88-0002a5d5c51b -> libqcbassboost.so + offload_bundle)
- * - Virtualizer proxy (d3467faa-acc7-4d34-acaf-0002a5d5c51b -> libqcvirt.so + offload_bundle)
- *
- * Paired with Dolby DAP (libhwdap.so) in DolbyRepository for real QCOM DSP sub-bass weight and
- * hardware-offload-compatible spatial widening, with automatic deduplication (zero track-skip pop)
- * and graceful fallback to pure Dolby GEQ if the proxy is unavailable.
- */
 internal class QcomEffectsController {
 
     data class ApplyResult(
@@ -29,7 +20,6 @@ internal class QcomEffectsController {
         val appliedBassStrength: Int,
         val virtActive: Boolean,
         val appliedVirtStrength: Int,
-        /** False when the virtualizer was asked to turn OFF but could not be confirmed off. */
         val virtStateOk: Boolean = true,
     )
 
@@ -316,7 +306,6 @@ internal class QcomEffectsController {
         }
     }
 
-    /** Short-lived higher-priority handle used only to switch a foreign-owned virtualizer off. */
     private fun forceOffWithEscalatedHandle(): Boolean {
         val tmp = try {
             Virtualizer(EFFECT_PRIORITY + ESCALATED_PRIORITY_DELTA, 0)

@@ -38,12 +38,7 @@ import org.lunaris.dolby.utils.HapticFeedbackHelper
 import org.lunaris.dolby.utils.rememberHapticFeedback
 import kotlin.math.roundToInt
 
-/**
- * ViperFX style rows for the advanced settings: a plain switch row, a row that opens a radio
- * list in a dialog, and a slider row with the value shown under the title.
- */
 
-/** Switch row with only an icon and a title (no summary line), like ViperFX. */
 @Composable
 fun ViperSwitchRow(
     title: String,
@@ -119,11 +114,6 @@ fun ViperSwitchRow(
     }
 }
 
-/**
- * Row for a ViperFX effect with two separate controls: tapping the title area opens or closes the
- * effect's settings (whether the effect is on or off), and the switch on the right turns the effect
- * on or off.
- */
 @Composable
 fun ViperExpandableRow(
     title: String,
@@ -222,10 +212,6 @@ fun ViperExpandableRow(
     }
 }
 
-/**
- * Row showing the title and the current choice. Tapping it opens a dialog with a radio list,
- * a header icon and a Cancel button.
- */
 @Composable
 fun ViperChoiceRow(
     title: String,
@@ -326,7 +312,6 @@ fun ViperChoiceRow(
     }
 }
 
-/** Slider row: title, the current value right under it, then the slider. */
 @Composable
 fun ViperSliderRow(
     title: String,
@@ -396,7 +381,6 @@ fun ViperSliderRow(
     }
 }
 
-/** Short explanation shown inside an opened row. */
 @Composable
 fun ViperInfoRow(
     text: String,

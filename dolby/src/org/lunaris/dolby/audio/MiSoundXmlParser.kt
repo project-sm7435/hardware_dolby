@@ -23,7 +23,6 @@ data class MiSoundProfileTuning(
     val surround3dEnabled: Boolean,
     val surroundLevel: Int,
     val vocalLevel: Int,
-    /** 10-band EQ gains in tenths of a dB (-120..120 = -12.0..+12.0 dB). */
     val eqGainsTenths: IntArray,
 ) {
     override fun equals(other: Any?): Boolean {
@@ -52,10 +51,6 @@ data class MiSoundProfileTuning(
     }
 }
 
-/**
- * Loads Xiaomi Sound scenario defaults (Smart=0, Music=1, Movie=2) from an optional vendor XML
- * override or bundled R.raw.misound_profiles. Completely decoupled from Dolby's DaxXmlParser.
- */
 object MiSoundXmlParser {
 
     private const val TAG = "MiSoundXmlParser"

@@ -40,19 +40,20 @@ class MiSoundAudioEffect(
     private var basePriority: Int = priority
     private var currentPriority: Int = priority
 
-    /**
-     * Invoked (from a binder thread, never while a caller-visible lock is needed) when the native
-     * handle lost control or was disabled behind our back. The owner should re-run applyAllParams.
-     */
     @Volatile
     var onRecoveryNeeded: (() -> Unit)? = null
 
     val isEnabled: Boolean
-        @Synchronized get() = try {
-            val fx = audioEffect ?: return false
-            fx.hasControl() && fx.enabled && (lastEnabled != false)
-        } catch (_: Throwable) {
-            false
+        @Synchronized get() {
+            return try {
+                val fx = audioEffect ?: return false
+                if (!fx.hasControl() || !fx.enabled || lastEnabled == false) return false
+                val nativeEnabled = getIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE)
+                val musicEnabled = getIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC)
+                (nativeEnabled == null || nativeEnabled == 1) && (musicEnabled == null || musicEnabled == 1)
+            } catch (_: Throwable) {
+                false
+            }
         }
 
     @Synchronized
@@ -67,8 +68,13 @@ class MiSoundAudioEffect(
         val fx = audioEffect ?: return false
         return try {
             if (!fx.hasControl() || !fx.enabled || lastEnabled == false) return false
-            // Lightweight native liveness check; catches ERROR_DEAD_OBJECT / bypass
-            setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
+            // Match sm8250-common MiSound verification: native enable (param 25) and music gate
+            // (param 4) must both still be 1; fall back to a lightweight write if getParameter fails.
+            val nativeEnabled = getIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE)
+            val musicEnabled = getIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC)
+            if (nativeEnabled != null && nativeEnabled != 1) return false
+            if (musicEnabled != null && musicEnabled != 1) return false
+            if (nativeEnabled == 1) true else setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
         } catch (_: Throwable) {
             false
         }
@@ -97,7 +103,7 @@ class MiSoundAudioEffect(
             if (nativeScenario == DolbyConstants.MISOUND_SCENARIO_SMART) "true" else "false"
         )
         setPropSafe(DolbyConstants.PROP_MISOUND_SCENARIO, nativeScenario.toString())
-        setPropSafe(DolbyConstants.PROP_MISOUND_MUSIC_STATE, if (clampedScenario == 2) "0" else "1")
+        setPropSafe(DolbyConstants.PROP_MISOUND_MUSIC_STATE, if (enabled) "1" else "0")
         setPropSafe(DolbyConstants.PROP_MISOUND_3D_SURROUND, if (surroundActive) "1" else "0")
         setPropSafe(DolbyConstants.PROP_MISOUND_SURROUND_LEVEL, effectiveSurround.toString())
         setPropSafe(DolbyConstants.PROP_MISOUND_VOCAL_LEVEL, clampedVocal.toString())
@@ -114,16 +120,13 @@ class MiSoundAudioEffect(
         }
     }
 
-    /**
-     * Disables Mi Sound cleanly without calling AudioEffect.release() so AudioFlinger's
-     * session-0 mixer chain is never torn down mid-stream.
-     */
     @Synchronized
     fun setEnabled(enabled: Boolean): Boolean {
         desiredEnabled = enabled
         return try {
             setPropSafe(DolbyConstants.PROP_MISOUND_DISABLE, if (enabled) "false" else "true")
             if (!enabled) {
+                setPropSafe(DolbyConstants.PROP_MISOUND_MUSIC_STATE, "0")
                 setPropSafe(DolbyConstants.PROP_MISOUND_3D_SURROUND, "0")
                 setPropSafe(DolbyConstants.PROP_MISOUND_SURROUND_LEVEL, "0")
                 if (disabledByUs && audioEffect?.let { safeEnabled(it) } != true) return true
@@ -140,16 +143,19 @@ class MiSoundAudioEffect(
                         if (h == null || !h.hasControl()) {
                             disabledOk = false
                         } else {
-                            // 3D surround lives in the DSP (QdspParameterId 22) and can outlast the
-                            // effect being disabled, so it is switched off explicitly here.
-                            setIntParam(h, DolbyConstants.MISOUND_PARAM_3D_SURROUND_ENABLE, 0)
-                            setIntParam(h, DolbyConstants.MISOUND_PARAM_SURROUND_LEVEL, 0)
-                            setIntParam(h, DolbyConstants.MISOUND_PARAM_MUSIC, 0)
-                            setIntParam(h, DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, 0)
-                            setIntParam(h, DolbyConstants.MISOUND_PARAM_ENABLE, 0)
+                            // Disable framework effect first, then native enable/music params
+                            // (matching sm8250-common MiSoundEffect.setEnabled(false)).
                             if (h.enabled) {
                                 disabledOk = h.setEnabled(false) == AudioEffect.SUCCESS
                             }
+                            // 3D surround lives in the DSP (QdspParameterId 22) and can outlast the
+                            // effect being disabled, so it is cleared best-effort here.
+                            setOptionalIntParam(h, DolbyConstants.MISOUND_PARAM_3D_SURROUND_ENABLE, 0)
+                            setOptionalIntParam(h, DolbyConstants.MISOUND_PARAM_SURROUND_LEVEL, 0)
+                            setOptionalIntParam(h, DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, 0)
+                            val paramOffOk = setIntParam(h, DolbyConstants.MISOUND_PARAM_ENABLE, 0)
+                            val musicOffOk = setIntParam(h, DolbyConstants.MISOUND_PARAM_MUSIC, 0)
+                            disabledOk = disabledOk && paramOffOk && musicOffOk
                         }
                     }.onFailure {
                         disabledOk = false
@@ -169,18 +175,10 @@ class MiSoundAudioEffect(
 
             disabledByUs = false
             val fx = ensureEffect(ignoreBackoff = true) ?: return false
-            val paramOk = setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
-            val routeOk = if (!fx.enabled) fx.setEnabled(true) == AudioEffect.SUCCESS else true
-            if (!paramOk || !routeOk || !fx.hasControl()) {
-                Log.w(TAG, "setEnabled(true) failed (paramOk=$paramOk, routeOk=$routeOk), rebinding")
+            if (!enableNativeEffect(fx)) {
+                Log.w(TAG, "setEnabled(true) failed, rebinding")
                 val retryFx = rebindHandle() ?: return false
-                val retryParamOk = setIntParam(retryFx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
-                val retryRouteOk = if (!retryFx.enabled) {
-                    retryFx.setEnabled(true) == AudioEffect.SUCCESS
-                } else {
-                    true
-                }
-                val ok = retryParamOk && retryRouteOk
+                val ok = enableNativeEffect(retryFx)
                 lastEnabled = if (ok) true else null
                 return ok
             }
@@ -227,19 +225,27 @@ class MiSoundAudioEffect(
 
                 val nativeScenario = DolbyConstants.uiScenarioToNative(clampedScenario)
                 val isMovie = clampedScenario == 2
-                val isMusic = !isMovie
                 val effectiveSurround = if (surround3dEnabled) surroundLevel.coerceIn(0, 100) else 0
                 val clampedVocal = vocalLevel.coerceIn(0, 100)
                 val scenarioChanged = lastScenario != nativeScenario
                 val effectiveForce = force || scenarioChanged
 
                 var allOk = true
+                var justEnabled = false
 
                 if (effectiveForce || lastEnabled != true || !fx.enabled) {
-                    val pOk = setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
-                    val eOk = if (!fx.enabled) fx.setEnabled(true) == AudioEffect.SUCCESS else true
-                    if (pOk && eOk) {
+                    if (enableNativeEffect(fx)) {
                         lastEnabled = true
+                        lastMusicMode = true
+                        justEnabled = true
+                    } else {
+                        allOk = false
+                    }
+                } else if (lastMusicMode != true) {
+                    // On sm8250-common libmisoundfx.so, param 4 (music) is the active processing gate
+                    // and must stay 1 whenever MiSound is enabled (even in Movie scenario).
+                    if (setIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC, 1)) {
+                        lastMusicMode = true
                     } else {
                         allOk = false
                     }
@@ -252,52 +258,37 @@ class MiSoundAudioEffect(
                         allOk = false
                     }
                 }
-                if (effectiveForce || lastMovieMode != isMovie) {
-                    if (setIntParam(fx, DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, if (isMovie) 1 else 0)) {
-                        lastMovieMode = isMovie
-                    } else {
-                        allOk = false
-                    }
-                }
-                if (effectiveForce || lastMusicMode != isMusic) {
-                    if (setIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC, if (isMusic) 1 else 0)) {
-                        lastMusicMode = isMusic
-                    } else {
-                        allOk = false
-                    }
-                }
 
+                // Optional HyperOS/newer libmisoundfx.so parameters: apply best-effort so
+                // devices with older/sm8250 libmisoundfx.so (without 16/17/18/20) still succeed.
+                if (effectiveForce || lastMovieMode != isMovie) {
+                    setOptionalIntParam(fx, DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, if (isMovie) 1 else 0)
+                    lastMovieMode = isMovie
+                }
                 if (effectiveForce || lastSurround3d != surround3dEnabled) {
-                    if (setIntParam(
-                            fx,
-                            DolbyConstants.MISOUND_PARAM_3D_SURROUND_ENABLE,
-                            if (surround3dEnabled) 1 else 0
-                        )
-                    ) {
-                        lastSurround3d = surround3dEnabled
-                    } else {
-                        allOk = false
-                    }
+                    setOptionalIntParam(
+                        fx,
+                        DolbyConstants.MISOUND_PARAM_3D_SURROUND_ENABLE,
+                        if (surround3dEnabled) 1 else 0
+                    )
+                    lastSurround3d = surround3dEnabled
                 }
                 if (effectiveForce || lastSurroundLevel != effectiveSurround) {
-                    if (setIntParam(fx, DolbyConstants.MISOUND_PARAM_SURROUND_LEVEL, effectiveSurround)) {
-                        lastSurroundLevel = effectiveSurround
-                    } else {
-                        allOk = false
-                    }
+                    setOptionalIntParam(fx, DolbyConstants.MISOUND_PARAM_SURROUND_LEVEL, effectiveSurround)
+                    lastSurroundLevel = effectiveSurround
                 }
                 if (effectiveForce || lastVocalLevel != clampedVocal) {
-                    if (setIntParam(fx, DolbyConstants.MISOUND_PARAM_VOCAL_LEVEL, clampedVocal)) {
-                        lastVocalLevel = clampedVocal
-                    } else {
-                        allOk = false
-                    }
+                    setOptionalIntParam(fx, DolbyConstants.MISOUND_PARAM_VOCAL_LEVEL, clampedVocal)
+                    lastVocalLevel = clampedVocal
                 }
 
                 val eqOk = applyEqInternal(fx, eqGainsTenths, effectiveForce)
-                val finalEnableOk = setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
-                if (!allOk || !eqOk || !finalEnableOk) {
-                    throw IllegalStateException("MiSound param push failed (allOk=$allOk eqOk=$eqOk enableOk=$finalEnableOk)")
+                val finalEnableOk = if (justEnabled) true else setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
+                val finalMusicOk = if (justEnabled) true else setIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC, 1)
+                if (!allOk || !eqOk || !finalEnableOk || !finalMusicOk) {
+                    throw IllegalStateException(
+                        "MiSound param push failed (allOk=$allOk eqOk=$eqOk enableOk=$finalEnableOk musicOk=$finalMusicOk)"
+                    )
                 }
                 return true
             } catch (t: Throwable) {
@@ -325,10 +316,12 @@ class MiSoundAudioEffect(
             if (!fx.hasControl()) {
                 val retryFx = rebindHandle() ?: return false
                 eqOk = applyEqInternal(retryFx, eqGainsTenths, force = true)
-                enableOk = setIntParam(retryFx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
+                enableOk = setIntParam(retryFx, DolbyConstants.MISOUND_PARAM_ENABLE, 1) &&
+                    setIntParam(retryFx, DolbyConstants.MISOUND_PARAM_MUSIC, 1)
             } else {
                 eqOk = applyEqInternal(fx, eqGainsTenths, force = force)
-                enableOk = setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
+                enableOk = setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1) &&
+                    setIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC, 1)
             }
             eqOk && enableOk
         } catch (t: Throwable) {
@@ -337,28 +330,42 @@ class MiSoundAudioEffect(
         }
     }
 
-    /**
-     * Releases the session-0 native handle. Must ONLY be called on process shutdown.
-     */
     @Synchronized
     fun release() {
         desiredEnabled = false
         setPropSafe(DolbyConstants.PROP_MISOUND_DISABLE, "true")
+        setPropSafe(DolbyConstants.PROP_MISOUND_MUSIC_STATE, "0")
         audioEffect?.let { fx ->
             runCatching {
                 if (fx.hasControl()) {
-                    setIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC, 0)
-                    setIntParam(fx, DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, 0)
-                    setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 0)
                     if (fx.enabled) {
                         fx.setEnabled(false)
                     }
+                    setOptionalIntParam(fx, DolbyConstants.MISOUND_PARAM_3D_SURROUND_ENABLE, 0)
+                    setOptionalIntParam(fx, DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, 0)
+                    setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 0)
+                    setIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC, 0)
                 }
             }
             runCatching { fx.release() }
         }
         audioEffect = null
         invalidateParamCache()
+    }
+
+    private fun enableNativeEffect(fx: AudioEffect): Boolean {
+        if (!setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)) return false
+        val routeOk = try {
+            if (!fx.enabled) fx.setEnabled(true) == AudioEffect.SUCCESS else true
+        } catch (t: Throwable) {
+            Log.w(TAG, "Framework MiSound setEnabled(true) threw: ${t.message}")
+            false
+        }
+        if (!routeOk) {
+            setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 0)
+            return false
+        }
+        return setIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC, 1)
     }
 
     private fun applyEqInternal(fx: AudioEffect, eqGainsTenths: IntArray, force: Boolean): Boolean {
@@ -376,7 +383,7 @@ class MiSoundAudioEffect(
                 }
             }
         }
-        lastEqDb = currentCache
+        lastEqDb = if (ok) currentCache else null
         return ok
     }
 
@@ -400,7 +407,6 @@ class MiSoundAudioEffect(
         return createHandle()
     }
 
-    /** Creates a handle and, if another client owns the effect, retries once with a higher priority. */
     private fun createHandle(): AudioEffect? {
         val now = SystemClock.elapsedRealtime()
         var prio = basePriority
@@ -423,11 +429,6 @@ class MiSoundAudioEffect(
         return fx
     }
 
-    /**
-     * Replaces the current handle without ever dropping the last reference to the native effect:
-     * the new (higher-priority) handle is created first and takes control, then the old one is
-     * released. Falls back to release-then-create if that cannot work.
-     */
     private fun rebindHandle(): AudioEffect? {
         val old = audioEffect
         val nextPriority = currentPriority + 1
@@ -496,7 +497,6 @@ class MiSoundAudioEffect(
         invalidateParamCache()
     }
 
-    /** One-line native state for logs/dumps; pairs with `dumpsys media.audio_flinger`. */
     @Synchronized
     fun describeState(): String {
         val fx = audioEffect
@@ -535,10 +535,27 @@ class MiSoundAudioEffect(
         lastFailedCreateMs = 0L
     }
 
+    private fun getIntParam(fx: AudioEffect, paramId: Int): Int? = try {
+        val value = IntArray(1)
+        val count = fx.getParameter(paramId, value)
+        if (count == 1) value[0] else null
+    } catch (_: Throwable) {
+        null
+    }
+
     private fun setIntParam(fx: AudioEffect, paramId: Int, value: Int): Boolean {
         val status = fx.setParameter(int32ToLeBytes(paramId), int32ToLeBytes(value))
         if (status != AudioEffect.SUCCESS) {
             Log.w(TAG, "setIntParam($paramId, $value) failed status=$status")
+            return false
+        }
+        return true
+    }
+
+    private fun setOptionalIntParam(fx: AudioEffect, paramId: Int, value: Int): Boolean {
+        val status = fx.setParameter(int32ToLeBytes(paramId), int32ToLeBytes(value))
+        if (status != AudioEffect.SUCCESS) {
+            DolbyConstants.dlog(TAG, "Optional param($paramId, $value) unsupported status=$status")
             return false
         }
         return true
@@ -553,7 +570,8 @@ class MiSoundAudioEffect(
         val valueBytes = if (useFloatEqPayload) {
             float32ToLeBytes(gainDb)
         } else {
-            formatted.toByteArray(Charsets.US_ASCII)
+            // The shipped libmisoundfx.so setter uses strtof, which requires a NUL-terminated C string.
+            "$formatted\u0000".toByteArray(Charsets.US_ASCII)
         }
         val status = fx.setParameter(paramBytes, valueBytes)
         if (status != AudioEffect.SUCCESS) {
@@ -574,10 +592,12 @@ class MiSoundAudioEffect(
     )
 
     private fun setPropSafe(key: String, value: String) {
-        if (key.length > 31) return
+        // No key length guard: Android O+ allows long property names, and these keys are 33-39 chars.
         try {
+            if (SystemProperties.get(key) == value) return
             SystemProperties.set(key, value)
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            Log.w(TAG, "setprop $key=$value failed: ${t.message}")
         }
     }
 

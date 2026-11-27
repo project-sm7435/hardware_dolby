@@ -19,29 +19,15 @@ import kotlin.math.sqrt
 import kotlin.math.tan
 import kotlin.math.tanh
 
-/**
- * Pure-Kotlin ViPER effects kit for single-driver Dolby Atmos (libhwdap.so or libswdap.so).
- *
- * Ports the exact filter topologies from ViPERFX_RE-rewrite-continued:
- * - ViPERBass.cpp (Natural Q=0.53 LPF, Pure Bass+ phase-aligned LPF)
- * - Subwoofer.cpp (44 Hz + 80 Hz dual-peak + 200 Hz LPF)
- * - DynamicBass.cpp + PolesFilter.cpp (4-pole 160 Hz/8000 Hz crossover + 55 Hz resonant LPF)
- * - ViPERClarity.cpp + SpectrumExtend.cpp (7600 Hz HPF / 18 kHz LPF air exciter)
- * - SpeakerCorrection.cpp (80 Hz HPF + 13.5 kHz LPF + 420 Hz BPF)
- * - PassFilter.cpp (10 Hz HPF + 3rd-order 18 kHz Butterworth LPF output conditioning)
- */
 internal object ViperEffectModel {
 
     private const val FS = 48000.0
     const val MAX_GAIN = 150 // Dolby GEQ limit: +-15.0 dB (0.1 dB steps)
 
-    /** Bass slider 100% maps to this ViPER "bass factor". */
     const val MAX_BASS_FACTOR = 3.0
 
-    /** Treble slider 100% maps to this ViPER clarity gain. */
     const val MAX_CLARITY_GAIN = 1.5
 
-    /** ViPERBass default crossover ("speaker") frequency. */
     const val BASS_CUTOFF_HZ = 60.0
 
     const val BASS_NATURAL = 0
@@ -151,27 +137,20 @@ internal object ViperEffectModel {
 
     private fun toDb(m: Double): Double = if (m <= 1e-9) -60.0 else 20.0 * log10(m)
 
-    /** Smooth log-frequency Gaussian bell (always >= 0, zero phase cancellation). */
     private fun logBell(f: Double, centerHz: Double, widthOct: Double): Double {
         val dist = log2(f / centerHz) / widthOct
         return exp(-0.5 * dist * dist)
     }
 
-    /** Smooth low-shelf transition (1.0 below cutoffHz, rolls smoothly toward 0.0 above). */
     private fun lowShelfWeight(f: Double, cutoffHz: Double, slope: Double = 2.2): Double {
         val ratio = (f / cutoffHz).pow(slope)
         return 1.0 / (1.0 + ratio)
     }
 
-    /** Magnitude response |H_LP(f)| of a 2nd-order low-pass biquad (zero phase cancellation). */
     private fun lowPassMagnitude(f: Double, cutoffHz: Double, q: Double = 0.707): Double {
         return lowPass(cutoffHz, q).at(f).abs()
     }
 
-    /**
-     * Exact 4-pole cascaded one-pole low-pass magnitude response from PolesFilter.cpp:
-     * H(f) = (a / (1 - (1 - a) * z^-1))^4 where a = fc * pi / Fs.
-     */
     private fun polesFilterLowMag(f: Double, cutoffHz: Double): Double {
         val a = (cutoffHz * PI / FS).coerceIn(0.0001, 0.99)
         val z1 = zInv(f, 1)
@@ -180,23 +159,12 @@ internal object ViperEffectModel {
         return m * m * m * m
     }
 
-    /**
-     * PassFilter.cpp output conditioning (10 Hz 1st-order HPF + 18 kHz 3rd-order Butterworth LPF).
-     * Gently tames harsh ultrasonic hiss above 18 kHz when heavy ViPER processing is active.
-     */
     private fun passFilterDb(f: Double): Double {
         val hp = iirHp(10.0).at(f).abs()
         val lpOrder3 = 1.0 / sqrt(1.0 + (f / 18000.0).pow(6.0))
         return toDb(hp * lpOrder3).coerceIn(-6.0, 0.0)
     }
 
-    /**
-     * Distinctly tuned ViPER bass filter curves aligned to Dolby's 20-band GEQ:
-     * - BASS_NATURAL (0): Smooth, balanced low-end shelf with gentle roll-off.
-     * - BASS_PURE (1): Tight, punchy mid-low focus around cutoff with clean upper-bass separation.
-     * - BASS_SUBWOOFER (2): Deep sub-bass rumble below cutoff with steep roll-off above.
-     * - BASS_DYNAMIC (3): Full-bodied dynamic bass contour.
-     */
     fun bassGains(
         curve: Int,
         level: Int,
@@ -244,7 +212,6 @@ internal object ViperEffectModel {
         }
     }
 
-    /** SpeakerCorrection.cpp: 80 Hz HPF + 13.5 kHz LPF + 420 Hz BPF (Q=3.88). */
     fun speakerCorrectionGains(level: Int, freqs: List<Int>): IntArray {
         if (level <= 0) return IntArray(freqs.size)
         val scale = level / 100.0
@@ -258,9 +225,6 @@ internal object ViperEffectModel {
         }
     }
 
-    /**
-     * ViPERClarity.cpp (Natural / OZone+ / XHiFi) + SpectrumExtend.cpp (7600 Hz HPF / 18 kHz LPF air lift).
-     */
     fun clarityGains(mode: Int, level: Int, freqs: List<Int>): IntArray {
         if (level <= 0) return IntArray(freqs.size)
         val mix = level.coerceIn(0, 100) / 100.0
@@ -309,9 +273,6 @@ internal object ViperEffectModel {
         return IntArray(db.size) { (db[it] * 10.0).roundToInt().coerceIn(-MAX_GAIN, MAX_GAIN) }
     }
 
-    /**
-     * 3D Stereo / Surround spatial contour (paired with Dolby Virtualizer + STEREO_WIDENING_AMOUNT).
-     */
     fun surroundGains(widening: Int, depth: Int, freqs: List<Int>): IntArray {
         val w = widening.coerceIn(0, 100) / 100.0
         val d = depth.coerceIn(0, 100) / 100.0
@@ -330,10 +291,6 @@ internal object ViperEffectModel {
         }
     }
 
-    /**
-     * Maps ViPER Bass (mode + gain) and Dynamic System strength into a single shared QCOM
-     * BassBoost proxy strength (0..1000) with distinct curve scaling across modes.
-     */
     fun computeQcomBassStrength(bassLevel: Int, bassCurve: Int, dynamicLevel: Int): Int {
         val bLvl = bassLevel.coerceIn(0, 100)
         val dLvl = dynamicLevel.coerceIn(0, 100)
@@ -353,9 +310,6 @@ internal object ViperEffectModel {
         return (blended * 1000.0).roundToInt().coerceIn(0, 1000)
     }
 
-    /**
-     * Maps 3D Stereo (widening + depth) into QCOM Virtualizer proxy strength (0..1000).
-     */
     fun computeQcomVirtualizerStrength(
         surroundEnabled: Boolean,
         surroundWidening: Int,
@@ -416,9 +370,6 @@ internal object ViperEffectModel {
         return result
     }
 
-    /**
-     * Smooth tanh soft-knee limiter above +-10.0 dB (+-100), approaching +-14.0 dB (+-140).
-     */
     private fun softClamp(value: Int): Int {
         val absVal = kotlin.math.abs(value).toDouble()
         if (absVal <= 100.0) return value

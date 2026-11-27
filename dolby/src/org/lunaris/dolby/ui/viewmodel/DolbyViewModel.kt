@@ -377,6 +377,15 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setBassEnabled(enabled: Boolean) {
+        if (enabled) {
+            val target = repository.getLastBassLevel(repository.getCurrentProfile())
+            enableViperBass(target)
+        } else {
+            setBassLevel(0)
+        }
+    }
+
     fun setBassLevel(level: Int) {
         stateMutationGen++
         val current = _uiState.value
@@ -435,6 +444,11 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setSpeakerCorrectionEnabled(enabled: Boolean) {
+        val target = if (enabled) repository.getLastSpeakerCorrection(repository.getCurrentProfile()) else 0
+        setSpeakerCorrection(target)
+    }
+
     fun setSpeakerCorrection(level: Int) {
         stateMutationGen++
         val current = _uiState.value
@@ -451,6 +465,11 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                 DolbyConstants.dlog(TAG, "Error setting speaker correction: ${e.message}")
             }
         }
+    }
+
+    fun setDynamicEnabled(enabled: Boolean) {
+        val target = if (enabled) repository.getLastDynamicLevel(repository.getCurrentProfile()) else 0
+        setDynamicLevel(target)
     }
 
     fun setDynamicLevel(level: Int) {
@@ -489,6 +508,11 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setMidEnabled(enabled: Boolean) {
+        val target = if (enabled) repository.getLastMidLevel(repository.getCurrentProfile()) else 0
+        setMidLevel(target)
+    }
+
     fun setMidLevel(level: Int) {
         stateMutationGen++
         val current = _uiState.value
@@ -509,6 +533,11 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                 loadSettings() // a failed change reloads the real state instead of blanking the screen
             }
         }
+    }
+
+    fun setTrebleEnabled(enabled: Boolean) {
+        val target = if (enabled) repository.getLastTrebleLevel(repository.getCurrentProfile()) else 0
+        setTrebleLevel(target)
     }
 
     fun setTrebleLevel(level: Int) {

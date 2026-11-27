@@ -177,5 +177,4 @@ private const val LAP_NANOS = 9_050_000_000f
 private const val RING_RADIUS_FRACTION = 0.34f
 private const val RING_STROKE_FRACTION = 0.143f
 
-/** A touch within this many ring radii of the ring's centre grabs it. */
 private const val GRAB_RADIUS_FACTOR = 1.3f
