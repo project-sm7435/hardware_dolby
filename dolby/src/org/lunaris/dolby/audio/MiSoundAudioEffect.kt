@@ -94,6 +94,7 @@ class MiSoundAudioEffect(
             setPropSafe(DolbyConstants.PROP_MISOUND_DISABLE, if (enabled) "false" else "true")
             if (!enabled) {
                 val fx = audioEffect
+                var disabledOk = true
                 if (fx != null) {
                     runCatching {
                         if (fx.hasControl()) {
@@ -101,18 +102,25 @@ class MiSoundAudioEffect(
                             setIntParam(fx, DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, 0)
                             setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 0)
                             if (fx.enabled) {
-                                fx.setEnabled(false)
+                                disabledOk = fx.setEnabled(false) == AudioEffect.SUCCESS
                             }
                         }
+                    }.onFailure {
+                        disabledOk = false
                     }
                 }
                 lastEnabled = false
-                lastMusicMode = false
-                lastMovieMode = false
-                return true
+                lastScenario = null
+                lastMusicMode = null
+                lastMovieMode = null
+                lastSurround3d = null
+                lastSurroundLevel = null
+                lastVocalLevel = null
+                lastEqDb = null
+                return disabledOk
             }
 
-            val fx = ensureEffect() ?: return false
+            val fx = ensureEffect(ignoreBackoff = true) ?: return false
             val paramOk = setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
             val routeOk = if (!fx.enabled) fx.setEnabled(true) == AudioEffect.SUCCESS else true
             if (!paramOk || !routeOk || !fx.hasControl()) {
@@ -126,7 +134,7 @@ class MiSoundAudioEffect(
                     true
                 }
                 val ok = retryParamOk && retryRouteOk
-                lastEnabled = ok
+                lastEnabled = if (ok) true else null
                 return ok
             }
             lastEnabled = true
@@ -159,7 +167,7 @@ class MiSoundAudioEffect(
             eqGainsTenths = eqGainsTenths
         )
 
-        var fx = ensureEffect() ?: return false
+        var fx = ensureEffect(ignoreBackoff = force) ?: return false
         var attemptedRetry = false
 
         while (true) {
@@ -173,35 +181,44 @@ class MiSoundAudioEffect(
                 val isMusic = !isMovie
                 val effectiveSurround = if (surround3dEnabled) surroundLevel.coerceIn(0, 100) else 0
                 val clampedVocal = vocalLevel.coerceIn(0, 100)
-                val scenarioChanged = force || lastScenario != nativeScenario
+                val scenarioChanged = lastScenario != nativeScenario
                 val effectiveForce = force || scenarioChanged
+
+                var allOk = true
 
                 if (effectiveForce || lastEnabled != true || !fx.enabled) {
                     val pOk = setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
                     val eOk = if (!fx.enabled) fx.setEnabled(true) == AudioEffect.SUCCESS else true
                     if (pOk && eOk) {
                         lastEnabled = true
+                    } else {
+                        allOk = false
                     }
                 }
 
                 if (effectiveForce || lastScenario != nativeScenario) {
                     if (setIntParam(fx, DolbyConstants.MISOUND_PARAM_SCENARIO, nativeScenario)) {
                         lastScenario = nativeScenario
+                    } else {
+                        allOk = false
                     }
                 }
                 if (effectiveForce || lastMovieMode != isMovie) {
                     if (setIntParam(fx, DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, if (isMovie) 1 else 0)) {
                         lastMovieMode = isMovie
+                    } else {
+                        allOk = false
                     }
                 }
                 if (effectiveForce || lastMusicMode != isMusic) {
                     if (setIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC, if (isMusic) 1 else 0)) {
                         lastMusicMode = isMusic
+                    } else {
+                        allOk = false
                     }
                 }
 
-                val surroundLevelWillUpdate = effectiveForce || lastSurroundLevel != effectiveSurround
-                if (effectiveForce || lastSurround3d != surround3dEnabled || (surround3dEnabled && surroundLevelWillUpdate)) {
+                if (effectiveForce || lastSurround3d != surround3dEnabled) {
                     if (setIntParam(
                             fx,
                             DolbyConstants.MISOUND_PARAM_3D_SURROUND_ENABLE,
@@ -209,22 +226,28 @@ class MiSoundAudioEffect(
                         )
                     ) {
                         lastSurround3d = surround3dEnabled
+                    } else {
+                        allOk = false
                     }
                 }
-                if (surroundLevelWillUpdate) {
+                if (effectiveForce || lastSurroundLevel != effectiveSurround) {
                     if (setIntParam(fx, DolbyConstants.MISOUND_PARAM_SURROUND_LEVEL, effectiveSurround)) {
                         lastSurroundLevel = effectiveSurround
+                    } else {
+                        allOk = false
                     }
                 }
                 if (effectiveForce || lastVocalLevel != clampedVocal) {
                     if (setIntParam(fx, DolbyConstants.MISOUND_PARAM_VOCAL_LEVEL, clampedVocal)) {
                         lastVocalLevel = clampedVocal
+                    } else {
+                        allOk = false
                     }
                 }
 
-                applyEqInternal(fx, eqGainsTenths, effectiveForce)
-                setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
-                return true
+                val eqOk = applyEqInternal(fx, eqGainsTenths, effectiveForce)
+                val finalEnableOk = setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
+                return allOk && eqOk && finalEnableOk
             } catch (t: Throwable) {
                 Log.w(TAG, "applyAllParams failed (retry=$attemptedRetry): ${t.message}")
                 if (attemptedRetry) return false
@@ -243,18 +266,20 @@ class MiSoundAudioEffect(
         }
         setPropSafe(DolbyConstants.PROP_MISOUND_EQ, formattedEq)
 
-        val fx = ensureEffect() ?: return false
+        val fx = ensureEffect(ignoreBackoff = force) ?: return false
         return try {
+            val eqOk: Boolean
+            val enableOk: Boolean
             if (!fx.hasControl()) {
                 dropHandleOnly()
                 val retryFx = ensureEffect(ignoreBackoff = true) ?: return false
-                applyEqInternal(retryFx, eqGainsTenths, force = true)
-                setIntParam(retryFx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
+                eqOk = applyEqInternal(retryFx, eqGainsTenths, force = true)
+                enableOk = setIntParam(retryFx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
             } else {
-                applyEqInternal(fx, eqGainsTenths, force = force)
-                setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
+                eqOk = applyEqInternal(fx, eqGainsTenths, force = force)
+                enableOk = setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
             }
-            true
+            eqOk && enableOk
         } catch (t: Throwable) {
             Log.w(TAG, "setEqGains failed: ${t.message}")
             false
@@ -284,8 +309,9 @@ class MiSoundAudioEffect(
         invalidateParamCache()
     }
 
-    private fun applyEqInternal(fx: AudioEffect, eqGainsTenths: IntArray, force: Boolean) {
+    private fun applyEqInternal(fx: AudioEffect, eqGainsTenths: IntArray, force: Boolean): Boolean {
         val currentCache = lastEqDb ?: FloatArray(DolbyConstants.MISOUND_EQ_BAND_COUNT) { Float.NaN }
+        var ok = true
         for (band in 0 until DolbyConstants.MISOUND_EQ_BAND_COUNT) {
             val tenths = eqGainsTenths.getOrElse(band) { 0 }
             val db = (tenths / 10f).coerceIn(DolbyConstants.MISOUND_EQ_MIN_DB, DolbyConstants.MISOUND_EQ_MAX_DB)
@@ -293,10 +319,13 @@ class MiSoundAudioEffect(
             if (force || prev.isNaN() || abs(prev - db) > 0.005f) {
                 if (setEqBandParam(fx, band, db)) {
                     currentCache[band] = db
+                } else {
+                    ok = false
                 }
             }
         }
         lastEqDb = currentCache
+        return ok
     }
 
     private fun ensureEffect(ignoreBackoff: Boolean = false): AudioEffect? {
@@ -350,6 +379,7 @@ class MiSoundAudioEffect(
         lastSurroundLevel = null
         lastVocalLevel = null
         lastEqDb = null
+        lastFailedCreateMs = 0L
     }
 
     private fun setIntParam(fx: AudioEffect, paramId: Int, value: Int): Boolean {
