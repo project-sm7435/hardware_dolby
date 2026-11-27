@@ -7,7 +7,6 @@
 
 package org.lunaris.dolby.audio
 
-import android.media.audiofx.AudioEffect
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Virtualizer
 import android.os.SystemClock
@@ -29,8 +28,6 @@ internal class QcomEffectsController {
         val appliedBassStrength: Int,
         val virtActive: Boolean,
         val appliedVirtStrength: Int,
-        /** False when the virtualizer was asked to turn OFF but could not be confirmed off. */
-        val virtStateOk: Boolean = true,
     )
 
     private var bassBoost: BassBoost? = null
@@ -40,8 +37,6 @@ internal class QcomEffectsController {
     private var lastBassStrength: Int? = null
     private var lastVirtEnabled: Boolean? = null
     private var lastVirtStrength: Int? = null
-
-    private var virtOffConfirmed = true
 
     private var nextBassRetryMs = 0L
     private var nextVirtRetryMs = 0L
@@ -67,7 +62,6 @@ internal class QcomEffectsController {
             appliedBassStrength = appliedBass,
             virtActive = appliedVirt > 0,
             appliedVirtStrength = appliedVirt,
-            virtStateOk = virtOffConfirmed,
         )
     }
 
@@ -77,10 +71,7 @@ internal class QcomEffectsController {
             bassBoost?.let { bb ->
                 if (lastBassEnabled != false || releaseHandles) {
                     try {
-                        if (bb.hasControl()) {
-                            bb.setStrength(0)
-                            if (bb.enabled) bb.enabled = false
-                        }
+                        bb.enabled = false
                     } catch (_: Throwable) {
                     }
                 }
@@ -100,10 +91,7 @@ internal class QcomEffectsController {
             virtualizer?.let { virt ->
                 if (lastVirtEnabled != false || releaseHandles) {
                     try {
-                        if (virt.hasControl()) {
-                            virt.setStrength(0)
-                            if (virt.enabled) virt.enabled = false
-                        }
+                        virt.enabled = false
                     } catch (_: Throwable) {
                     }
                 }
@@ -136,7 +124,7 @@ internal class QcomEffectsController {
                     try {
                         if (bb.hasControl()) {
                             bb.setStrength(0)
-                            if (bb.enabled) bb.enabled = false
+                            bb.enabled = false
                         } else {
                             dropBassBoost()
                         }
@@ -150,26 +138,16 @@ internal class QcomEffectsController {
             return 0
         }
 
-        val currentEnabled = try {
-            bassBoost?.enabled == true
-        } catch (_: Throwable) {
-            false
-        }
-
-        if (!force && lastBassEnabled == true && lastBassStrength == strength && currentEnabled && isBassReady()) {
+        if (!force && lastBassEnabled == true && lastBassStrength == strength && isBassReady()) {
             return strength
         }
 
         val bb = obtainBassBoost() ?: return 0
         return try {
-            if (!bb.hasControl()) {
-                dropBassBoost()
-                return 0
-            }
-            if (!bb.enabled || lastBassStrength != strength) {
+            if (force || lastBassStrength != strength) {
                 bb.setStrength(strength.toShort())
             }
-            if (!bb.enabled) {
+            if (force || lastBassEnabled != true || !bb.enabled) {
                 bb.enabled = true
             }
             lastBassEnabled = true
@@ -184,58 +162,36 @@ internal class QcomEffectsController {
 
     private fun applyVirtualizer(strength: Int, force: Boolean): Int {
         if (strength <= 0) {
-            var offOk = true
-            val virt = virtualizer
-            if (virt != null) {
+            virtualizer?.let { virt ->
                 if (force || lastVirtEnabled != false) {
-                    offOk = try {
+                    try {
                         if (virt.hasControl()) {
                             virt.setStrength(0)
-                            val st = virt.setEnabled(false)
-                            st == AudioEffect.SUCCESS || !virt.enabled
+                            virt.enabled = false
                         } else {
-                            // Someone else owns it: our handle is useless, take it over to switch it off.
                             dropVirtualizer()
-                            forceOffWithEscalatedHandle()
                         }
                     } catch (_: Throwable) {
                         dropVirtualizer()
-                        forceOffWithEscalatedHandle()
                     }
                 }
             }
-            virtOffConfirmed = offOk
-            // Only cache "off" once it is confirmed; otherwise the next call must retry.
-            lastVirtEnabled = if (offOk) false else null
-            lastVirtStrength = if (offOk) 0 else null
+            lastVirtEnabled = false
+            lastVirtStrength = 0
             return 0
         }
-        virtOffConfirmed = true
 
-        val currentEnabled = try {
-            virtualizer?.enabled == true
-        } catch (_: Throwable) {
-            false
-        }
-
-        if (!force && lastVirtEnabled == true && lastVirtStrength == strength && currentEnabled && isVirtReady()) {
+        if (!force && lastVirtEnabled == true && lastVirtStrength == strength && isVirtReady()) {
             return strength
         }
 
         val virt = obtainVirtualizer() ?: return 0
         return try {
-            if (!virt.hasControl()) {
-                dropVirtualizer()
-                return 0
-            }
-            if (!virt.enabled || lastVirtStrength != strength) {
+            if (force || lastVirtStrength != strength) {
                 virt.setStrength(strength.toShort())
             }
-            if (!virt.enabled) {
-                val st = virt.setEnabled(true)
-                if (st != AudioEffect.SUCCESS) {
-                    throw IllegalStateException("Virtualizer setEnabled(true) status=$st")
-                }
+            if (force || lastVirtEnabled != true || !virt.enabled) {
+                virt.enabled = true
             }
             lastVirtEnabled = true
             lastVirtStrength = strength
@@ -293,12 +249,7 @@ internal class QcomEffectsController {
         val now = SystemClock.elapsedRealtime()
         if (now < nextVirtRetryMs) return null
         return try {
-            var created = Virtualizer(EFFECT_PRIORITY, 0)
-            if (!created.hasControl()) {
-                DolbyConstants.dlog(TAG, "QCOM Virtualizer has no control, escalating priority")
-                runCatching { created.release() }
-                created = Virtualizer(EFFECT_PRIORITY + ESCALATED_PRIORITY_DELTA, 0)
-            }
+            val created = Virtualizer(EFFECT_PRIORITY, 0)
             if (!created.strengthSupported) {
                 created.release()
                 nextVirtRetryMs = now + RETRY_BACKOFF_MS
@@ -313,32 +264,6 @@ internal class QcomEffectsController {
             DolbyConstants.dlog(TAG, "Failed to create QCOM Virtualizer: ${t.message}")
             nextVirtRetryMs = now + RETRY_BACKOFF_MS
             null
-        }
-    }
-
-    /** Short-lived higher-priority handle used only to switch a foreign-owned virtualizer off. */
-    private fun forceOffWithEscalatedHandle(): Boolean {
-        val tmp = try {
-            Virtualizer(EFFECT_PRIORITY + ESCALATED_PRIORITY_DELTA, 0)
-        } catch (t: Throwable) {
-            // The effect cannot even be instantiated, so nothing of ours can be running.
-            DolbyConstants.dlog(TAG, "QCOM Virtualizer not instantiable for force-off: ${t.message}")
-            return true
-        }
-        return try {
-            try {
-                if (!tmp.hasControl()) {
-                    false
-                } else {
-                    tmp.setStrength(0)
-                    tmp.setEnabled(false) == AudioEffect.SUCCESS || !tmp.enabled
-                }
-            } finally {
-                runCatching { tmp.release() }
-            }
-        } catch (t: Throwable) {
-            DolbyConstants.dlog(TAG, "QCOM Virtualizer force-off failed: ${t.message}")
-            false
         }
     }
 
@@ -366,6 +291,5 @@ internal class QcomEffectsController {
         private const val TAG = "QcomEffects"
         private const val EFFECT_PRIORITY = 100
         private const val RETRY_BACKOFF_MS = 2_000L
-        private const val ESCALATED_PRIORITY_DELTA = 1_000
     }
 }

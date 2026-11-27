@@ -287,6 +287,8 @@ private fun ModernDolbySettingsContent(
                     settings = state.miSoundSettings,
                     onScenarioChange = { viewModel.setMiSoundScenario(it) },
                     onSurround3dChange = { viewModel.setMiSound3dSurround(it) },
+                    onSurroundLevelChange = { viewModel.setMiSoundSurroundLevel(it) },
+                    onVocalLevelChange = { viewModel.setMiSoundVocalLevel(it) },
                     onOpenEqualizerClick = onNavigateToEqualizer
                 )
             }

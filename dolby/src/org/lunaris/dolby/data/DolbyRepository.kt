@@ -70,36 +70,6 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     private val qcomEffects = QcomEffectsController()
     private val miSoundEffect = MiSoundAudioEffect(MISOUND_EFFECT_PRIORITY, audioSession = 0)
 
-    private val recoveryHandler: android.os.Handler by lazy {
-        val t = android.os.HandlerThread("MiSoundRecovery").apply { start() }
-        android.os.Handler(t.looper)
-    }
-    private var miSoundRecoveryAttempts = 0
-    private val miSoundRecoveryRunnable = Runnable { recoverMiSound() }
-
-    init {
-        miSoundEffect.onRecoveryNeeded = {
-            recoveryHandler.removeCallbacks(miSoundRecoveryRunnable)
-            recoveryHandler.postDelayed(miSoundRecoveryRunnable, MISOUND_RECOVERY_DELAY_MS)
-        }
-    }
-
-    /** Re-asserts the full MiSound state after AudioFlinger took control away / disabled the effect. */
-    @Synchronized
-    private fun recoverMiSound() {
-        if (isReleased || getSoundEngineMode() != SoundEngineMode.XIAOMI_SOUND || !getSavedDolbyEnabled()) {
-            miSoundRecoveryAttempts = 0
-            return
-        }
-        val ok = applyXiaomiSoundTuning(forceRebind = true)
-        android.util.Log.i(TAG, "MiSound recovery ok=$ok attempt=$miSoundRecoveryAttempts ${miSoundEffect.describeState()}")
-        if (ok) {
-            miSoundRecoveryAttempts = 0
-        } else if (miSoundRecoveryAttempts++ < MISOUND_RECOVERY_MAX_ATTEMPTS) {
-            recoveryHandler.postDelayed(miSoundRecoveryRunnable, MISOUND_RECOVERY_DELAY_MS * miSoundRecoveryAttempts)
-        }
-    }
-
     private val _soundEngineMode = MutableStateFlow(
         SoundEngineMode.fromId(defaultPrefs.getInt(DolbyConstants.PREF_SOUND_ENGINE_MODE, 0))
     )
@@ -271,7 +241,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             .putBoolean(DolbyConstants.PREF_SPK_VIRTUALIZER, spkVirt)
             .putBoolean(DolbyConstants.PREF_DIALOGUE, dialogueEnabled)
             .putInt(DolbyConstants.PREF_DIALOGUE_AMOUNT, dialogueAmount)
-            .putInt(DolbyConstants.PREF_BASS_CURVE, bassCurve.coerceIn(0, 2))
+            .putInt(DolbyConstants.PREF_BASS_CURVE, bassCurve)
             .putInt(DolbyConstants.PREF_BASS_CUTOFF, bassCutoff.coerceIn(15, 150))
             .putInt(DolbyConstants.PREF_BASS_LEVEL, bassLevel.coerceIn(0, 100))
             .putBoolean(DolbyConstants.PREF_BASS, bassLevel > 0)
@@ -315,14 +285,14 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         }
     }
 
-    private fun applyXiaomiSoundTuning(forceRebind: Boolean = false): Boolean {
+    private fun applyXiaomiSoundTuning(forceRebind: Boolean = false) {
         val scenario = getMiSoundScenario()
         val surroundOn = getMiSound3dSurround(scenario)
         val surroundLevel = getMiSoundSurroundLevel(scenario)
         val vocalLevel = getMiSoundVocalLevel(scenario)
         val scenarioEq = readMiSoundScenarioGeq(scenario)
 
-        return miSoundEffect.applyAllParams(
+        miSoundEffect.applyAllParams(
             uiScenario = scenario,
             surround3dEnabled = surroundOn,
             surroundLevel = surroundLevel,
@@ -391,7 +361,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         val scenario = getMiSoundScenario()
         getScenarioPrefs(scenario).edit().putBoolean(DolbyConstants.PREF_MISOUND_3D_SURROUND, enabled).apply()
         if (getSavedDolbyEnabled() && getSoundEngineMode() == SoundEngineMode.XIAOMI_SOUND) {
-            applyXiaomiSoundTuning(forceRebind = true)
+            applyXiaomiSoundTuning(forceRebind = false)
         } else {
             pushMiSoundParams(enabled = false, scenario = scenario)
         }
@@ -405,7 +375,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         val scenario = getMiSoundScenario()
         getScenarioPrefs(scenario).edit().putInt(DolbyConstants.PREF_MISOUND_SURROUND_LEVEL, clamped).apply()
         if (getSavedDolbyEnabled() && getSoundEngineMode() == SoundEngineMode.XIAOMI_SOUND) {
-            applyXiaomiSoundTuning(forceRebind = true)
+            applyXiaomiSoundTuning(forceRebind = false)
         } else {
             pushMiSoundParams(enabled = false, scenario = scenario)
         }
@@ -419,7 +389,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         val scenario = getMiSoundScenario()
         getScenarioPrefs(scenario).edit().putInt(DolbyConstants.PREF_MISOUND_VOCAL_LEVEL, clamped).apply()
         if (getSavedDolbyEnabled() && getSoundEngineMode() == SoundEngineMode.XIAOMI_SOUND) {
-            applyXiaomiSoundTuning(forceRebind = true)
+            applyXiaomiSoundTuning(forceRebind = false)
         } else {
             pushMiSoundParams(enabled = false, scenario = scenario)
         }
@@ -599,7 +569,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
                         }
                     }
                     applyProfileSettings(savedProfile)
-                    var viperOk = applyViper(savedProfile, forceRebind = true)
+                    applyViper(savedProfile, forceRebind = true)
                     try {
                         dolbyEffect.dsOn = true
                     } catch (_: Throwable) {
@@ -607,13 +577,13 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
                             recreateDolbyEffect()
                             dolbyEffect.profile = savedProfile
                             applyProfileSettings(savedProfile)
-                            viperOk = applyViper(savedProfile, forceRebind = true)
+                            applyViper(savedProfile, forceRebind = true)
                             dolbyEffect.dsOn = true
                         }
                     }
                     val live = runCatching { dolbyEffect.dsOn }.getOrDefault(false)
-                    android.util.Log.i(TAG, "applySavedState(DOLBY_ATMOS): saved=$enabled live=$live viperOk=$viperOk profile=$savedProfile")
-                    live && viperOk
+                    android.util.Log.i(TAG, "applySavedState(DOLBY_ATMOS): saved=$enabled live=$live profile=$savedProfile")
+                    live
                 }
                 SoundEngineMode.XIAOMI_SOUND -> {
                     bypassDolbyWithoutRelease()
@@ -689,21 +659,13 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         // Global session 0 single-driver mode.
     }
 
-    /**
-     * @param trackChanged a new playback track/player became active. For Xiaomi Sound the full
-     * parameter set is re-asserted on every such event, because the native driver reconfigures
-     * (device/config change) per track and the cheap "is it enabled" probe can't see that its
-     * scenario/3D/EQ state was reset. Dolby ignores it (it is verified by readback instead).
-     * @return false if the effect could not be brought into the saved state (caller should retry).
-     */
     @Synchronized
     fun refreshOnPlayback(
         @Suppress("UNUSED_PARAMETER") activeSessionIds: Set<Int> = emptySet(),
         restricted: Boolean = false,
-        forceRestore: Boolean = false,
-        trackChanged: Boolean = false
-    ): Boolean {
-        if (isReleased) return true
+        forceRestore: Boolean = false
+    ) {
+        if (isReleased) return
         try {
             val enabled = getSavedDolbyEnabled()
             val mode = getSoundEngineMode()
@@ -711,22 +673,15 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
                 disableMiSoundEffectOnly(releaseHandle = false)
                 bypassDolbyWithoutRelease()
                 lastAppliedRestricted = false
-                return true
+                return
             }
 
             if (mode == SoundEngineMode.XIAOMI_SOUND) {
                 bypassDolbyWithoutRelease()
-                val healthy = miSoundEffect.isHealthy()
-                if (forceRestore || trackChanged || !healthy) {
-                    val ok = applyXiaomiSoundTuning(forceRebind = true)
-                    android.util.Log.i(
-                        TAG,
-                        "refreshOnPlayback(XIAOMI): force=$forceRestore track=$trackChanged " +
-                            "healthy=$healthy applied=$ok ${miSoundEffect.describeState()}"
-                    )
-                    return ok
+                if (forceRestore || !miSoundEffect.isEnabled || !miSoundEffect.hasControl()) {
+                    applyXiaomiSoundTuning(forceRebind = true)
                 }
-                return true
+                return
             }
 
             disableMiSoundEffectOnly(releaseHandle = false)
@@ -740,19 +695,14 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             } catch (_: Throwable) {
                 true
             }
-            val virtDrifted = !effectiveRestricted && isVirtualizerDrifted(savedProfile)
             val needsRestore = forceRestore ||
                 !dolbyEffect.dsOn ||
                 dolbyEffect.profile != savedProfile ||
                 effectiveRestricted != lastAppliedRestricted ||
-                geqDrifted ||
-                virtDrifted
+                geqDrifted
 
-            if (!needsRestore) return true
+            if (!needsRestore) return
 
-            if (forceRestore) {
-                invalidateDapCache()
-            }
             lastAppliedRestricted = effectiveRestricted
             runCatching {
                 if (dolbyEffect.profile != savedProfile) {
@@ -760,9 +710,8 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
                 }
             }
             applyProfileSettings(savedProfile)
-            var ok = true
             if (!effectiveRestricted) {
-                ok = applyViper(savedProfile, forceRebind = forceRestore || geqDrifted || virtDrifted)
+                applyViper(savedProfile, forceRebind = forceRestore || geqDrifted)
             } else {
                 qcomEffects.disableAll(releaseHandles = false)
                 restoreProfilePreset(savedProfile)
@@ -771,21 +720,8 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             if (!dolbyEffect.dsOn) {
                 runCatching { dolbyEffect.dsOn = true }
             }
-            return ok && runCatching { dolbyEffect.dsOn }.getOrDefault(false)
         } catch (e: Throwable) {
             DolbyConstants.dlog(TAG, "refreshOnPlayback failed: ${e.message}")
-            return false
-        }
-    }
-
-    /** True when the native DAP virtualizer flags no longer match what 3D Stereo should have set. */
-    private fun isVirtualizerDrifted(profile: Int): Boolean {
-        val expectOn = getProfilePrefs(profile).getBoolean(DolbyConstants.PREF_VIPER_SURROUND, false)
-        return try {
-            dolbyEffect.getDapParameterBool(DsParam.HEADPHONE_VIRTUALIZER, profile) != expectOn ||
-                dolbyEffect.getDapParameterBool(DsParam.SPEAKER_VIRTUALIZER, profile) != expectOn
-        } catch (_: Throwable) {
-            true
         }
     }
 
@@ -964,73 +900,11 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     @Synchronized
     private fun syncViperState(profile: Int, forceRebind: Boolean = false) {
         if (isReleased) return
-        if (!applyViper(profile, forceRebind)) {
-            // Native state is not what the UI/prefs say: let the service retry with backoff.
-            runCatching { DolbyEffectService.start(context) }
-        }
+        applyViper(profile, forceRebind)
     }
 
     @Synchronized
-    fun applyViper(profile: Int = readSavedProfile() ?: 0, forceRebind: Boolean = false): Boolean =
-        applyViperInternal(profile, forceRebind, canRetry = true)
-
-    private fun writeDap(param: DsParam, values: IntArray, profile: Int): Boolean = try {
-        dolbyEffect.setDapParameter(param, values, profile)
-        true
-    } catch (t: Throwable) {
-        android.util.Log.w(TAG, "DAP write failed param=$param profile=$profile: ${t.message}")
-        false
-    }
-
-    /**
-     * Writes the 3D Stereo state to the DAP and verifies it by reading the native flags back.
-     * The 3D Stereo toggle is the single owner of the virtualizer flags: off means both
-     * virtualizers off and widening 0, regardless of any legacy per-route preference.
-     */
-    private fun syncVirtualizer(profile: Int, virtOn: Boolean, wideningAmt: Int, force: Boolean): Boolean {
-        fun writeAll(f: Boolean): Boolean {
-            var ok = true
-            val flag = intArrayOf(if (virtOn) 1 else 0)
-            if (f || lastAppliedHpVirt != virtOn) {
-                if (writeDap(DsParam.HEADPHONE_VIRTUALIZER, flag, profile)) lastAppliedHpVirt = virtOn
-                else { lastAppliedHpVirt = null; ok = false }
-            }
-            if (f || lastAppliedSpkVirt != virtOn) {
-                if (writeDap(DsParam.SPEAKER_VIRTUALIZER, flag, profile)) lastAppliedSpkVirt = virtOn
-                else { lastAppliedSpkVirt = null; ok = false }
-            }
-            if (stereoWideningSupported && (f || lastAppliedWidening != wideningAmt)) {
-                if (writeDap(DsParam.STEREO_WIDENING_AMOUNT, intArrayOf(wideningAmt), profile)) lastAppliedWidening = wideningAmt
-                else { lastAppliedWidening = null; ok = false }
-            }
-            return ok
-        }
-
-        // null = native readback unavailable, trust the write status
-        fun verified(): Boolean? = try {
-            val hp = dolbyEffect.getDapParameterBool(DsParam.HEADPHONE_VIRTUALIZER, profile)
-            val spk = dolbyEffect.getDapParameterBool(DsParam.SPEAKER_VIRTUALIZER, profile)
-            if (stereoWideningSupported) {
-                val w = dolbyEffect.getDapParameterInt(DsParam.STEREO_WIDENING_AMOUNT, profile)
-                if (w != wideningAmt) {
-                    DolbyConstants.dlog(TAG, "DAP widening readback $w != written $wideningAmt (may be clamped)")
-                }
-            }
-            hp == virtOn && spk == virtOn
-        } catch (_: Throwable) {
-            null
-        }
-
-        var ok = writeAll(force)
-        if (ok && verified() == false) {
-            android.util.Log.w(TAG, "DAP virtualizer readback mismatch (want $virtOn), rewriting")
-            lastAppliedHpVirt = null; lastAppliedSpkVirt = null; lastAppliedWidening = null
-            ok = writeAll(true) && verified() != false
-        }
-        return ok
-    }
-
-    private fun applyViperInternal(profile: Int, forceRebind: Boolean, canRetry: Boolean): Boolean {
+    fun applyViper(profile: Int = readSavedProfile() ?: 0, forceRebind: Boolean = false): Boolean {
         if (isReleased) return true
         if (!getSavedDolbyEnabled() || getSoundEngineMode() != SoundEngineMode.DOLBY_ATMOS) return true
         return try {
@@ -1039,7 +913,6 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             if (dolbyEffect.profile != profile) {
                 runCatching { dolbyEffect.profile = profile }
             }
-            var allOk = true
             val prefs = getProfilePrefs(profile)
             var bassLevel = prefs.getInt(DolbyConstants.PREF_BASS_LEVEL, 0)
             var curve = prefs.getInt(DolbyConstants.PREF_BASS_CURVE, 0)
@@ -1069,11 +942,6 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             val targetQcomBass = ViperEffectModel.computeQcomBassStrength(bassLevel, clampedCurve, dynamicLevel)
             val targetQcomVirt = ViperEffectModel.computeQcomVirtualizerStrength(surroundOn, surroundWidening, surroundDepth)
             val qcomResult = qcomEffects.apply(targetQcomBass, targetQcomVirt, force = force)
-            // Failing to enable the QCOM proxy is a soft fallback (GEQ only); failing to turn it OFF is not.
-            if (!qcomResult.virtStateOk) {
-                android.util.Log.w(TAG, "QCOM virtualizer could not be confirmed off")
-                allOk = false
-            }
 
             val baseGeq = readUserBaseGeq(profile)
             val effectiveGeq = ViperEffectModel.computeEffectiveGeq(
@@ -1095,48 +963,49 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             )
             val clampedGeq = IntArray(20) { idx -> effectiveGeq.getOrElse(idx) { 0 }.coerceIn(-150, 150) }
             if (force || lastAppliedGeq == null || !lastAppliedGeq!!.contentEquals(clampedGeq)) {
-                if (writeDap(DsParam.GEQ_BAND_GAINS, clampedGeq, profile)) {
+                runCatching {
+                    dolbyEffect.setDapParameter(DsParam.GEQ_BAND_GAINS, clampedGeq, profile)
                     lastAppliedGeq = clampedGeq.copyOf()
-                } else {
-                    lastAppliedGeq = null
-                    allOk = false
                 }
             }
 
             val bassEnhancerOn = bassLevel > 0 || dynamicLevel > 0 || prefs.getBoolean(DolbyConstants.PREF_BASS, false)
             if (force || lastAppliedBassEnhancer != bassEnhancerOn) {
-                if (writeDap(DsParam.BASS_ENHANCER_ENABLE, intArrayOf(if (bassEnhancerOn) 1 else 0), profile)) {
-                    lastAppliedBassEnhancer = bassEnhancerOn
-                } else {
-                    lastAppliedBassEnhancer = null
-                    allOk = false
-                }
-            }
-
-            val wideningAmt = if (surroundOn) {
-                (4 + (surroundWidening * 42 / 100) + (surroundDepth * 18 / 100)).coerceIn(4, 64)
-            } else {
-                0
-            }
-            if (!syncVirtualizer(profile, surroundOn, wideningAmt, force)) allOk = false
-
-            if (allOk) {
-                lastAppliedProfile = profile
-                true
-            } else if (canRetry) {
-                // Control was likely lost or the native object died mid-write: rebuild and redo it once.
-                android.util.Log.w(TAG, "applyViper had failed writes, recreating DAP effect and retrying")
-                invalidateDapCache()
                 runCatching {
-                    recreateDolbyEffect()
-                    dolbyEffect.profile = profile
-                    dolbyEffect.dsOn = true
+                    dolbyEffect.setDapParameter(DsParam.BASS_ENHANCER_ENABLE, bassEnhancerOn, profile)
+                    lastAppliedBassEnhancer = bassEnhancerOn
                 }
-                applyViperInternal(profile, forceRebind = true, canRetry = false)
-            } else {
-                lastAppliedProfile = -1
-                false
             }
+
+            val hpVirt = surroundOn || prefs.getBoolean(DolbyConstants.PREF_HP_VIRTUALIZER, false)
+            val spkVirt = surroundOn || prefs.getBoolean(DolbyConstants.PREF_SPK_VIRTUALIZER, false)
+            if (force || lastAppliedHpVirt != hpVirt) {
+                runCatching {
+                    dolbyEffect.setDapParameter(DsParam.HEADPHONE_VIRTUALIZER, hpVirt, profile)
+                    lastAppliedHpVirt = hpVirt
+                }
+            }
+            if (force || lastAppliedSpkVirt != spkVirt) {
+                runCatching {
+                    dolbyEffect.setDapParameter(DsParam.SPEAKER_VIRTUALIZER, spkVirt, profile)
+                    lastAppliedSpkVirt = spkVirt
+                }
+            }
+            if (stereoWideningSupported) {
+                val wideningAmt = if (surroundOn) {
+                    (4 + (surroundWidening * 42 / 100) + (surroundDepth * 18 / 100)).coerceIn(4, 64)
+                } else {
+                    prefs.getInt(DolbyConstants.PREF_STEREO_WIDENING, 32)
+                }
+                if (force || lastAppliedWidening != wideningAmt) {
+                    runCatching {
+                        dolbyEffect.setDapParameter(DsParam.STEREO_WIDENING_AMOUNT, wideningAmt, profile)
+                        lastAppliedWidening = wideningAmt
+                    }
+                }
+            }
+            lastAppliedProfile = profile
+            true
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error applying ViPER model to Dolby DAP: ${e.message}")
             false
@@ -1161,7 +1030,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         if (isReleased) return
         try {
             getProfilePrefs(profile).edit().putBoolean(DolbyConstants.PREF_BASS, enabled).apply()
-            syncViperState(profile, forceRebind = true)
+            syncViperState(profile)
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting bass enhancer: ${e.message}")
         }
@@ -1184,9 +1053,8 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     @Synchronized
     fun setBassCurve(profile: Int, curve: Int) {
         if (isReleased) return
-        val clamped = curve.coerceIn(0, 2)
-        getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_BASS_CURVE, clamped).apply()
-        syncViperState(profile, forceRebind = false)
+        getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_BASS_CURVE, curve).apply()
+        syncViperState(profile)
         notifyStateUpdated()
     }
 
@@ -1198,7 +1066,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     fun setBassCutoff(profile: Int, hz: Int) {
         if (isReleased) return
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_BASS_CUTOFF, hz.coerceIn(15, 150)).apply()
-        syncViperState(profile, forceRebind = false)
+        syncViperState(profile)
         notifyStateUpdated()
     }
 
@@ -1212,7 +1080,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             .putInt(DolbyConstants.PREF_BASS_LEVEL, level)
             .putBoolean(DolbyConstants.PREF_BASS, level > 0)
             .apply()
-        syncViperState(profile, forceRebind = false)
+        syncViperState(profile)
         notifyStateUpdated()
     }
 
@@ -1225,7 +1093,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         if (isReleased) return
         val newLevel = level.coerceIn(0, 100)
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_SPEAKER_CORRECTION, newLevel).apply()
-        syncViperState(profile, forceRebind = false)
+        syncViperState(profile)
         notifyStateUpdated()
     }
 
@@ -1249,7 +1117,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     fun setClarityMode(profile: Int, mode: Int) {
         if (isReleased) return
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_CLARITY_MODE, mode).apply()
-        syncViperState(profile, forceRebind = false)
+        syncViperState(profile)
         notifyStateUpdated()
     }
 
@@ -1263,7 +1131,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             .putInt(DolbyConstants.PREF_TREBLE_LEVEL, level)
             .putBoolean(DolbyConstants.PREF_TREBLE, level > 0)
             .apply()
-        syncViperState(profile, forceRebind = false)
+        syncViperState(profile)
         notifyStateUpdated()
     }
 
@@ -1281,7 +1149,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         if (isReleased) return
         if (level !in 0..100) throw IllegalArgumentException("Dynamic system level must be between 0 and 100")
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_DYNAMIC_LEVEL, level).apply()
-        syncViperState(profile, forceRebind = false)
+        syncViperState(profile)
         notifyStateUpdated()
     }
 
@@ -1292,13 +1160,8 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     @Synchronized
     fun setViperSurroundEnabled(profile: Int, enabled: Boolean) {
         if (isReleased) return
-        getProfilePrefs(profile).edit()
-            .putBoolean(DolbyConstants.PREF_VIPER_SURROUND, enabled)
-            // Keep the legacy per-route flags in step so snapshots/readers never see a stale "on".
-            .putBoolean(DolbyConstants.PREF_HP_VIRTUALIZER, enabled)
-            .putBoolean(DolbyConstants.PREF_SPK_VIRTUALIZER, enabled)
-            .apply()
-        syncViperState(profile, forceRebind = true)
+        getProfilePrefs(profile).edit().putBoolean(DolbyConstants.PREF_VIPER_SURROUND, enabled).apply()
+        syncViperState(profile)
         notifyStateUpdated()
     }
 
@@ -1310,7 +1173,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     fun setViperSurroundWidening(profile: Int, widening: Int) {
         if (isReleased) return
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_VIPER_SURROUND_WIDENING, widening.coerceIn(1, 100)).apply()
-        syncViperState(profile, forceRebind = false)
+        syncViperState(profile)
         notifyStateUpdated()
     }
 
@@ -1322,7 +1185,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     fun setViperSurroundDepth(profile: Int, depth: Int) {
         if (isReleased) return
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_VIPER_SURROUND_DEPTH, depth.coerceIn(0, 100)).apply()
-        syncViperState(profile, forceRebind = false)
+        syncViperState(profile)
         notifyStateUpdated()
     }
 
@@ -1405,7 +1268,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
 
         try {
             getProfilePrefs(profile).edit().putBoolean(DolbyConstants.PREF_HP_VIRTUALIZER, enabled).apply()
-            syncViperState(profile, forceRebind = true)
+            syncViperState(profile)
             notifyStateUpdated()
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting headphone virtualizer: ${e.message}")
@@ -1431,7 +1294,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
 
         try {
             getProfilePrefs(profile).edit().putBoolean(DolbyConstants.PREF_SPK_VIRTUALIZER, enabled).apply()
-            syncViperState(profile, forceRebind = true)
+            syncViperState(profile)
             notifyStateUpdated()
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting speaker virtualizer: ${e.message}")
@@ -1456,7 +1319,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
 
         try {
             getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_STEREO_WIDENING, amount).apply()
-            syncViperState(profile, forceRebind = false)
+            syncViperState(profile)
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting stereo widening: ${e.message}")
         }
@@ -1551,9 +1414,9 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
                     .apply()
                 if (getSavedDolbyEnabled()) {
                     if (miSoundEffect.isEnabled) {
-                        miSoundEffect.setEqGains(gains10, force = true)
+                        miSoundEffect.setEqGains(gains10)
                     } else {
-                        applyXiaomiSoundTuning(forceRebind = true)
+                        applyXiaomiSoundTuning(forceRebind = false)
                     }
                 }
             } else {
@@ -1561,7 +1424,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
                 val gainsString = gains.joinToString(",")
                 getProfilePrefs(profile).edit().putString(DolbyConstants.PREF_PRESET, gainsString).apply()
                 if (getSavedDolbyEnabled()) {
-                    applyViper(profile, forceRebind = false)
+                    applyViper(profile)
                 }
             }
         } catch (e: Exception) {
@@ -1860,7 +1723,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             .putInt(DolbyConstants.PREF_MID_LEVEL, level)
             .putBoolean(DolbyConstants.PREF_MID, level > 0)
             .apply()
-        syncViperState(profile, forceRebind = false)
+        syncViperState(profile)
         notifyStateUpdated()
     }
 
@@ -1878,9 +1741,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
 
         private const val TAG = "DolbyRepository"
         private const val EFFECT_PRIORITY = 100
-        private const val MISOUND_EFFECT_PRIORITY = 100
-        private const val MISOUND_RECOVERY_DELAY_MS = 300L
-        private const val MISOUND_RECOVERY_MAX_ATTEMPTS = 5
+        private const val MISOUND_EFFECT_PRIORITY = 0
 
         private val ATTRIBUTES_MEDIA = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)

@@ -20,7 +20,7 @@ import kotlin.math.tan
 import kotlin.math.tanh
 
 /**
- * Pure-Kotlin ViPER effects kit for single-driver Dolby Atmos (libhwdap.so or libswdap.so).
+ * Pure-Kotlin ViPER effects kit for single-driver Dolby Atmos (libhwdap.so).
  *
  * Ports the exact filter topologies from ViPERFX_RE-rewrite-continued:
  * - ViPERBass.cpp (Natural Q=0.53 LPF, Pure Bass+ phase-aligned LPF)
@@ -191,11 +191,12 @@ internal object ViperEffectModel {
     }
 
     /**
-     * Distinctly tuned ViPER bass filter curves aligned to Dolby's 20-band GEQ:
-     * - BASS_NATURAL (0): Smooth, balanced low-end shelf with gentle roll-off.
-     * - BASS_PURE (1): Tight, punchy mid-low focus around cutoff with clean upper-bass separation.
-     * - BASS_SUBWOOFER (2): Deep sub-bass rumble below cutoff with steep roll-off above.
-     * - BASS_DYNAMIC (3): Full-bodied dynamic bass contour.
+     * Distinctly tuned ViPER bass filter curves with continuous, zero-dead-zone frequency sweep
+     * from 15 Hz (deep sub) to 150 Hz (punchy upper-bass) aligned to Dolby's 20-band GEQ:
+     * - NATURAL_BASS: Warm, musical hi-fi low-end shelf sweeping smoothly with cutoff.
+     * - PURE_BASS_PLUS: Dry, tight kick punch centered on cutoff with a -4.2 dB mud-scoop above it.
+     * - SUBWOOFER: Steep 4th-order LPF sweeping 55-210 Hz for deep theater rumble below cutoff.
+     * - DYNAMIC_BASS: 4-pole 160 Hz crossover + resonant 65 Hz punch for full-bodied dynamic bass.
      */
     fun bassGains(
         curve: Int,
@@ -205,26 +206,30 @@ internal object ViperEffectModel {
     ): IntArray {
         if (level <= 0) return IntArray(freqs.size)
         val mix = level.coerceIn(0, 100) / 100.0
-        val clampedCurve = curve.coerceIn(0, 3)
         val t = (cutoffHz.coerceIn(15.0, 150.0) - 15.0) / 135.0
-        val center = 45.0 * (260.0 / 45.0).pow(t)
+        // Logarithmic sweep from 45 Hz (deep sub) to 280 Hz (upper kick) so every step of the slider is audible
+        val center = 45.0 * (280.0 / 45.0).pow(t)
 
         return IntArray(freqs.size) { i ->
             val f = freqs[i].toDouble()
-            val gainDb = when (clampedCurve) {
+            val gainDb = when (curve) {
                 BASS_NATURAL -> {
-                    val lpf = lowPassMagnitude(f, (center * 1.35).coerceAtMost(320.0), 0.53)
-                    val warmth = logBell(f, (center * 1.1).coerceAtMost(240.0), 0.85)
-                    val mudCut = -1.8 * mix * logBell(f, (center * 2.5).coerceAtLeast(320.0), 0.65)
-                    mix * (7.5 * lpf + 3.5 * warmth) + mudCut
+                    // Warm hi-fi shelf extending smoothly up to center * 1.45
+                    val lpf = lowPassMagnitude(f, center * 1.45, 0.53)
+                    val warmth = logBell(f, center * 1.15, 0.85)
+                    val mudCut = -1.5 * mix * logBell(f, (center * 2.6).coerceAtLeast(320.0), 0.65)
+                    mix * (9.0 * lpf + 4.5 * warmth) + mudCut
                 }
                 BASS_PURE -> {
-                    val punch = logBell(f, (center * 1.25).coerceAtMost(260.0), 0.62)
-                    val sub = lowPassMagnitude(f, (center * 0.95).coerceAtMost(200.0), 0.707)
-                    val scoop = -4.5 * mix * logBell(f, (center * 2.1).coerceAtLeast(280.0), 0.6)
-                    mix * (9.5 * punch + 5.0 * sub) + scoop
+                    // Tight, dry, focused punch centered directly on the swept frequency with scoop above it
+                    val punch = logBell(f, center, 0.62)
+                    val sub = lowPassMagnitude(f, center * 0.9, 0.707)
+                    val scoop = -4.2 * mix * logBell(f, center * 2.1, 0.6)
+                    mix * (8.5 * punch + 6.5 * sub) + scoop
                 }
                 BASS_DYNAMIC -> {
+                    // Dynamic System: punchy chest thump (135 Hz) + sub body + low-end harmonic fullness (240 Hz)
+                    // Distinct from ViPER Bass cutoff so BOTH sliders remain clearly audible together
                     val subBody = 8.5 * mix * lowShelfWeight(f, 165.0, slope = 2.0)
                     val chestPunch = 6.5 * mix * logBell(f, 135.0, 0.85)
                     val harmonics = 2.2 * mix * logBell(f, 240.0, 0.65)
@@ -233,11 +238,12 @@ internal object ViperEffectModel {
                     subBody + chestPunch + harmonics + mudDip + presence
                 }
                 else -> {
-                    val subLpf = lowPassMagnitude(f, 50.0 + 135.0 * t, 0.707)
+                    // Subwoofer: steep 4th-order LPF sweeping 55..210 Hz, heavy sub rumble below cutoff
+                    val subLpf = lowPassMagnitude(f, 55.0 + 155.0 * t, 0.707)
                     val subLpf2 = subLpf * subLpf
-                    val focus = logBell(f, 45.0 + 85.0 * t, 0.6)
-                    val upperCut = -4.8 * mix * logBell(f, 140.0 + 200.0 * t, 0.65)
-                    mix * (12.0 * subLpf2 + 4.0 * focus) + upperCut
+                    val focus = logBell(f, 45.0 + 105.0 * t, 0.65)
+                    val upperCut = -3.5 * mix * logBell(f, 150.0 + 230.0 * t, 0.65)
+                    mix * (11.5 * subLpf2 + 4.5 * focus) + upperCut
                 }
             }
             (gainDb * 10.0).roundToInt().coerceIn(-MAX_GAIN, MAX_GAIN)
@@ -265,6 +271,7 @@ internal object ViperEffectModel {
         if (level <= 0) return IntArray(freqs.size)
         val mix = level.coerceIn(0, 100) / 100.0
         val gain = mix * MAX_CLARITY_GAIN
+        // SpectrumExtend.cpp band-limited air exciter (7600 Hz HPF Q=0.717 + 18 kHz LPF)
         val specHp = highPass(7600.0, 0.717)
         val specLp = lowPass(18000.0, 0.717)
 
@@ -311,6 +318,9 @@ internal object ViperEffectModel {
 
     /**
      * 3D Stereo / Surround spatial contour (paired with Dolby Virtualizer + STEREO_WIDENING_AMOUNT).
+     * - Widening: expands high-frequency stereo air (4.2 kHz+) and gently recesses mono center (~950 Hz).
+     * - Depth: psychoacoustic front-to-back stage depth (recesses close 2.4 kHz presence so vocals/instruments
+     *   step back into a deeper 3D room, adds 110 Hz room resonance body and 10.5 kHz hall ambience shimmer).
      */
     fun surroundGains(widening: Int, depth: Int, freqs: List<Int>): IntArray {
         val w = widening.coerceIn(0, 100) / 100.0
@@ -331,17 +341,22 @@ internal object ViperEffectModel {
     }
 
     /**
+     * Non-destructively merges the user's base 20-band GEQ with all active ViPER filter curves
+     * plus PassFilter.cpp ultrasonic conditioning, clamping every band to Dolby's +-15.0 dB (+-150) range.
+     */
+    /**
      * Maps ViPER Bass (mode + gain) and Dynamic System strength into a single shared QCOM
-     * BassBoost proxy strength (0..1000) with distinct curve scaling across modes.
+     * BassBoost proxy strength (0..1000) using smooth screen blending so both sliders remain
+     * responsive across 1-100% even when stacked.
      */
     fun computeQcomBassStrength(bassLevel: Int, bassCurve: Int, dynamicLevel: Int): Int {
         val bLvl = bassLevel.coerceIn(0, 100)
         val dLvl = dynamicLevel.coerceIn(0, 100)
         val bassContrib = if (bLvl > 0) {
-            val scale = when (bassCurve.coerceIn(0, 2)) {
-                BASS_NATURAL -> 7.5
-                BASS_PURE -> 8.8
-                else -> 10.0
+            val scale = when (bassCurve) {
+                BASS_NATURAL -> 5.0   // 0..500 warm QCOM low-end assist
+                BASS_PURE -> 6.0      // 0..600 tight punchy QCOM assist
+                else -> 9.5           // 0..950 heavy Subwoofer theater rumble
             }
             (bLvl * scale) / 1000.0
         } else {
@@ -364,7 +379,7 @@ internal object ViperEffectModel {
         if (!surroundEnabled) return 0
         val w = surroundWidening.coerceIn(0, 100)
         val d = surroundDepth.coerceIn(0, 100)
-        return (150 + (w * 500 / 100) + (d * 350 / 100)).coerceIn(0, 1000)
+        return (100 + (w * 550 / 100) + (d * 350 / 100)).coerceIn(0, 1000)
     }
 
     fun computeEffectiveGeq(
@@ -381,7 +396,7 @@ internal object ViperEffectModel {
         surroundWidening: Int,
         surroundDepth: Int,
         midLevel: Int = 0,
-        @Suppress("UNUSED_PARAMETER") qcomBassStrength: Int = 0,
+        qcomBassStrength: Int = 0,
         qcomVirtActive: Boolean = false,
     ): IntArray {
         val result = IntArray(freqs.size) { i ->
@@ -395,13 +410,25 @@ internal object ViperEffectModel {
         val midGain = if (midLevel > 0) (midLevel.coerceIn(0, 100) * 1.3f).roundToInt() else 0
         val anyViperOn = bass != null || dynamic != null || clarity != null || speaker != null || surround != null
 
-        val surroundScale = if (qcomVirtActive) 0.95 else 1.0
+        // When QCOM libqcbassboost.so is active, trim redundant 47/141 Hz sub-bass GEQ boost
+        // so QCOM DSP sub-bass + Dolby GEQ shaping stack cleanly with zero clipping distortion.
+        val qBassNorm = qcomBassStrength.coerceIn(0, 1000) / 1000.0
+        val surroundScale = if (qcomVirtActive) 0.85 else 1.0
 
         for (i in result.indices) {
             val baseVal = result[i]
             var bassDelta = 0
             if (bass != null && i < bass.size) bassDelta += bass[i]
             if (dynamic != null && i < dynamic.size) bassDelta += dynamic[i]
+
+            if (qBassNorm > 0.0 && bassDelta > 0) {
+                val trim = when (i) {
+                    0 -> (55.0 * qBassNorm).roundToInt() // 47 Hz: trim up to -5.5 dB
+                    1 -> (20.0 * qBassNorm).roundToInt() // 141 Hz: trim up to -2.0 dB
+                    else -> 0
+                }
+                bassDelta = (bassDelta - trim).coerceAtLeast(0)
+            }
 
             var sum = baseVal + bassDelta
             if (clarity != null && i < clarity.size) sum += clarity[i]
@@ -418,12 +445,13 @@ internal object ViperEffectModel {
 
     /**
      * Smooth tanh soft-knee limiter above +-10.0 dB (+-100), approaching +-14.0 dB (+-140).
+     * Prevents harsh digital bass clipping inside libhwdap.so when stacking ViPER Bass + Dynamic System.
      */
     private fun softClamp(value: Int): Int {
         val absVal = kotlin.math.abs(value).toDouble()
         if (absVal <= 100.0) return value
         val sign = if (value > 0) 1.0 else -1.0
-        val headroom = 40.0
+        val headroom = 40.0 // 10.0 dB -> 14.0 dB soft knee
         val compressed = 100.0 + headroom * tanh((absVal - 100.0) / headroom)
         return (sign * compressed).roundToInt().coerceIn(-MAX_GAIN, MAX_GAIN)
     }
