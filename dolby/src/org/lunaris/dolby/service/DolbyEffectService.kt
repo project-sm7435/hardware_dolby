@@ -138,21 +138,50 @@ class DolbyEffectService : Service() {
     private var pendingForceRestore = false
     private var lastPlaybackStoppedAtMs = 0L
 
+    private var pendingTrackChanged = false
+    private var refreshFailures = 0
+    private var lastActivePlayers: Set<Int> = emptySet()
+
     private val playbackRefreshRunnable = Runnable {
         try {
             val configs = audioManager.activePlaybackConfigurations
             val restricted = hasRestrictedPlayback(configs)
             val forceRestore = pendingForceRestore
+            val trackChanged = pendingTrackChanged
             pendingForceRestore = false
-            repository.refreshOnPlayback(emptySet(), restricted, forceRestore)
+            pendingTrackChanged = false
+            val ok = repository.refreshOnPlayback(emptySet(), restricted, forceRestore, trackChanged)
+            if (ok) {
+                refreshFailures = 0
+            } else if (refreshFailures < MAX_REFRESH_RETRIES) {
+                refreshFailures++
+                // Keep the intent of the failed pass so the retry re-asserts everything.
+                pendingForceRestore = pendingForceRestore || forceRestore
+                pendingTrackChanged = pendingTrackChanged || trackChanged
+                handler.postDelayed(playbackRetryRunnable, REFRESH_RETRY_DELAY_MS * refreshFailures)
+            }
         } catch (e: Exception) {
             Log.w(TAG, "refreshOnPlayback failed", e)
         }
     }
 
-    private fun schedulePlaybackRefresh(forceRestore: Boolean = false) {
+    private val playbackRetryRunnable = Runnable { playbackRefreshRunnable.run() }
+
+    // The new track's output stream/effect chain is often only up a few hundred ms after the
+    // callback, so re-assert once more after it has settled.
+    private val trackVerifyRunnable = Runnable {
+        pendingTrackChanged = true
+        playbackRefreshRunnable.run()
+    }
+
+    private fun schedulePlaybackRefresh(forceRestore: Boolean = false, trackChanged: Boolean = false) {
         if (forceRestore) {
             pendingForceRestore = true
+        }
+        if (trackChanged) {
+            pendingTrackChanged = true
+            handler.removeCallbacks(trackVerifyRunnable)
+            handler.postDelayed(trackVerifyRunnable, TRACK_VERIFY_DELAY_MS)
         }
         handler.removeCallbacks(playbackRefreshRunnable)
         handler.postDelayed(playbackRefreshRunnable, PLAYBACK_REFRESH_DELAY_MS)
@@ -163,9 +192,13 @@ class DolbyEffectService : Service() {
             val isActive = configs?.any { isConfigActive(it) } == true
             val restricted = hasRestrictedPlayback(configs)
             val now = SystemClock.elapsedRealtime()
+            val players = activePlayerIds(configs)
+            // A player we haven't seen active before, or any idle -> active edge, is a (new) track.
+            val newTrack = isActive && (!wasPlaybackActive || !lastActivePlayers.containsAll(players))
+            lastActivePlayers = players
 
             if (restricted) {
-                schedulePlaybackRefresh(forceRestore = !wasRestricted)
+                schedulePlaybackRefresh(forceRestore = !wasRestricted, trackChanged = newTrack)
             } else if (isActive) {
                 if (!wasPlaybackActive) {
                     val idleDurationMs = if (lastPlaybackStoppedAtMs == 0L) Long.MAX_VALUE else (now - lastPlaybackStoppedAtMs)
@@ -178,10 +211,11 @@ class DolbyEffectService : Service() {
                             Log.w(TAG, "ensureLiveState on playback failed", e)
                         }
                     }
-                    schedulePlaybackRefresh(forceRestore = shouldForce)
+                    schedulePlaybackRefresh(forceRestore = shouldForce, trackChanged = true)
                 } else {
-                    // Track skip / active session update: health-check only, never force-rebind
-                    schedulePlaybackRefresh(forceRestore = false)
+                    // Track skip / new player: Dolby only health-checks (never force-rebinds);
+                    // Xiaomi Sound re-asserts its params because its driver resets per track.
+                    schedulePlaybackRefresh(forceRestore = false, trackChanged = newTrack)
                 }
             } else if (wasPlaybackActive) {
                 lastPlaybackStoppedAtMs = now
@@ -364,6 +398,9 @@ class DolbyEffectService : Service() {
     companion object {
         private const val TAG = "DolbyEffectService"
         private const val PLAYBACK_REFRESH_DELAY_MS = 150L
+        private const val TRACK_VERIFY_DELAY_MS = 900L
+        private const val REFRESH_RETRY_DELAY_MS = 400L
+        private const val MAX_REFRESH_RETRIES = 4
         private const val STANDBY_IDLE_THRESHOLD_MS = 2_500L
         private const val DEVICE_CHANGE_DEBOUNCE_MS = 500L
         private val RETRY_DELAYS_MS = longArrayOf(1_000, 2_000, 4_000, 8_000, 15_000, 30_000, 60_000, 120_000)
@@ -382,6 +419,24 @@ class DolbyEffectService : Service() {
         }
         private val getFormatMethod: Method? by lazy {
             runCatching { AudioPlaybackConfiguration::class.java.getMethod("getFormat") }.getOrNull()
+        }
+
+        private val getPlayerInterfaceIdMethod: Method? by lazy {
+            runCatching { AudioPlaybackConfiguration::class.java.getMethod("getPlayerInterfaceId") }.getOrNull()
+        }
+
+        private fun activePlayerIds(configs: List<AudioPlaybackConfiguration>?): Set<Int> {
+            if (configs == null) return emptySet()
+            val method = getPlayerInterfaceIdMethod ?: return emptySet()
+            val ids = HashSet<Int>()
+            for (cfg in configs) {
+                if (!isConfigActive(cfg)) continue
+                try {
+                    (method.invoke(cfg) as? Int)?.let { ids.add(it) }
+                } catch (_: Exception) {
+                }
+            }
+            return ids
         }
 
         private fun isConfigActive(cfg: AudioPlaybackConfiguration): Boolean =

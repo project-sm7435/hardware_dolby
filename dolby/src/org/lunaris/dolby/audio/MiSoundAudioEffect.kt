@@ -32,6 +32,19 @@ class MiSoundAudioEffect(
     private var lastEqDb: FloatArray? = null
     private var lastFailedCreateMs: Long = 0L
 
+    // What the app wants, independent of the (invalidatable) param cache. Used to tell an
+    // AudioFlinger-initiated disable apart from one we requested ourselves.
+    private var desiredEnabled: Boolean = false
+    private var basePriority: Int = priority
+    private var currentPriority: Int = priority
+
+    /**
+     * Invoked (from a binder thread, never while a caller-visible lock is needed) when the native
+     * handle lost control or was disabled behind our back. The owner should re-run applyAllParams.
+     */
+    @Volatile
+    var onRecoveryNeeded: (() -> Unit)? = null
+
     val isEnabled: Boolean
         @Synchronized get() = try {
             val fx = audioEffect ?: return false
@@ -102,6 +115,7 @@ class MiSoundAudioEffect(
      */
     @Synchronized
     fun setEnabled(enabled: Boolean): Boolean {
+        desiredEnabled = enabled
         return try {
             setPropSafe(DolbyConstants.PROP_MISOUND_DISABLE, if (enabled) "false" else "true")
             if (!enabled) {
@@ -136,9 +150,8 @@ class MiSoundAudioEffect(
             val paramOk = setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
             val routeOk = if (!fx.enabled) fx.setEnabled(true) == AudioEffect.SUCCESS else true
             if (!paramOk || !routeOk || !fx.hasControl()) {
-                Log.w(TAG, "setEnabled(true) failed (paramOk=$paramOk, routeOk=$routeOk), recreating")
-                dropHandleOnly()
-                val retryFx = ensureEffect(ignoreBackoff = true) ?: return false
+                Log.w(TAG, "setEnabled(true) failed (paramOk=$paramOk, routeOk=$routeOk), rebinding")
+                val retryFx = rebindHandle() ?: return false
                 val retryParamOk = setIntParam(retryFx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
                 val retryRouteOk = if (!retryFx.enabled) {
                     retryFx.setEnabled(true) == AudioEffect.SUCCESS
@@ -170,6 +183,7 @@ class MiSoundAudioEffect(
         force: Boolean = false
     ): Boolean {
         val clampedScenario = uiScenario.coerceIn(0, 2)
+        desiredEnabled = true
         syncProperties(
             enabled = true,
             uiScenario = clampedScenario,
@@ -267,8 +281,8 @@ class MiSoundAudioEffect(
                 Log.w(TAG, "applyAllParams failed (retry=$attemptedRetry): ${t.message}")
                 if (attemptedRetry) return false
                 attemptedRetry = true
-                dropHandleOnly()
-                fx = ensureEffect(ignoreBackoff = true) ?: return false
+                // Swap handles (new one first) so the session-0 effect module is never torn down.
+                fx = rebindHandle() ?: return false
             }
         }
     }
@@ -286,8 +300,7 @@ class MiSoundAudioEffect(
             val eqOk: Boolean
             val enableOk: Boolean
             if (!fx.hasControl()) {
-                dropHandleOnly()
-                val retryFx = ensureEffect(ignoreBackoff = true) ?: return false
+                val retryFx = rebindHandle() ?: return false
                 eqOk = applyEqInternal(retryFx, eqGainsTenths, force = true)
                 enableOk = setIntParam(retryFx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
             } else {
@@ -306,6 +319,7 @@ class MiSoundAudioEffect(
      */
     @Synchronized
     fun release() {
+        desiredEnabled = false
         setPropSafe(DolbyConstants.PROP_MISOUND_DISABLE, "true")
         audioEffect?.let { fx ->
             runCatching {
@@ -351,45 +365,123 @@ class MiSoundAudioEffect(
                 false
             }
             if (inControl) return existing
-            dropHandleOnly()
+            // Lost control (another client took it, or the native object died). Try to win it back
+            // with a higher-priority handle while the old one still keeps the effect module alive.
+            return rebindHandle()
         }
 
         val now = SystemClock.elapsedRealtime()
         if (!ignoreBackoff && now - lastFailedCreateMs < CREATE_RETRY_BACKOFF_MS) {
             return null
         }
+        return createHandle()
+    }
 
-        return try {
-            AudioEffect(
-                AudioEffect.EFFECT_TYPE_NULL,
-                DolbyConstants.EFFECT_UUID_MISOUND,
-                priority,
-                audioSession
-            ).also { fx ->
-                fx.setControlStatusListener { _, controlGranted ->
-                    if (!controlGranted) {
-                        Log.w(TAG, "MiSoundAudioEffect lost control from AudioFlinger")
-                        synchronized(this@MiSoundAudioEffect) {
-                            lastEnabled = null
-                        }
-                    }
-                }
-                fx.setEnableStatusListener { _, enabled ->
-                    synchronized(this@MiSoundAudioEffect) {
-                        if (!enabled && lastEnabled == true) {
-                            Log.w(TAG, "MiSoundAudioEffect disabled externally")
-                            lastEnabled = false
-                        }
-                    }
-                }
-                audioEffect = fx
-                invalidateParamCache()
-            }
-        } catch (t: Throwable) {
+    /** Creates a handle and, if another client owns the effect, retries once with a higher priority. */
+    private fun createHandle(): AudioEffect? {
+        val now = SystemClock.elapsedRealtime()
+        var prio = basePriority
+        var created: AudioEffect? = instantiate(prio)
+        val first = created
+        if (first != null && !safeHasControl(first)) {
+            Log.w(TAG, "New MiSound handle has no control at priority $prio, escalating")
+            runCatching { first.release() }
+            prio = priority + ESCALATED_PRIORITY_DELTA
+            basePriority = prio
+            created = instantiate(prio)
+        }
+        val fx = created
+        if (fx == null) {
             lastFailedCreateMs = now
-            Log.e(TAG, "Failed to instantiate MiSoundAudioEffect", t)
             audioEffect = null
-            null
+            return null
+        }
+        adopt(fx, prio)
+        return fx
+    }
+
+    /**
+     * Replaces the current handle without ever dropping the last reference to the native effect:
+     * the new (higher-priority) handle is created first and takes control, then the old one is
+     * released. Falls back to release-then-create if that cannot work.
+     */
+    private fun rebindHandle(): AudioEffect? {
+        val old = audioEffect
+        val nextPriority = currentPriority + 1
+        if (old != null && nextPriority <= basePriority + MAX_PRIORITY_BUMP) {
+            val fresh = instantiate(nextPriority)
+            if (fresh != null) {
+                if (safeHasControl(fresh)) {
+                    adopt(fresh, nextPriority)
+                    runCatching { old.release() }
+                    Log.i(TAG, "MiSound handle rebound seamlessly (priority=$nextPriority)")
+                    return fresh
+                }
+                runCatching { fresh.release() }
+            }
+        }
+        dropHandleOnly()
+        currentPriority = basePriority
+        return createHandle()
+    }
+
+    private fun instantiate(prio: Int): AudioEffect? = try {
+        AudioEffect(
+            AudioEffect.EFFECT_TYPE_NULL,
+            DolbyConstants.EFFECT_UUID_MISOUND,
+            prio,
+            audioSession
+        )
+    } catch (t: Throwable) {
+        Log.e(TAG, "Failed to instantiate MiSoundAudioEffect (priority=$prio)", t)
+        null
+    }
+
+    private fun safeHasControl(fx: AudioEffect): Boolean = try {
+        fx.hasControl()
+    } catch (_: Throwable) {
+        false
+    }
+
+    private fun adopt(fx: AudioEffect, prio: Int) {
+        fx.setControlStatusListener { _, controlGranted ->
+            if (controlGranted) return@setControlStatusListener
+            var recover = false
+            synchronized(this@MiSoundAudioEffect) {
+                // Ignore events from handles we already replaced.
+                if (audioEffect === fx) {
+                    Log.w(TAG, "MiSoundAudioEffect lost control from AudioFlinger")
+                    lastEnabled = null
+                    recover = desiredEnabled
+                }
+            }
+            if (recover) onRecoveryNeeded?.invoke()
+        }
+        fx.setEnableStatusListener { _, enabled ->
+            var recover = false
+            synchronized(this@MiSoundAudioEffect) {
+                if (audioEffect === fx && !enabled && desiredEnabled) {
+                    Log.w(TAG, "MiSoundAudioEffect disabled externally")
+                    lastEnabled = false
+                    recover = true
+                }
+            }
+            if (recover) onRecoveryNeeded?.invoke()
+        }
+        audioEffect = fx
+        currentPriority = prio
+        invalidateParamCache()
+    }
+
+    /** One-line native state for logs/dumps; pairs with `dumpsys media.audio_flinger`. */
+    @Synchronized
+    fun describeState(): String {
+        val fx = audioEffect
+        return try {
+            "handle=${fx != null} control=${fx?.hasControl()} enabled=${fx?.enabled} " +
+                "desired=$desiredEnabled lastEnabled=$lastEnabled prio=$currentPriority"
+        } catch (t: Throwable) {
+            "handle=${fx != null} (state query failed: ${t.message})"
         }
     }
 
@@ -462,5 +554,7 @@ class MiSoundAudioEffect(
     companion object {
         private const val TAG = "MiSoundAudioEffect"
         private const val CREATE_RETRY_BACKOFF_MS = 2_000L
+        private const val ESCALATED_PRIORITY_DELTA = 1_000
+        private const val MAX_PRIORITY_BUMP = 50
     }
 }
