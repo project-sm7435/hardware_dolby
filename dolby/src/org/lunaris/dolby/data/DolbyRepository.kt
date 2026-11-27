@@ -678,7 +678,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
 
             if (mode == SoundEngineMode.XIAOMI_SOUND) {
                 bypassDolbyWithoutRelease()
-                if (forceRestore || !miSoundEffect.isEnabled || !miSoundEffect.hasControl()) {
+                if (forceRestore || !miSoundEffect.isHealthy()) {
                     applyXiaomiSoundTuning(forceRebind = true)
                 }
                 return
@@ -1058,7 +1058,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         if (isReleased) return
         val clamped = curve.coerceIn(0, 2)
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_BASS_CURVE, clamped).apply()
-        syncViperState(profile, forceRebind = true)
+        syncViperState(profile, forceRebind = false)
         notifyStateUpdated()
     }
 
@@ -1070,7 +1070,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     fun setBassCutoff(profile: Int, hz: Int) {
         if (isReleased) return
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_BASS_CUTOFF, hz.coerceIn(15, 150)).apply()
-        syncViperState(profile, forceRebind = true)
+        syncViperState(profile, forceRebind = false)
         notifyStateUpdated()
     }
 
@@ -1084,7 +1084,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             .putInt(DolbyConstants.PREF_BASS_LEVEL, level)
             .putBoolean(DolbyConstants.PREF_BASS, level > 0)
             .apply()
-        syncViperState(profile, forceRebind = true)
+        syncViperState(profile, forceRebind = false)
         notifyStateUpdated()
     }
 
@@ -1097,7 +1097,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         if (isReleased) return
         val newLevel = level.coerceIn(0, 100)
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_SPEAKER_CORRECTION, newLevel).apply()
-        syncViperState(profile, forceRebind = true)
+        syncViperState(profile, forceRebind = false)
         notifyStateUpdated()
     }
 
@@ -1121,7 +1121,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     fun setClarityMode(profile: Int, mode: Int) {
         if (isReleased) return
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_CLARITY_MODE, mode).apply()
-        syncViperState(profile, forceRebind = true)
+        syncViperState(profile, forceRebind = false)
         notifyStateUpdated()
     }
 
@@ -1135,7 +1135,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             .putInt(DolbyConstants.PREF_TREBLE_LEVEL, level)
             .putBoolean(DolbyConstants.PREF_TREBLE, level > 0)
             .apply()
-        syncViperState(profile, forceRebind = true)
+        syncViperState(profile, forceRebind = false)
         notifyStateUpdated()
     }
 
@@ -1153,7 +1153,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         if (isReleased) return
         if (level !in 0..100) throw IllegalArgumentException("Dynamic system level must be between 0 and 100")
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_DYNAMIC_LEVEL, level).apply()
-        syncViperState(profile, forceRebind = true)
+        syncViperState(profile, forceRebind = false)
         notifyStateUpdated()
     }
 
@@ -1177,7 +1177,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     fun setViperSurroundWidening(profile: Int, widening: Int) {
         if (isReleased) return
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_VIPER_SURROUND_WIDENING, widening.coerceIn(1, 100)).apply()
-        syncViperState(profile, forceRebind = true)
+        syncViperState(profile, forceRebind = false)
         notifyStateUpdated()
     }
 
@@ -1189,7 +1189,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     fun setViperSurroundDepth(profile: Int, depth: Int) {
         if (isReleased) return
         getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_VIPER_SURROUND_DEPTH, depth.coerceIn(0, 100)).apply()
-        syncViperState(profile, forceRebind = true)
+        syncViperState(profile, forceRebind = false)
         notifyStateUpdated()
     }
 
@@ -1323,7 +1323,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
 
         try {
             getProfilePrefs(profile).edit().putInt(DolbyConstants.PREF_STEREO_WIDENING, amount).apply()
-            syncViperState(profile, forceRebind = true)
+            syncViperState(profile, forceRebind = false)
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting stereo widening: ${e.message}")
         }
@@ -1428,7 +1428,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
                 val gainsString = gains.joinToString(",")
                 getProfilePrefs(profile).edit().putString(DolbyConstants.PREF_PRESET, gainsString).apply()
                 if (getSavedDolbyEnabled()) {
-                    applyViper(profile, forceRebind = true)
+                    applyViper(profile, forceRebind = false)
                 }
             }
         } catch (e: Exception) {
@@ -1727,7 +1727,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             .putInt(DolbyConstants.PREF_MID_LEVEL, level)
             .putBoolean(DolbyConstants.PREF_MID, level > 0)
             .apply()
-        syncViperState(profile, forceRebind = true)
+        syncViperState(profile, forceRebind = false)
         notifyStateUpdated()
     }
 
@@ -1745,7 +1745,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
 
         private const val TAG = "DolbyRepository"
         private const val EFFECT_PRIORITY = 100
-        private const val MISOUND_EFFECT_PRIORITY = 0
+        private const val MISOUND_EFFECT_PRIORITY = 100
 
         private val ATTRIBUTES_MEDIA = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)

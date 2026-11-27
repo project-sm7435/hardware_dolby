@@ -169,7 +169,7 @@ class DolbyEffectService : Service() {
             } else if (isActive) {
                 if (!wasPlaybackActive) {
                     val idleDurationMs = if (lastPlaybackStoppedAtMs == 0L) Long.MAX_VALUE else (now - lastPlaybackStoppedAtMs)
-                    val shouldForce = idleDurationMs >= STANDBY_IDLE_THRESHOLD_MS || lastPlaybackStoppedAtMs > 0L
+                    val shouldForce = idleDurationMs >= STANDBY_IDLE_THRESHOLD_MS
                     if (shouldForce) {
                         pendingForceRestore = true
                         try {
@@ -180,7 +180,8 @@ class DolbyEffectService : Service() {
                     }
                     schedulePlaybackRefresh(forceRestore = shouldForce)
                 } else {
-                    schedulePlaybackRefresh(forceRestore = true)
+                    // Track skip / active session update: health-check only, never force-rebind
+                    schedulePlaybackRefresh(forceRestore = false)
                 }
             } else if (wasPlaybackActive) {
                 lastPlaybackStoppedAtMs = now

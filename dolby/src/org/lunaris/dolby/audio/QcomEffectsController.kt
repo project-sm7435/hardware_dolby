@@ -73,8 +73,8 @@ internal class QcomEffectsController {
                     try {
                         if (bb.hasControl()) {
                             bb.setStrength(0)
+                            if (bb.enabled) bb.enabled = false
                         }
-                        bb.enabled = false
                     } catch (_: Throwable) {
                     }
                 }
@@ -96,8 +96,8 @@ internal class QcomEffectsController {
                     try {
                         if (virt.hasControl()) {
                             virt.setStrength(0)
+                            if (virt.enabled) virt.enabled = false
                         }
-                        virt.enabled = false
                     } catch (_: Throwable) {
                     }
                 }
@@ -130,7 +130,7 @@ internal class QcomEffectsController {
                     try {
                         if (bb.hasControl()) {
                             bb.setStrength(0)
-                            bb.enabled = false
+                            if (bb.enabled) bb.enabled = false
                         } else {
                             dropBassBoost()
                         }
@@ -160,8 +160,10 @@ internal class QcomEffectsController {
                 dropBassBoost()
                 return 0
             }
-            bb.setStrength(strength.toShort())
-            if (!bb.enabled || force || lastBassEnabled != true) {
+            if (!bb.enabled || lastBassStrength != strength) {
+                bb.setStrength(strength.toShort())
+            }
+            if (!bb.enabled) {
                 bb.enabled = true
             }
             lastBassEnabled = true
@@ -181,7 +183,7 @@ internal class QcomEffectsController {
                     try {
                         if (virt.hasControl()) {
                             virt.setStrength(0)
-                            virt.enabled = false
+                            if (virt.enabled) virt.enabled = false
                         } else {
                             dropVirtualizer()
                         }
@@ -211,8 +213,10 @@ internal class QcomEffectsController {
                 dropVirtualizer()
                 return 0
             }
-            virt.setStrength(strength.toShort())
-            if (!virt.enabled || force || lastVirtEnabled != true) {
+            if (!virt.enabled || lastVirtStrength != strength) {
+                virt.setStrength(strength.toShort())
+            }
+            if (!virt.enabled) {
                 virt.enabled = true
             }
             lastVirtEnabled = true

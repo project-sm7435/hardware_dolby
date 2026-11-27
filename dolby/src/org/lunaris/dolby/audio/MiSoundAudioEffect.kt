@@ -48,6 +48,18 @@ class MiSoundAudioEffect(
     }
 
     @Synchronized
+    fun isHealthy(): Boolean {
+        val fx = audioEffect ?: return false
+        return try {
+            if (!fx.hasControl() || !fx.enabled || lastEnabled == false) return false
+            // Lightweight native liveness check; catches ERROR_DEAD_OBJECT / bypass
+            setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    @Synchronized
     fun syncProperties(
         enabled: Boolean,
         uiScenario: Int,
@@ -247,7 +259,10 @@ class MiSoundAudioEffect(
 
                 val eqOk = applyEqInternal(fx, eqGainsTenths, effectiveForce)
                 val finalEnableOk = setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
-                return allOk && eqOk && finalEnableOk
+                if (!allOk || !eqOk || !finalEnableOk) {
+                    throw IllegalStateException("MiSound param push failed (allOk=$allOk eqOk=$eqOk enableOk=$finalEnableOk)")
+                }
+                return true
             } catch (t: Throwable) {
                 Log.w(TAG, "applyAllParams failed (retry=$attemptedRetry): ${t.message}")
                 if (attemptedRetry) return false
@@ -350,8 +365,24 @@ class MiSoundAudioEffect(
                 DolbyConstants.EFFECT_UUID_MISOUND,
                 priority,
                 audioSession
-            ).also {
-                audioEffect = it
+            ).also { fx ->
+                fx.setControlStatusListener { _, controlGranted ->
+                    if (!controlGranted) {
+                        Log.w(TAG, "MiSoundAudioEffect lost control from AudioFlinger")
+                        synchronized(this@MiSoundAudioEffect) {
+                            lastEnabled = null
+                        }
+                    }
+                }
+                fx.setEnableStatusListener { _, enabled ->
+                    synchronized(this@MiSoundAudioEffect) {
+                        if (!enabled && lastEnabled == true) {
+                            Log.w(TAG, "MiSoundAudioEffect disabled externally")
+                            lastEnabled = false
+                        }
+                    }
+                }
+                audioEffect = fx
                 invalidateParamCache()
             }
         } catch (t: Throwable) {

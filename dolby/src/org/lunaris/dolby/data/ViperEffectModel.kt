@@ -339,8 +339,8 @@ internal object ViperEffectModel {
         val dLvl = dynamicLevel.coerceIn(0, 100)
         val bassContrib = if (bLvl > 0) {
             val scale = when (bassCurve.coerceIn(0, 2)) {
-                BASS_NATURAL -> 4.5
-                BASS_PURE -> 6.5
+                BASS_NATURAL -> 7.5
+                BASS_PURE -> 8.8
                 else -> 10.0
             }
             (bLvl * scale) / 1000.0
@@ -381,7 +381,7 @@ internal object ViperEffectModel {
         surroundWidening: Int,
         surroundDepth: Int,
         midLevel: Int = 0,
-        qcomBassStrength: Int = 0,
+        @Suppress("UNUSED_PARAMETER") qcomBassStrength: Int = 0,
         qcomVirtActive: Boolean = false,
     ): IntArray {
         val result = IntArray(freqs.size) { i ->
@@ -395,7 +395,6 @@ internal object ViperEffectModel {
         val midGain = if (midLevel > 0) (midLevel.coerceIn(0, 100) * 1.3f).roundToInt() else 0
         val anyViperOn = bass != null || dynamic != null || clarity != null || speaker != null || surround != null
 
-        val qBassNorm = qcomBassStrength.coerceIn(0, 1000) / 1000.0
         val surroundScale = if (qcomVirtActive) 0.95 else 1.0
 
         for (i in result.indices) {
@@ -403,15 +402,6 @@ internal object ViperEffectModel {
             var bassDelta = 0
             if (bass != null && i < bass.size) bassDelta += bass[i]
             if (dynamic != null && i < dynamic.size) bassDelta += dynamic[i]
-
-            if (qBassNorm > 0.0 && bassDelta > 0) {
-                val trim = when (i) {
-                    0 -> (25.0 * qBassNorm).roundToInt()
-                    1 -> (10.0 * qBassNorm).roundToInt()
-                    else -> 0
-                }
-                bassDelta = (bassDelta - trim).coerceAtLeast(0)
-            }
 
             var sum = baseVal + bassDelta
             if (clarity != null && i < clarity.size) sum += clarity[i]
