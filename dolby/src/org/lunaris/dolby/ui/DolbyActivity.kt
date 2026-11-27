@@ -11,7 +11,9 @@ import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.Window
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
@@ -99,6 +101,8 @@ class DolbyActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        requestWindowFeature(Window.FEATURE_NO_TITLE)
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         DolbyConstants.dlog(TAG, "Activity onCreate")
         lifecycle.addObserver(lifecycleObserver)

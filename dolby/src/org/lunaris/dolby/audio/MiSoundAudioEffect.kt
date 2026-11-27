@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2018,2020 The LineageOS Project
  * Copyright (C) 2026 Lunaris AOSP
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -10,33 +11,135 @@ import android.os.SystemClock
 import android.os.SystemProperties
 import android.util.Log
 import org.lunaris.dolby.DolbyConstants
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.util.Locale
 import kotlin.math.abs
 
 class MiSoundAudioEffect(
     private val priority: Int = 0,
     private val audioSession: Int = 0,
-    private val useFloatEqPayload: Boolean = false
 ) {
 
-    private var audioEffect: AudioEffect? = null
-    private var lastEnabled: Boolean? = null
+    private class NativeMiSoundEffect(priority: Int, audioSession: Int) :
+        AudioEffect(
+            EFFECT_TYPE_NULL,
+            DolbyConstants.EFFECT_UUID_MISOUND,
+            priority,
+            audioSession,
+        ) {
+
+        override fun hasControl(): Boolean =
+            try {
+                super.hasControl()
+            } catch (_: IllegalStateException) {
+                false
+            }
+
+        override fun setEnabled(enabled: Boolean): Int {
+            if (!enabled) {
+                var failure: RuntimeException? = null
+                try {
+                    checkStatus(super.setEnabled(false))
+                } catch (error: RuntimeException) {
+                    failure = error
+                }
+                try {
+                    checkStatus(setParameter(DolbyConstants.MISOUND_PARAM_ENABLE, 0))
+                } catch (error: RuntimeException) {
+                    if (failure == null) failure = error
+                    else if (failure !== error) failure.addSuppressed(error)
+                }
+                failure?.let { throw it }
+                return SUCCESS
+            }
+            checkStatus(setParameter(DolbyConstants.MISOUND_PARAM_ENABLE, 1))
+            val status =
+                try {
+                    super.setEnabled(true)
+                } catch (failure: RuntimeException) {
+                    try {
+                        checkStatus(setParameter(DolbyConstants.MISOUND_PARAM_ENABLE, 0))
+                    } catch (rollback: RuntimeException) {
+                        if (failure !== rollback) failure.addSuppressed(rollback)
+                    }
+                    throw failure
+                }
+            if (status != SUCCESS) {
+                val failure = IllegalStateException("Framework MiSound enable failed: $status")
+                try {
+                    checkStatus(super.setEnabled(false))
+                } catch (rollback: RuntimeException) {
+                    failure.addSuppressed(rollback)
+                }
+                try {
+                    checkStatus(setParameter(DolbyConstants.MISOUND_PARAM_ENABLE, 0))
+                } catch (rollback: RuntimeException) {
+                    failure.addSuppressed(rollback)
+                }
+                throw failure
+            }
+            return SUCCESS
+        }
+
+        private fun intParameter(parameter: Int): Int {
+            val value = IntArray(1)
+            val count = getParameter(parameter, value)
+            checkStatus(count)
+            check(count == 1) { "Incomplete MiSound scalar: $count" }
+            return value[0]
+        }
+
+        override fun getEnabled(): Boolean =
+            intParameter(DolbyConstants.MISOUND_PARAM_ENABLE) == 1 && super.getEnabled()
+
+        fun hasExpectedEnabledState(enabled: Boolean): Boolean =
+            try {
+                intParameter(DolbyConstants.MISOUND_PARAM_ENABLE) == (if (enabled) 1 else 0) &&
+                    super.getEnabled() == enabled
+            } catch (_: Throwable) {
+                super.getEnabled() == enabled
+            }
+
+        fun getMusic(): Int = intParameter(DolbyConstants.MISOUND_PARAM_MUSIC)
+
+        fun setMusic(enable: Int) {
+            require(enable in 0..1)
+            checkStatus(setParameter(DolbyConstants.MISOUND_PARAM_MUSIC, enable))
+        }
+
+        fun setLevel(band: Int, level: Float) {
+            require(band in 0 until DolbyConstants.MISOUND_EQ_BAND_COUNT && level.isFinite())
+            checkStatus(
+                setParameter(
+                    intArrayOf(DolbyConstants.MISOUND_PARAM_EQ_LEVEL, band),
+                    "$level\u0000".toByteArray(Charsets.US_ASCII)
+                )
+            )
+        }
+
+        fun setScenario(scene: Int) {
+            require(scene in 0..4)
+            checkStatus(setParameter(DolbyConstants.MISOUND_PARAM_SCENARIO, scene))
+        }
+
+        fun setOptionalParam(paramId: Int, value: Int) {
+            val status = setParameter(paramId, value)
+            if (status != SUCCESS) {
+                DolbyConstants.dlog(TAG, "Optional param($paramId, $value) status=$status")
+            }
+        }
+    }
+
+    private var sound: NativeMiSoundEffect? = null
+    private var appliedEnabled: Boolean? = null
     private var lastScenario: Int? = null
     private var lastMovieMode: Boolean? = null
-    private var lastMusicMode: Boolean? = null
     private var lastSurround3d: Boolean? = null
     private var lastSurroundLevel: Int? = null
     private var lastVocalLevel: Int? = null
     private var lastEqDb: FloatArray? = null
     private var lastFailedCreateMs: Long = 0L
 
-    // What the app wants, independent of the (invalidatable) param cache. Used to tell an
-    // AudioFlinger-initiated disable apart from one we requested ourselves.
     private var desiredEnabled: Boolean = false
-    // True once our own disable (incl. 3D off) went through; cleared on any enable or new handle.
-    private var disabledByUs: Boolean = false
     private var basePriority: Int = priority
     private var currentPriority: Int = priority
 
@@ -45,36 +148,25 @@ class MiSoundAudioEffect(
 
     val isEnabled: Boolean
         @Synchronized get() {
+            val fx = sound ?: return false
             return try {
-                val fx = audioEffect ?: return false
-                if (!fx.hasControl() || !fx.enabled || lastEnabled == false) return false
-                val nativeEnabled = getIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE)
-                val musicEnabled = getIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC)
-                (nativeEnabled == null || nativeEnabled == 1) && (musicEnabled == null || musicEnabled == 1)
+                fx.hasControl() && fx.hasExpectedEnabledState(true) && appliedEnabled != false
             } catch (_: Throwable) {
                 false
             }
         }
 
     @Synchronized
-    fun hasControl(): Boolean = try {
-        audioEffect?.hasControl() == true
-    } catch (_: Throwable) {
-        false
-    }
+    fun hasControl(): Boolean = sound?.hasControl() == true
 
     @Synchronized
     fun isHealthy(): Boolean {
-        val fx = audioEffect ?: return false
+        val fx = sound ?: return false
         return try {
-            if (!fx.hasControl() || !fx.enabled || lastEnabled == false) return false
-            // Match sm8250-common MiSound verification: native enable (param 25) and music gate
-            // (param 4) must both still be 1; fall back to a lightweight write if getParameter fails.
-            val nativeEnabled = getIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE)
-            val musicEnabled = getIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC)
-            if (nativeEnabled != null && nativeEnabled != 1) return false
-            if (musicEnabled != null && musicEnabled != 1) return false
-            if (nativeEnabled == 1) true else setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
+            if (!fx.hasControl()) return false
+            if (appliedEnabled != true) return false
+            if (!fx.hasExpectedEnabledState(true)) return false
+            fx.getMusic() == 1
         } catch (_: Throwable) {
             false
         }
@@ -91,8 +183,6 @@ class MiSoundAudioEffect(
     ) {
         val clampedScenario = uiScenario.coerceIn(0, 2)
         val nativeScenario = DolbyConstants.uiScenarioToNative(clampedScenario)
-        // 3D is exclusive to Xiaomi Sound: while it is off, the props must say "no 3D" even
-        // though the saved 3D setting stays ON in the app.
         val surroundActive = enabled && surround3dEnabled
         val effectiveSurround = if (surroundActive) surroundLevel.coerceIn(0, 100) else 0
         val clampedVocal = vocalLevel.coerceIn(0, 100)
@@ -129,65 +219,27 @@ class MiSoundAudioEffect(
                 setPropSafe(DolbyConstants.PROP_MISOUND_MUSIC_STATE, "0")
                 setPropSafe(DolbyConstants.PROP_MISOUND_3D_SURROUND, "0")
                 setPropSafe(DolbyConstants.PROP_MISOUND_SURROUND_LEVEL, "0")
-                if (disabledByUs && audioEffect?.let { safeEnabled(it) } != true) return true
-                var fx = audioEffect
-                var disabledOk = true
-                if (fx != null) {
-                    runCatching {
-                        // Without control the calls below are silently ignored and MiSound keeps
-                        // running; win control back first instead of reporting a fake success.
-                        if (!fx!!.hasControl()) {
-                            fx = rebindHandle()
-                        }
-                        val h = fx
-                        if (h == null || !h.hasControl()) {
-                            disabledOk = false
-                        } else {
-                            // Disable framework effect first, then native enable/music params
-                            // (matching sm8250-common MiSoundEffect.setEnabled(false)).
-                            if (h.enabled) {
-                                disabledOk = h.setEnabled(false) == AudioEffect.SUCCESS
-                            }
-                            // 3D surround lives in the DSP (QdspParameterId 22) and can outlast the
-                            // effect being disabled, so it is cleared best-effort here.
-                            setOptionalIntParam(h, DolbyConstants.MISOUND_PARAM_3D_SURROUND_ENABLE, 0)
-                            setOptionalIntParam(h, DolbyConstants.MISOUND_PARAM_SURROUND_LEVEL, 0)
-                            setOptionalIntParam(h, DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, 0)
-                            val paramOffOk = setIntParam(h, DolbyConstants.MISOUND_PARAM_ENABLE, 0)
-                            val musicOffOk = setIntParam(h, DolbyConstants.MISOUND_PARAM_MUSIC, 0)
-                            disabledOk = disabledOk && paramOffOk && musicOffOk
-                        }
-                    }.onFailure {
-                        disabledOk = false
-                    }
+                val fx = sound ?: run {
+                    appliedEnabled = false
+                    invalidateParamCache()
+                    return true
                 }
-                disabledByUs = disabledOk
-                lastEnabled = if (disabledOk) false else null
-                lastScenario = null
-                lastMusicMode = null
-                lastMovieMode = null
-                lastSurround3d = null
-                lastSurroundLevel = null
-                lastVocalLevel = null
-                lastEqDb = null
-                return disabledOk
+                val controlled = if (fx.hasControl()) fx else rebindHandle() ?: return false
+                controlled.setOptionalParam(DolbyConstants.MISOUND_PARAM_3D_SURROUND_ENABLE, 0)
+                controlled.setOptionalParam(DolbyConstants.MISOUND_PARAM_SURROUND_LEVEL, 0)
+                controlled.setOptionalParam(DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, 0)
+                applyEnabled(controlled, false)
+                invalidateParamCache()
+                return true
             }
 
-            disabledByUs = false
             val fx = ensureEffect(ignoreBackoff = true) ?: return false
-            if (!enableNativeEffect(fx)) {
-                Log.w(TAG, "setEnabled(true) failed, rebinding")
-                val retryFx = rebindHandle() ?: return false
-                val ok = enableNativeEffect(retryFx)
-                lastEnabled = if (ok) true else null
-                return ok
-            }
-            lastEnabled = true
+            applyEnabled(fx, true)
             true
         } catch (t: Throwable) {
-            Log.e(TAG, "Failed to toggle MiSoundAudioEffect enabled=$enabled", t)
+            Log.e(TAG, "Failed to setEnabled($enabled)", t)
             if (!enabled) {
-                lastEnabled = false
+                appliedEnabled = false
             }
             false
         }
@@ -204,7 +256,6 @@ class MiSoundAudioEffect(
     ): Boolean {
         val clampedScenario = uiScenario.coerceIn(0, 2)
         desiredEnabled = true
-        disabledByUs = false
         syncProperties(
             enabled = true,
             uiScenario = clampedScenario,
@@ -219,83 +270,54 @@ class MiSoundAudioEffect(
 
         while (true) {
             try {
-                if (!fx.hasControl()) {
-                    throw IllegalStateException("Lost control of MiSoundAudioEffect")
-                }
+                check(fx.hasControl()) { "MiSound control unavailable" }
 
                 val nativeScenario = DolbyConstants.uiScenarioToNative(clampedScenario)
                 val isMovie = clampedScenario == 2
                 val effectiveSurround = if (surround3dEnabled) surroundLevel.coerceIn(0, 100) else 0
                 val clampedVocal = vocalLevel.coerceIn(0, 100)
                 val scenarioChanged = lastScenario != nativeScenario
-                val effectiveForce = force || scenarioChanged
+                val effectiveForce = force || scenarioChanged || appliedEnabled != true
 
-                var allOk = true
-                var justEnabled = false
-
-                if (effectiveForce || lastEnabled != true || !fx.enabled) {
-                    if (enableNativeEffect(fx)) {
-                        lastEnabled = true
-                        lastMusicMode = true
-                        justEnabled = true
-                    } else {
-                        allOk = false
-                    }
-                } else if (lastMusicMode != true) {
-                    // On sm8250-common libmisoundfx.so, param 4 (music) is the active processing gate
-                    // and must stay 1 whenever MiSound is enabled (even in Movie scenario).
-                    if (setIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC, 1)) {
-                        lastMusicMode = true
-                    } else {
-                        allOk = false
-                    }
+                if (appliedEnabled != true || !fx.hasExpectedEnabledState(true)) {
+                    applyEnabled(fx, true)
                 }
 
                 if (effectiveForce || lastScenario != nativeScenario) {
-                    if (setIntParam(fx, DolbyConstants.MISOUND_PARAM_SCENARIO, nativeScenario)) {
-                        lastScenario = nativeScenario
-                    } else {
-                        allOk = false
-                    }
+                    fx.setScenario(nativeScenario)
+                    lastScenario = nativeScenario
                 }
 
-                // Optional HyperOS/newer libmisoundfx.so parameters: apply best-effort so
-                // devices with older/sm8250 libmisoundfx.so (without 16/17/18/20) still succeed.
                 if (effectiveForce || lastMovieMode != isMovie) {
-                    setOptionalIntParam(fx, DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, if (isMovie) 1 else 0)
+                    fx.setOptionalParam(DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, if (isMovie) 1 else 0)
                     lastMovieMode = isMovie
                 }
                 if (effectiveForce || lastSurround3d != surround3dEnabled) {
-                    setOptionalIntParam(
-                        fx,
+                    fx.setOptionalParam(
                         DolbyConstants.MISOUND_PARAM_3D_SURROUND_ENABLE,
                         if (surround3dEnabled) 1 else 0
                     )
                     lastSurround3d = surround3dEnabled
                 }
                 if (effectiveForce || lastSurroundLevel != effectiveSurround) {
-                    setOptionalIntParam(fx, DolbyConstants.MISOUND_PARAM_SURROUND_LEVEL, effectiveSurround)
+                    fx.setOptionalParam(DolbyConstants.MISOUND_PARAM_SURROUND_LEVEL, effectiveSurround)
                     lastSurroundLevel = effectiveSurround
                 }
                 if (effectiveForce || lastVocalLevel != clampedVocal) {
-                    setOptionalIntParam(fx, DolbyConstants.MISOUND_PARAM_VOCAL_LEVEL, clampedVocal)
+                    fx.setOptionalParam(DolbyConstants.MISOUND_PARAM_VOCAL_LEVEL, clampedVocal)
                     lastVocalLevel = clampedVocal
                 }
 
-                val eqOk = applyEqInternal(fx, eqGainsTenths, effectiveForce)
-                val finalEnableOk = if (justEnabled) true else setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)
-                val finalMusicOk = if (justEnabled) true else setIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC, 1)
-                if (!allOk || !eqOk || !finalEnableOk || !finalMusicOk) {
-                    throw IllegalStateException(
-                        "MiSound param push failed (allOk=$allOk eqOk=$eqOk enableOk=$finalEnableOk musicOk=$finalMusicOk)"
-                    )
+                applyEqInternal(fx, eqGainsTenths, effectiveForce)
+
+                if (effectiveForce || !fx.hasExpectedEnabledState(true) || fx.getMusic() != 1) {
+                    applyEnabled(fx, true)
                 }
                 return true
             } catch (t: Throwable) {
                 Log.w(TAG, "applyAllParams failed (retry=$attemptedRetry): ${t.message}")
                 if (attemptedRetry) return false
                 attemptedRetry = true
-                // Swap handles (new one first) so the session-0 effect module is never torn down.
                 fx = rebindHandle() ?: return false
             }
         }
@@ -311,19 +333,9 @@ class MiSoundAudioEffect(
 
         val fx = ensureEffect(ignoreBackoff = force) ?: return false
         return try {
-            val eqOk: Boolean
-            val enableOk: Boolean
-            if (!fx.hasControl()) {
-                val retryFx = rebindHandle() ?: return false
-                eqOk = applyEqInternal(retryFx, eqGainsTenths, force = true)
-                enableOk = setIntParam(retryFx, DolbyConstants.MISOUND_PARAM_ENABLE, 1) &&
-                    setIntParam(retryFx, DolbyConstants.MISOUND_PARAM_MUSIC, 1)
-            } else {
-                eqOk = applyEqInternal(fx, eqGainsTenths, force = force)
-                enableOk = setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1) &&
-                    setIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC, 1)
-            }
-            eqOk && enableOk
+            val active = if (fx.hasControl()) fx else rebindHandle() ?: return false
+            applyEqInternal(active, eqGainsTenths, force = force || !fx.hasControl())
+            true
         } catch (t: Throwable) {
             Log.w(TAG, "setEqGains failed: ${t.message}")
             false
@@ -335,71 +347,91 @@ class MiSoundAudioEffect(
         desiredEnabled = false
         setPropSafe(DolbyConstants.PROP_MISOUND_DISABLE, "true")
         setPropSafe(DolbyConstants.PROP_MISOUND_MUSIC_STATE, "0")
-        audioEffect?.let { fx ->
-            runCatching {
-                if (fx.hasControl()) {
-                    if (fx.enabled) {
-                        fx.setEnabled(false)
-                    }
-                    setOptionalIntParam(fx, DolbyConstants.MISOUND_PARAM_3D_SURROUND_ENABLE, 0)
-                    setOptionalIntParam(fx, DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, 0)
-                    setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 0)
-                    setIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC, 0)
-                }
-            }
-            runCatching { fx.release() }
-        }
-        audioEffect = null
+        val previous = sound
+        sound = null
+        appliedEnabled = null
         invalidateParamCache()
-    }
-
-    private fun enableNativeEffect(fx: AudioEffect): Boolean {
-        if (!setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 1)) return false
-        val routeOk = try {
-            if (!fx.enabled) fx.setEnabled(true) == AudioEffect.SUCCESS else true
+        if (previous == null) return
+        try {
+            if (previous.hasControl()) {
+                try {
+                    previous.setEnabled(false)
+                } finally {
+                    previous.setMusic(0)
+                }
+            }
         } catch (t: Throwable) {
-            Log.w(TAG, "Framework MiSound setEnabled(true) threw: ${t.message}")
-            false
+            Log.w(TAG, "Cannot bypass MiSound before release", t)
+        } finally {
+            runCatching { previous.release() }
         }
-        if (!routeOk) {
-            setIntParam(fx, DolbyConstants.MISOUND_PARAM_ENABLE, 0)
-            return false
-        }
-        return setIntParam(fx, DolbyConstants.MISOUND_PARAM_MUSIC, 1)
     }
 
-    private fun applyEqInternal(fx: AudioEffect, eqGainsTenths: IntArray, force: Boolean): Boolean {
-        val currentCache = lastEqDb ?: FloatArray(DolbyConstants.MISOUND_EQ_BAND_COUNT) { Float.NaN }
-        var ok = true
-        for (band in 0 until DolbyConstants.MISOUND_EQ_BAND_COUNT) {
-            val tenths = eqGainsTenths.getOrElse(band) { 0 }
-            val db = (tenths / 10f).coerceIn(DolbyConstants.MISOUND_EQ_MIN_DB, DolbyConstants.MISOUND_EQ_MAX_DB)
-            val prev = currentCache[band]
-            if (force || prev.isNaN() || abs(prev - db) > 0.005f) {
-                if (setEqBandParam(fx, band, db)) {
-                    currentCache[band] = db
+    @Synchronized
+    fun describeState(): String {
+        val fx = sound
+        return try {
+            "handle=${fx != null} control=${fx?.hasControl()} enabled=${fx?.hasExpectedEnabledState(true)} " +
+                "desired=$desiredEnabled applied=$appliedEnabled prio=$currentPriority"
+        } catch (t: Throwable) {
+            "handle=${fx != null} (state query failed: ${t.message})"
+        }
+    }
+
+    private fun applyEnabled(effect: NativeMiSoundEffect, enable: Boolean) {
+        if (enable) {
+            effect.setMusic(1)
+            check(effect.setEnabled(true) == AudioEffect.SUCCESS)
+            check(effect.hasExpectedEnabledState(true) && effect.getMusic() == 1) {
+                "MiSound enable state did not apply"
+            }
+        } else {
+            effect.setOptionalParam(DolbyConstants.MISOUND_PARAM_MUSIC, 0)
+            effect.setOptionalParam(DolbyConstants.MISOUND_PARAM_ENABLE, 0)
+            val status = effect.setParameter(DolbyConstants.MISOUND_PARAM_ENABLE, 0)
+            if (status != AudioEffect.SUCCESS) {
+                Log.w(TAG, "MISOUND_PARAM_ENABLE(0) returned $status")
+            }
+            runCatching {
+                val fxBase = effect as AudioEffect
+                // Call framework setEnabled(false) without throwing if already disabled.
+                if (effect.hasExpectedEnabledState(true)) {
+                    fxBase.setEnabled(false)
                 } else {
-                    ok = false
+                    fxBase.setEnabled(false)
                 }
             }
         }
-        lastEqDb = if (ok) currentCache else null
-        return ok
+        appliedEnabled = enable
     }
 
-    private fun ensureEffect(ignoreBackoff: Boolean = false): AudioEffect? {
-        audioEffect?.let { existing ->
-            val inControl = try {
-                existing.hasControl()
-            } catch (_: Throwable) {
-                false
+    private fun applyEqInternal(fx: NativeMiSoundEffect, eqGainsTenths: IntArray, force: Boolean) {
+        val currentCache = lastEqDb ?: FloatArray(DolbyConstants.MISOUND_EQ_BAND_COUNT) { Float.NaN }
+        try {
+            for (band in 0 until DolbyConstants.MISOUND_EQ_BAND_COUNT) {
+                val tenths = eqGainsTenths.getOrElse(band) { 0 }
+                val db = (tenths / 10f).coerceIn(
+                    DolbyConstants.MISOUND_EQ_MIN_DB,
+                    DolbyConstants.MISOUND_EQ_MAX_DB
+                )
+                val prev = currentCache[band]
+                if (force || prev.isNaN() || abs(prev - db) > 0.005f) {
+                    fx.setLevel(band, db)
+                    currentCache[band] = db
+                }
             }
-            if (inControl) return existing
-            // Lost control (another client took it, or the native object died). Try to win it back
-            // with a higher-priority handle while the old one still keeps the effect module alive.
+            lastEqDb = currentCache
+        } catch (t: Throwable) {
+            lastEqDb = null
+            throw t
+        }
+    }
+
+    private fun ensureEffect(ignoreBackoff: Boolean = false): NativeMiSoundEffect? {
+        sound?.let { existing ->
+            if (existing.hasControl()) return existing
             return rebindHandle()
         }
-
         val now = SystemClock.elapsedRealtime()
         if (!ignoreBackoff && now - lastFailedCreateMs < CREATE_RETRY_BACKOFF_MS) {
             return null
@@ -407,12 +439,12 @@ class MiSoundAudioEffect(
         return createHandle()
     }
 
-    private fun createHandle(): AudioEffect? {
+    private fun createHandle(): NativeMiSoundEffect? {
         val now = SystemClock.elapsedRealtime()
         var prio = basePriority
-        var created: AudioEffect? = instantiate(prio)
+        var created = instantiate(prio)
         val first = created
-        if (first != null && !safeHasControl(first)) {
+        if (first != null && !first.hasControl()) {
             Log.w(TAG, "New MiSound handle has no control at priority $prio, escalating")
             runCatching { first.release() }
             prio = priority + ESCALATED_PRIORITY_DELTA
@@ -422,20 +454,20 @@ class MiSoundAudioEffect(
         val fx = created
         if (fx == null) {
             lastFailedCreateMs = now
-            audioEffect = null
+            sound = null
             return null
         }
         adopt(fx, prio)
         return fx
     }
 
-    private fun rebindHandle(): AudioEffect? {
-        val old = audioEffect
+    private fun rebindHandle(): NativeMiSoundEffect? {
+        val old = sound
         val nextPriority = currentPriority + 1
         if (old != null && nextPriority <= basePriority + MAX_PRIORITY_BUMP) {
             val fresh = instantiate(nextPriority)
             if (fresh != null) {
-                if (safeHasControl(fresh)) {
+                if (fresh.hasControl()) {
                     adopt(fresh, nextPriority)
                     runCatching { old.release() }
                     Log.i(TAG, "MiSound handle rebound seamlessly (priority=$nextPriority)")
@@ -449,33 +481,21 @@ class MiSoundAudioEffect(
         return createHandle()
     }
 
-    private fun instantiate(prio: Int): AudioEffect? = try {
-        AudioEffect(
-            AudioEffect.EFFECT_TYPE_NULL,
-            DolbyConstants.EFFECT_UUID_MISOUND,
-            prio,
-            audioSession
-        )
+    private fun instantiate(prio: Int): NativeMiSoundEffect? = try {
+        NativeMiSoundEffect(prio, audioSession)
     } catch (t: Throwable) {
-        Log.e(TAG, "Failed to instantiate MiSoundAudioEffect (priority=$prio)", t)
+        Log.e(TAG, "Failed to instantiate NativeMiSoundEffect (priority=$prio)", t)
         null
     }
 
-    private fun safeHasControl(fx: AudioEffect): Boolean = try {
-        fx.hasControl()
-    } catch (_: Throwable) {
-        false
-    }
-
-    private fun adopt(fx: AudioEffect, prio: Int) {
+    private fun adopt(fx: NativeMiSoundEffect, prio: Int) {
         fx.setControlStatusListener { _, controlGranted ->
             if (controlGranted) return@setControlStatusListener
             var recover = false
             synchronized(this@MiSoundAudioEffect) {
-                // Ignore events from handles we already replaced.
-                if (audioEffect === fx) {
+                if (sound === fx) {
                     Log.w(TAG, "MiSoundAudioEffect lost control from AudioFlinger")
-                    lastEnabled = null
+                    appliedEnabled = null
                     recover = desiredEnabled
                 }
             }
@@ -484,50 +504,30 @@ class MiSoundAudioEffect(
         fx.setEnableStatusListener { _, enabled ->
             var recover = false
             synchronized(this@MiSoundAudioEffect) {
-                if (audioEffect === fx && !enabled && desiredEnabled) {
+                if (sound === fx && !enabled && desiredEnabled) {
                     Log.w(TAG, "MiSoundAudioEffect disabled externally")
-                    lastEnabled = false
+                    appliedEnabled = false
                     recover = true
                 }
             }
             if (recover) onRecoveryNeeded?.invoke()
         }
-        audioEffect = fx
+        sound = fx
         currentPriority = prio
+        appliedEnabled = null
         invalidateParamCache()
-    }
-
-    @Synchronized
-    fun describeState(): String {
-        val fx = audioEffect
-        return try {
-            "handle=${fx != null} control=${fx?.hasControl()} enabled=${fx?.enabled} " +
-                "desired=$desiredEnabled lastEnabled=$lastEnabled prio=$currentPriority"
-        } catch (t: Throwable) {
-            "handle=${fx != null} (state query failed: ${t.message})"
-        }
     }
 
     private fun dropHandleOnly() {
-        audioEffect?.let { fx ->
-            runCatching { fx.release() }
-        }
-        audioEffect = null
+        sound?.let { runCatching { it.release() } }
+        sound = null
+        appliedEnabled = null
         invalidateParamCache()
     }
 
-    private fun safeEnabled(fx: AudioEffect): Boolean = try {
-        fx.enabled
-    } catch (_: Throwable) {
-        false
-    }
-
     private fun invalidateParamCache() {
-        disabledByUs = false
-        lastEnabled = null
         lastScenario = null
         lastMovieMode = null
-        lastMusicMode = null
         lastSurround3d = null
         lastSurroundLevel = null
         lastVocalLevel = null
@@ -535,64 +535,7 @@ class MiSoundAudioEffect(
         lastFailedCreateMs = 0L
     }
 
-    private fun getIntParam(fx: AudioEffect, paramId: Int): Int? = try {
-        val value = IntArray(1)
-        val count = fx.getParameter(paramId, value)
-        if (count == 1) value[0] else null
-    } catch (_: Throwable) {
-        null
-    }
-
-    private fun setIntParam(fx: AudioEffect, paramId: Int, value: Int): Boolean {
-        val status = fx.setParameter(int32ToLeBytes(paramId), int32ToLeBytes(value))
-        if (status != AudioEffect.SUCCESS) {
-            Log.w(TAG, "setIntParam($paramId, $value) failed status=$status")
-            return false
-        }
-        return true
-    }
-
-    private fun setOptionalIntParam(fx: AudioEffect, paramId: Int, value: Int): Boolean {
-        val status = fx.setParameter(int32ToLeBytes(paramId), int32ToLeBytes(value))
-        if (status != AudioEffect.SUCCESS) {
-            DolbyConstants.dlog(TAG, "Optional param($paramId, $value) unsupported status=$status")
-            return false
-        }
-        return true
-    }
-
-    private fun setEqBandParam(fx: AudioEffect, band: Int, gainDb: Float): Boolean {
-        if (band !in 0 until DolbyConstants.MISOUND_EQ_BAND_COUNT) return false
-        val formatted = String.format(Locale.US, "%.2f", gainDb)
-        val paramBytes = ByteArray(8)
-        int32ToLeBytes(DolbyConstants.MISOUND_PARAM_EQ_LEVEL).copyInto(paramBytes, 0)
-        int32ToLeBytes(band).copyInto(paramBytes, 4)
-        val valueBytes = if (useFloatEqPayload) {
-            float32ToLeBytes(gainDb)
-        } else {
-            // The shipped libmisoundfx.so setter uses strtof, which requires a NUL-terminated C string.
-            "$formatted\u0000".toByteArray(Charsets.US_ASCII)
-        }
-        val status = fx.setParameter(paramBytes, valueBytes)
-        if (status != AudioEffect.SUCCESS) {
-            Log.w(TAG, "setEqBandParam(band=$band, db=$formatted) failed status=$status")
-            return false
-        }
-        return true
-    }
-
-    private fun float32ToLeBytes(value: Float): ByteArray =
-        ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putFloat(value).array()
-
-    private fun int32ToLeBytes(value: Int): ByteArray = byteArrayOf(
-        (value and 0xFF).toByte(),
-        ((value ushr 8) and 0xFF).toByte(),
-        ((value ushr 16) and 0xFF).toByte(),
-        ((value ushr 24) and 0xFF).toByte()
-    )
-
     private fun setPropSafe(key: String, value: String) {
-        // No key length guard: Android O+ allows long property names, and these keys are 33-39 chars.
         try {
             if (SystemProperties.get(key) == value) return
             SystemProperties.set(key, value)
