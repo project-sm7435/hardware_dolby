@@ -379,7 +379,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
         )
         _soundEngineMode.value = mode
         if (changed) invalidateDapCache()
-        applySavedState()
+        applySavedStateWithRetry()
         notifyStateUpdated()
     }
 
@@ -513,18 +513,37 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
     }
 
     @Synchronized
+    private fun applySavedStateWithRetry(maxAttempts: Int = 3): Boolean {
+        for (attempt in 0 until maxAttempts) {
+            if (applySavedState() && !isInactiveEngineLeaking()) return true
+            if (attempt < maxAttempts - 1) {
+                runCatching { Thread.sleep(50L) }
+            }
+        }
+        return false
+    }
+
+    @Synchronized
     private fun routeEngine(): Boolean = when (getActiveEngine()) {
         ActiveEngine.DOLBY -> {
-            val miOff = stopMiSound()
-            startDolby() && miOff
+            if (!stopMiSound()) false else startDolby()
         }
         ActiveEngine.MISOUND -> {
-            val dolbyOff = stopDolby()
-            startMiSound() && dolbyOff
+            if (!stopDolby()) {
+                false
+            } else {
+                runCatching { qcomEffects.disableAll(releaseHandles = true) }
+                SharedDolbyEffect.drop()
+                startMiSound()
+            }
         }
         ActiveEngine.NONE -> {
             val miOff = stopMiSound()
             val dolbyOff = stopDolby()
+            if (dolbyOff) {
+                runCatching { qcomEffects.disableAll(releaseHandles = true) }
+                SharedDolbyEffect.drop()
+            }
             miOff && dolbyOff
         }
     }
@@ -757,7 +776,7 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
             if (mode == SoundEngineMode.XIAOMI_SOUND) {
                 if (!stopDolby()) return false
                 val healthy = miSoundEffect.isHealthy()
-                if (forceRestore || !healthy) {
+                if (!healthy) {
                     val ok = applyXiaomiSoundTuning(forceRebind = true)
                     android.util.Log.i(
                         TAG,
@@ -765,9 +784,6 @@ class DolbyRepository private constructor(appContext: Context) : AutoCloseable {
                             "healthy=$healthy applied=$ok ${miSoundEffect.describeState()}"
                     )
                     return ok
-                }
-                if (trackChanged) {
-                    return applyXiaomiSoundTuning(forceRebind = false)
                 }
                 return true
             }

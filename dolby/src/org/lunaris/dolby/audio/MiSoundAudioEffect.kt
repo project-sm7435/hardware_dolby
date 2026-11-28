@@ -224,13 +224,21 @@ class MiSoundAudioEffect(
                     invalidateParamCache()
                     return true
                 }
-                val controlled = if (fx.hasControl()) fx else rebindHandle() ?: return false
+                var controlled = if (fx.hasControl()) fx else rebindHandle() ?: return false
                 controlled.setOptionalParam(DolbyConstants.MISOUND_PARAM_3D_SURROUND_ENABLE, 0)
                 controlled.setOptionalParam(DolbyConstants.MISOUND_PARAM_SURROUND_LEVEL, 0)
                 controlled.setOptionalParam(DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, 0)
                 applyEnabled(controlled, false)
-                invalidateParamCache()
-                return true
+                if (controlled.hasExpectedEnabledState(true)) {
+                    controlled = rebindHandle() ?: return false
+                    controlled.setOptionalParam(DolbyConstants.MISOUND_PARAM_3D_SURROUND_ENABLE, 0)
+                    controlled.setOptionalParam(DolbyConstants.MISOUND_PARAM_SURROUND_LEVEL, 0)
+                    controlled.setOptionalParam(DolbyConstants.MISOUND_PARAM_MOVIE_MODE_ENABLE, 0)
+                    applyEnabled(controlled, false)
+                }
+                val isOff = !controlled.hasExpectedEnabledState(true)
+                if (isOff) invalidateParamCache() else appliedEnabled = null
+                return isOff
             }
 
             val fx = ensureEffect(ignoreBackoff = true) ?: return false
